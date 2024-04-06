@@ -31,6 +31,7 @@ import org.sireum.parser.{ANTLRv3Lexer, ANTLRv3Parser}
 import org.sireum.parser.ANTLRv3Parser._
 import org.antlr.v4.runtime.{BaseErrorListener, CharStreams, Recognizer}
 import org.sireum.hamr.ir.Aadl
+import org.sireum.hamr.sysml.parser.{SysMLv2Lexer, SysMLv2Parser}
 
 import java.io.StringReader
 
