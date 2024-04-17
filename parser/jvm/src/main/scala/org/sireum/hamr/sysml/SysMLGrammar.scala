@@ -34,4 +34,6 @@ import org.sireum.hamr.ir.Aadl
 
   def parse(uriOpt: Option[String], content: String, reporter: message.Reporter): Aadl = $
 
+  def parseH(uriOpt: Option[String], content: String, isSysML: B, reporter: message.Reporter): Aadl = $
+
 }

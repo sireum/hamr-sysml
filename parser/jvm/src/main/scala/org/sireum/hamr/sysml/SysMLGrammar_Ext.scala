@@ -29,9 +29,9 @@ import org.antlr.runtime._
 import org.antlr.runtime.tree.Tree
 import org.sireum.parser.{ANTLRv3Lexer, ANTLRv3Parser}
 import org.sireum.parser.ANTLRv3Parser._
-import org.antlr.v4.runtime.{BaseErrorListener, CharStreams, Recognizer}
+import org.antlr.v4.runtime.{BaseErrorListener, CharStreams, ParserRuleContext, Recognizer}
 import org.sireum.hamr.ir.Aadl
-import org.sireum.hamr.sysml.parser.{SysMLv2Lexer, SysMLv2Parser}
+import org.sireum.hamr.sysml.parser.{KerMLv2Lexer, KerMLv2Parser, SysMLv2Lexer, SysMLv2Parser}
 
 import java.io.StringReader
 
@@ -41,7 +41,7 @@ object SysMLGrammar_Ext {
   private val PARSING_FAILED = -2
   private val hiddenIds: HashSet[String] = HashSet ++ ISZ[String]("RULE_ML_NOTE", "RULE_SL_NOTE", "RULE_WS")
 
-  def translate(url: String, version: String, outDir: Os.Path): Z = {
+  def translate(url: String, version: String, outFile: Os.Path): Z = {
     var keywords = HashSSet.empty[String]
     var operators = HashSSet.empty[String]
     var parens = HashSSet.empty[C]
@@ -199,7 +199,8 @@ object SysMLGrammar_Ext {
         isParser = !id.forall(c => c.isUpper || c == '_')
         val hiddenOpt = if (hiddenIds.contains(id)) Some(st" -> channel(HIDDEN)") else None()
         (isParser,
-          if (alts.size == 1) st"$id: ${alts(0)}$hiddenOpt;"
+          if (id == "RULE_SL_NOTE") st"$id: '//' ~'*' (~('\\n' | '\\r') ~('\\n' | '\\r')*)? ('\\r'? '\\n')?$hiddenOpt;"
+          else if (alts.size == 1) st"$id: ${alts(0)}$hiddenOpt;"
           else {
             alts = for (i <- 1 to alts.size) yield st"${alts(i - 1)} #$id$i"
             st"""$id:
@@ -269,7 +270,8 @@ object SysMLGrammar_Ext {
 
       def getOpTokenDef(op: String): ST = st"OP_${(for (c <- op.value) yield getSymbolName(c), "_")}: '$op';"
 
-      st"""grammar SysMLv2;
+      val grammar = ops.StringOps(outFile.name).replaceAllLiterally(s".${outFile.ext}", "")
+      st"""grammar $grammar;
           |
           |${(prules, "\n\n")}
           |
@@ -281,7 +283,7 @@ object SysMLGrammar_Ext {
           |
           |/*
           |def isKeyword(tokenType: Int): Boolean = {
-          |  import SysMLv2Lexer._
+          |  import ${grammar}Lexer._
           |  tokenType match {
           |    case ${(for (k <- keywords.elements) yield st"K_${k.value.toUpperCase}", " |\n")} => true
           |    case _ => false
@@ -319,8 +321,8 @@ object SysMLGrammar_Ext {
       return r.grammarDef().getTree
     }
 
-    outDir.mkdirAll()
-    val input = Os.tempFix("InternalSysML", ".g")
+    outFile.up.mkdirAll()
+    val input = Os.tempFix(outFile.name, ".g")
     input.removeAll()
     val u = ops.StringOps(url).replaceAllLiterally("%version", version)
     input.downloadFrom(u)
@@ -337,17 +339,37 @@ object SysMLGrammar_Ext {
       return PARSING_FAILED
     }
     val treeST = printGrammar(tree)
-    val output = outDir / s"SysMLv2.g4"
-    output.writeOver(
-      st"""// Auto-generated from $url
+
+    outFile.writeOver(
+      st"""// Auto-generated from $u
           |$treeST""".render
     )
-    println(s"Generated $output")
+    println(s"Generated $outFile")
     return 0
   }
 
-  def parse(uriOpt: Option[String], content: String, reporter: message.Reporter): Aadl = {
-    def parseH(uriOpt: Option[String], content: String, reporter: message.Reporter): SysMLv2Parser.EntryRuleRootNamespaceContext = {
+  def parseSK(uriOpt: Option[String], content: String, isSysML: B, reporter: message.Reporter): ParserRuleContext = {
+    def parseK(uriOpt: Option[String], content: String, reporter: message.Reporter): ParserRuleContext= {
+      val docInfo = message.DocInfo.create(uriOpt, content)
+      val input = CharStreams.fromReader(new StringReader(content.value))
+
+      val lexer = new KerMLv2Lexer(input)
+      val tokens = new org.antlr.v4.runtime.CommonTokenStream(lexer)
+      val parser = new KerMLv2Parser(tokens)
+      parser.removeErrorListeners()
+      parser.addErrorListener(new BaseErrorListener {
+        override def syntaxError(recognizer: Recognizer[_, _], offendingSymbol: Object, line: Int, charPositionInLine: Int,
+                                 msg: Predef.String, e: org.antlr.v4.runtime.RecognitionException): Unit = {
+          val column = U32(charPositionInLine)
+          val length = if (offendingSymbol == null) 1 else offendingSymbol.asInstanceOf[org.antlr.v4.runtime.Token].getText.length
+          val offsetLength = (conversions.U32.toU64(docInfo.lineOffsets(line - 1) + column) << U64(32)) | U64(length)
+          reporter.error(Some(message.PosInfo(docInfo, offsetLength)), "KerMLv2Parser", msg)
+        }
+      })
+      return parser.entryRuleRootNamespace()
+    }
+
+    def parseS(uriOpt: Option[String], content: String, reporter: message.Reporter): ParserRuleContext = {
       val docInfo = message.DocInfo.create(uriOpt, content)
       val input = CharStreams.fromReader(new StringReader(content.value))
       val lexer = new SysMLv2Lexer(input)
@@ -366,8 +388,25 @@ object SysMLGrammar_Ext {
       return parser.entryRuleRootNamespace()
     }
 
-    val tree = parseH(uriOpt, content, reporter)
-    halt(s"TODO: $tree")
+    val ret: ParserRuleContext =(
+      if (isSysML)
+        parseS(uriOpt, content, reporter)
+      else
+        parseK(uriOpt, content, reporter))
+
+    return ret
   }
 
+  def parse(uriOpt: Option[String], content: String, reporter: message.Reporter): Aadl = {
+    return parseH(uriOpt, content, T, reporter)
+  }
+
+  def parseH(uriOpt: Option[String], content: String, isSysML: B, reporter: message.Reporter): Aadl = {
+
+    val tree = parseSK(uriOpt, content, isSysML, reporter)
+
+    reporter.printMessages()
+
+    halt(s"TODO: $tree")
+  }
 }
