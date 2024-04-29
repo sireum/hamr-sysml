@@ -403,10 +403,12 @@ object SysMLGrammar_Ext {
 
   def parseH(uriOpt: Option[String], content: String, isSysML: B, reporter: message.Reporter): Aadl = {
 
-    val tree = parseSK(uriOpt, content, isSysML, reporter)
+    val tree: ParserRuleContext = parseSK(uriOpt, content, isSysML, reporter)
 
-    reporter.printMessages()
-
-    halt(s"TODO: $tree")
+    if (!reporter.hasError) {
+      return SysMLAstBuilder.resolve(tree, uriOpt, isSysML, reporter)
+    } else {
+      return SysMLAstBuilder.emptyAadl
+    }
   }
 }
