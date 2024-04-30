@@ -408,7 +408,7 @@ object SysMLGrammar_Ext {
     if (!reporter.hasError) {
       return SysMLAstBuilder.resolve(tree, uriOpt, isSysML, reporter)
     } else {
-      return SysMLAstBuilder.emptyAadl
+      return SysMLUtil.emptyAadl
     }
   }
 }

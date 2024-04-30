@@ -7,19 +7,13 @@ import org.sireum.hamr.ir._
 import org.sireum.hamr.sysml.parser.SysMLv2Parser._
 import org.sireum.hamr.sysml.parser.SysMLv2Parser
 import org.sireum.message.{Position, Reporter}
+import org.sireum.parser.SireumGrammarParser.kind
 
 import java.util
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 object SysMLAstBuilder {
-  def emptyAadl: Aadl = {
-    return Aadl(
-      components = ISZ(),
-      annexLib = ISZ(),
-      dataComponents = ISZ()
-    )
-  }
 
   def resolve(tree: ParserRuleContext, uriOpt: Option[String], isSysML: B, reporter: Reporter): Aadl = {
     if (isSysML) {
@@ -27,9 +21,10 @@ object SysMLAstBuilder {
       val p = SysMLAstBuilder(uriOpt)
         p.visitEntryRuleRootNamespace(tree.asInstanceOf[SysMLv2Parser.EntryRuleRootNamespaceContext])
       reporter.reports(p.reporter.messages)
-      return emptyAadl
+      return SysMLUtil.emptyAadl
     } else {
-      return emptyAadl
+      reporter.warn(None(), kind, "Need to handle kerml")
+      return SysMLUtil.emptyAadl
     }
   }
 
@@ -102,18 +97,18 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         reportError(b2.ruleElementFilterMember().isEmpty, b2, "Package filter members are not currently supported")
 
         val imports: ISZ[ISZ[String]] = visitImports(b2.ruleImport().asScala)
-        val aliases: ISZ[String] = visitAliases(b2.ruleAliasMember().asScala)
+        val aliases: ISZ[(String, ISZ[String])] = visitAliases(b2.ruleAliasMember().asScala)
 
-        reportWarning(imports.isEmpty, b2, "Need to add imports to AST")
-        reportWarning(aliases.isEmpty, b2, "Need to add aliasing to AST")
+        reportWarn(imports.isEmpty, b2, s"Need to add imports to AST: $imports")
+        reportWarn(aliases.isEmpty, b2, s"Need to add aliasing to AST: $aliases")
 
         var components: ISZ[Component] = ISZ()
         for (member <- b2.rulePackageMember().asScala) {
           val visibility = visitRuleVisibilityIndicator(member.ruleMemberPrefix().ruleVisibilityIndicator())
-          reportWarning(visibility == string"public", member, "Need to add visibility to AST")
+          reportWarn(visibility == string"public", member, "Need to add visibility to AST")
 
           if (member.ruleUsageElement() != null) {
-            reportWarning(member.ruleUsageElement(), "Why not just have user select the system part def they want to instantiate?")
+            reportWarn(member.ruleUsageElement(), "Why not just have user select the system part def they want to instantiate?")
           } else {
             components = components :+ visitPackageMember(member.ruleDefinitionElement())
           }
@@ -125,15 +120,22 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     context match {
       case d11: RuleDefinitionElement11Context =>
         return visitPackage_PartDefinition(d11.rulePartDefinition())
+
       case d6: RuleDefinitionElement6Context =>
-        reportWarning(d6, "Need to handle enum definitions")
+        reportWarn(d6, "Need to handle enum definitions")
         val enumeration = d6.ruleEnumerationDefinition()
         return SysMLUtil.emptyComponent
 
       case d5: RuleDefinitionElement5Context =>
-        reportWarning(d5, "Need to handle attribute definition (aka data type defs)")
+        reportWarn(d5, "Need to handle attribute definition (aka data type defs)")
         val attributeDef = d5.ruleAttributeDefinition()
         return SysMLUtil.emptyComponent
+
+      case d10: RuleDefinitionElement10Context =>
+        return visitMetadataDefinition(d10.ruleMetadataDefinition())
+
+      case d16: RuleDefinitionElement16Context =>
+        return visitPortDefintion(d16.rulePortDefinition())
 
       case x =>
         reportError(x, s"Not currently supporting package members of type: ${x.getClass.getSimpleName}")
@@ -141,9 +143,35 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     }
   }
 
+  private def visitPortDefintion(portDef: RulePortDefinitionContext): Component = {
+    reportWarn(portDef, "Need to handle port definitions")
+    return SysMLUtil.emptyComponent
+  }
+
+  private def visitMetadataDefinition(metadataDefinition: RuleMetadataDefinitionContext): Component = {
+    reportWarn(metadataDefinition, "Need to handle metadata definitions")
+    return SysMLUtil.emptyComponent
+  }
+
   private def visitPackage_PartDefinition(partDef: RulePartDefinitionContext): Component = {
-    reportError(partDef.ruleOccurrenceDefinitionPrefix().getChildCount == 0, partDef.ruleOccurrenceDefinitionPrefix(),
-      "Not currently supporting occurrence rules for part definitions")
+    var isAbstract: B = F
+    if (partDef.ruleOccurrenceDefinitionPrefix().getChildCount != 0) {
+      reportError(partDef.ruleOccurrenceDefinitionPrefix().K_INDIVIDUAL() == null, partDef.ruleOccurrenceDefinitionPrefix(),
+        "The 'individual' keyword is not currently supported")
+      reportError(partDef.ruleOccurrenceDefinitionPrefix().ruleLifeClassMembership() == null, partDef.ruleOccurrenceDefinitionPrefix().ruleLifeClassMembership(),
+        "Life Classes are not currently supported")
+      reportError(partDef.ruleOccurrenceDefinitionPrefix().ruleDefinitionExtensionKeyword().isEmpty, partDef.ruleOccurrenceDefinitionPrefix(),
+        "Extension definitions are not currently supported")
+
+      if (partDef.ruleOccurrenceDefinitionPrefix().ruleBasicDefinitionPrefix() != null) {
+        partDef.ruleOccurrenceDefinitionPrefix().ruleBasicDefinitionPrefix() match {
+          case x: RuleBasicDefinitionPrefix1Context => isAbstract = T
+          case x: RuleBasicDefinitionPrefix2Context =>
+            reportError(x, "The 'variation' keyword is not currently supported")
+        }
+      }
+    }
+
     reportError(partDef.ruleDefinition().ruleDefinitionDeclaration().ruleIdentification() != null, partDef.ruleDefinition().ruleDefinitionDeclaration().ruleIdentification(),
       "Part definitions must have an identification")
 
@@ -160,8 +188,10 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       if (partDef.ruleDefinition().ruleDefinitionDeclaration().ruleSubclassificationPart() != null) {
         for (subclass <- listToISZ(partDef.ruleDefinition().ruleDefinitionDeclaration().ruleSubclassificationPart().ruleOwnedSubclassification())) yield
           visitQualifiedName(subclass.ruleQualifiedName())
+      } else if (!isAbstract) {
+        reportError(partDef, "Non-abstract package level part definitions must specialize a component type")
+        ISZ()
       } else {
-        reportError(partDef, "Package level part definitions must specialize a component type")
         ISZ()
       }
     }
@@ -181,7 +211,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
               member.ruleDefinitionElement() match {
                 case d3: RuleDefinitionElement3Context =>
                   val annotatingElement = d3.ruleAnnotatingElement()
-                  reportWarning(annotatingElement, "How are we going to represent properties")
+                  reportWarn(annotatingElement, "How are we going to represent properties")
                 case x =>
                   reportError(x, "Not currently this type of definition")
               }
@@ -198,13 +228,13 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
                     u1.ruleStructureUsageElement() match {
                       case su6: RuleStructureUsageElement6Context =>
                         val partUsage = su6.rulePartUsage()
-                        reportWarning(partUsage, "Need to handle part usages")
+                        reportWarn(partUsage, "Need to handle part usages")
                       case su9: RuleStructureUsageElement9Context =>
                         val portUsage = su9.rulePortUsage()
-                        reportWarning(portUsage, "Need to handle port usages")
+                        reportWarn(portUsage, "Need to handle port usages")
                       case su10: RuleStructureUsageElement10Context =>
                         val connectionUsage = su10.ruleConnectionUsage()
-                        reportWarning(connectionUsage, "Need to handle connection usages")
+                        reportWarn(connectionUsage, "Need to handle connection usages")
                       case x =>
                         reportError(x, s"Not currently supporting ${x.getClass.getSimpleName} structure usages")
                     }
@@ -217,7 +247,9 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           }
         }
       case i1: RuleDefinitionBody1Context =>
-        reportError(i1, "Part definitions cannot be empty")
+        if (!isAbstract) {
+          reportError(i1, "Non-abstract part definitions cannot be empty")
+        }
     }
 
     return Component(
@@ -250,11 +282,25 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     }
   }
 
-  def visitAliases(aliases: mutable.Buffer[RuleAliasMemberContext]): ISZ[String] = {
-    if (!aliases.isEmpty) {
-      reportError(aliases.isEmpty, aliases(0), "Not currently handling aliases")
+  def visitAliases(aliases: mutable.Buffer[RuleAliasMemberContext]): ISZ[(String, ISZ[String])] = {
+    var ret: ISZ[(String, ISZ[String])] = ISZ()
+    for (alias <- aliases) {
+      reportError(alias.ruleMemberPrefix().getChildCount == 0, alias.ruleMemberPrefix(), "Visibility annotations not currently supported for aliases")
+      reportError(alias.LANGLE() == null && alias.RANGLE() == null, alias, "Alias short names are not currently supported")
+      reportError(SysMLUtil.isEmptyRelationshipBody(alias.ruleRelationshipBody()), alias.ruleRelationshipBody(), "Alias relationship bodies are not currently supported")
+      reportError(alias.ruleName().size() == 1, alias, "Only expecting a single name before 'for' keyword")
+
+      var theAlias: String = ""
+      if (!alias.ruleName().isEmpty) {
+        theAlias = visitName(alias.ruleName.get(0))
+      }
+
+      val theFor: ISZ[String] = visitQualifiedName(alias.ruleQualifiedName())
+
+      ret = ret :+ (theAlias, theFor)
     }
-    return ISZ()
+
+    return ret
   }
 
   def visitImports(imports: mutable.Buffer[RuleImportContext]): ISZ[ISZ[String]] = {
@@ -338,11 +384,11 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     )
   }
 
-  def reportWarning(node: ParserRuleContext, message: String): Unit = {
-   reportWarning(F, node, message)
+  def reportWarn(node: ParserRuleContext, message: String): Unit = {
+   reportWarn(F, node, message)
   }
 
-  def reportWarning(cond: B, node: ParserRuleContext, message: String): Unit = {
+  def reportWarn(cond: B, node: ParserRuleContext, message: String): Unit = {
     if (!cond) {
       reporter.warn(toPosOpt(node), kind, message)
     }

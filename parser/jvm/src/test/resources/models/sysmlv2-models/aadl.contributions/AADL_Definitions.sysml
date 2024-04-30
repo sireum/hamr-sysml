@@ -13,13 +13,14 @@ library package AADL_Definitions {
 
 	abstract port def EventData;
 	
+
+	// TODO: these should be defined in a BA annex
+	//abstract state def Initial;
 	
-	abstract state def Initial;
+	//abstract state def Complete;
 	
-	abstract state def Complete;
+	//abstract state def Final;
 	
-	abstract state def Final;
-	
-	abstract state def Execute;
+	//abstract state def Execute;
 
 }
