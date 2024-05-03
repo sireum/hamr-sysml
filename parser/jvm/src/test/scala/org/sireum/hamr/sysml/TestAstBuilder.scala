@@ -12,8 +12,11 @@ class TestAstBuilder extends TestSuite {
 
   TestUtil.fetchSysmlLibrary(resourceDir)
 
-  val filter: B = F
-  val filters: ISZ[String] = ISZ("AADL_")
+  val filter: B = T
+  val filters: ISZ[Os.Path => B] = ISZ(
+    p => ops.StringOps(p.value).contains("omg"),
+    p => ops.StringOps(p.value).contains("aadl.contributions")
+  )
 
   //val modelsDir = resourceDir / "models" // include models that may not be in our subset of sysml
   val modelsDir = santosDir
@@ -21,7 +24,7 @@ class TestAstBuilder extends TestSuite {
   for (f <- Os.Path.walk(modelsDir, F, F, p => (p.ext.native == "sysml" || p.ext.native == "kerml"))) {
 
     val testName = resourceDir.relativize(f).toString
-    if (!filter || filters.elements.exists(e => ops.StringOps(testName).contains(e))) {
+    if (!filter || filters.elements.exists(e => e(f))) {
       registerTest(testName) {
         val reporter = Reporter.create
         println(s"Parsing ${f.toUri}")

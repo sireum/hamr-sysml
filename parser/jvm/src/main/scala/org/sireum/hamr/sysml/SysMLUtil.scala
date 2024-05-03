@@ -32,6 +32,17 @@ object SysMLUtil {
       uriFrag = "")
   }
 
+  def emptyFeature: Feature = {
+    return FeatureEnd(
+      identifier = Name(name = ISZ("todo"), pos = None()),
+      direction = Direction.In,
+      category = FeatureCategory.BusAccess,
+      classifier = None(),
+      properties = ISZ(),
+      uriFrag = ""
+    )
+  }
+
   def emptyName(): Name = {
     return Name(name = ISZ(""), pos = None())
   }

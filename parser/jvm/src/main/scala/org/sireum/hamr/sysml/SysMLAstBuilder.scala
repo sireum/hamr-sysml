@@ -4,6 +4,7 @@ import org.sireum._
 import org.sireum.message._
 import org.antlr.v4.runtime.ParserRuleContext
 import org.sireum.hamr.ir._
+import org.sireum.hamr.sysml.SysMLAstUtil._
 import org.sireum.hamr.sysml.parser.SysMLv2Parser._
 import org.sireum.hamr.sysml.parser.SysMLv2Parser
 import org.sireum.message.{Position, Reporter}
@@ -134,8 +135,15 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       case d10: RuleDefinitionElement10Context =>
         return visitMetadataDefinition(d10.ruleMetadataDefinition())
 
+      case d12: RuleDefinitionElement12Context =>
+        // e.g. connection def PortConnection :> BinaryConnection {
+        //		    end source : AbstractFeature[0..*] :>> BinaryConnection::source;
+        val connectionDef = d12.ruleConnectionDefinition()
+        reportWarn(connectionDef, "Need to handle connection definitions at the package level")
+        return SysMLUtil.emptyComponent
+
       case d16: RuleDefinitionElement16Context =>
-        return visitPortDefintion(d16.rulePortDefinition())
+        return visitPackage_PortDefinition(d16.rulePortDefinition())
 
       case x =>
         reportError(x, s"Not currently supporting package members of type: ${x.getClass.getSimpleName}")
@@ -143,8 +151,8 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     }
   }
 
-  private def visitPortDefintion(portDef: RulePortDefinitionContext): Component = {
-    reportWarn(portDef, "Need to handle port definitions")
+  private def visitPackage_PortDefinition(portDef: RulePortDefinitionContext): Component = {
+    reportWarn(portDef, "Need to handle package level port definitions")
     return SysMLUtil.emptyComponent
   }
 
@@ -154,22 +162,11 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   }
 
   private def visitPackage_PartDefinition(partDef: RulePartDefinitionContext): Component = {
+
     var isAbstract: B = F
     if (partDef.ruleOccurrenceDefinitionPrefix().getChildCount != 0) {
-      reportError(partDef.ruleOccurrenceDefinitionPrefix().K_INDIVIDUAL() == null, partDef.ruleOccurrenceDefinitionPrefix(),
-        "The 'individual' keyword is not currently supported")
-      reportError(partDef.ruleOccurrenceDefinitionPrefix().ruleLifeClassMembership() == null, partDef.ruleOccurrenceDefinitionPrefix().ruleLifeClassMembership(),
-        "Life Classes are not currently supported")
-      reportError(partDef.ruleOccurrenceDefinitionPrefix().ruleDefinitionExtensionKeyword().isEmpty, partDef.ruleOccurrenceDefinitionPrefix(),
-        "Extension definitions are not currently supported")
-
-      if (partDef.ruleOccurrenceDefinitionPrefix().ruleBasicDefinitionPrefix() != null) {
-        partDef.ruleOccurrenceDefinitionPrefix().ruleBasicDefinitionPrefix() match {
-          case x: RuleBasicDefinitionPrefix1Context => isAbstract = T
-          case x: RuleBasicDefinitionPrefix2Context =>
-            reportError(x, "The 'variation' keyword is not currently supported")
-        }
-      }
+      val occurrenceDefPrefix = visitOccurrenceDefinitionPrefix(partDef.ruleOccurrenceDefinitionPrefix())
+      isAbstract = occurrenceDefPrefix.isAbstract
     }
 
     reportError(partDef.ruleDefinition().ruleDefinitionDeclaration().ruleIdentification() != null, partDef.ruleDefinition().ruleDefinitionDeclaration().ruleIdentification(),
@@ -185,7 +182,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     }
 
     val specializations: ISZ[ISZ[String]] = {
-      if (partDef.ruleDefinition().ruleDefinitionDeclaration().ruleSubclassificationPart() != null) {
+      if (nonEmpty(partDef.ruleDefinition().ruleDefinitionDeclaration().ruleSubclassificationPart())) {
         for (subclass <- listToISZ(partDef.ruleDefinition().ruleDefinitionDeclaration().ruleSubclassificationPart().ruleOwnedSubclassification())) yield
           visitQualifiedName(subclass.ruleQualifiedName())
       } else if (!isAbstract) {
@@ -216,6 +213,40 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
                   reportError(x, "Not currently this type of definition")
               }
 
+            case bi3: RuleDefinitionBodyItem3Context =>
+              val attr = bi3.ruleNonOccurrenceUsageMember()
+              val prefix = attr.ruleMemberPrefix()
+              val visibility: String = prefix.ruleVisibilityIndicator() match {
+                case vi1 : RuleVisibilityIndicator1Context =>
+                  assert(vi1.K_PUBLIC() != null)
+                  "public"
+                case vi2 : RuleVisibilityIndicator2Context =>
+                  assert(vi2.K_PRIVATE() != null)
+                  "private"
+                case vi3 : RuleVisibilityIndicator3Context =>
+                  assert(vi3.K_PROTECTED() != null)
+                  "protected"
+                case x if x == null => "public"
+                case x =>
+                  reportError(x, s"Not expecting visiblity type: $x")
+                  ""
+              }
+
+              attr.ruleNonOccurrenceUsageElement() match {
+                case ue1 : RuleNonOccurrenceUsageElement1Context =>
+                  // e.g. 	part def System :> Component {
+                  //		:>> category = ComponentCategory::System;
+                  val refUsage = ue1.ruleDefaultReferenceUsage()
+                  reportWarn(refUsage, "Need to handle component level default reference usages")
+
+                case ue3 : RuleNonOccurrenceUsageElement3Context =>
+                  // 	e.g. abstract part def Component {
+                  //		     attribute category : ComponentCategory;
+                  visitComponent_AttributeUsage(ue3.ruleAttributeUsage())
+
+                case x =>
+                  reportError(x, s"Not currently handling usage type ${x.getClass.getSimpleName}")
+              }
             case bi4: RuleDefinitionBodyItem4Context =>
               if (bi4.ruleEmptySuccessionMember() != null) {
                 reportError(bi4.ruleEmptySuccessionMember(), " Not currently supporting succession members")
@@ -227,9 +258,11 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
                   case u1: RuleOccurrenceUsageElement1Context =>
                     u1.ruleStructureUsageElement() match {
                       case su6: RuleStructureUsageElement6Context =>
+                        // e.g. part actuationUnit1 : ActuationLogicUnit : System;
                         val partUsage = su6.rulePartUsage()
-                        reportWarn(partUsage, "Need to handle part usages")
+                        features = features :+ visitPackage_PartUsage(partUsage)
                       case su9: RuleStructureUsageElement9Context =>
+                        // e.g. port ports { ... }
                         val portUsage = su9.rulePortUsage()
                         reportWarn(portUsage, "Need to handle port usages")
                       case su10: RuleStructureUsageElement10Context =>
@@ -266,6 +299,173 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       annexes = ISZ(),
       uriFrag = "")
 
+  }
+
+  private def visitComponent_AttributeUsage(context: RuleAttributeUsageContext): Unit = {
+    reportWarn(context, "Need to handle component level attribute usages")
+  }
+
+  private def visitOccurrenceDefinitionPrefix(occurrenceDef: RuleOccurrenceDefinitionPrefixContext): OccurrenceDefinition = {
+    reportError(occurrenceDef.K_INDIVIDUAL() == null, occurrenceDef, "The 'individual' keyword is not currently supported")
+    reportError(occurrenceDef.ruleLifeClassMembership() == null, occurrenceDef.ruleLifeClassMembership(),
+      "Life Classes are not currently supported")
+    reportError(occurrenceDef.ruleDefinitionExtensionKeyword().isEmpty, occurrenceDef,
+      "Extension definitions are not currently supported")
+
+    var isAbstract = F
+    if (occurrenceDef.ruleBasicDefinitionPrefix() != null) {
+      occurrenceDef.ruleBasicDefinitionPrefix() match {
+        case x: RuleBasicDefinitionPrefix1Context =>
+        assert(x.K_ABSTRACT() != null) // sanity check
+        isAbstract = T
+
+        case x: RuleBasicDefinitionPrefix2Context =>
+          reportError(x, "The 'variation' keyword is not currently supported")
+      }
+    }
+    return OccurrenceDefinition(isAbstract = isAbstract)
+  }
+
+  private def visitPackage_PartUsage(partUsage: RulePartUsageContext): Feature = {
+    var isAbstract: B = F
+    if (nonEmpty(partUsage.ruleOccurrenceUsagePrefix())) {
+      val occurrenceUsage = visitOccurrenceUsagePrefix(partUsage.ruleOccurrenceUsagePrefix())
+      isAbstract = occurrenceUsage.isAbstract
+      reportError(occurrenceUsage.direction.isEmpty, partUsage.ruleOccurrenceUsagePrefix(), "Feature directions not currently allowed at the package level")
+    }
+
+    assert (partUsage.rulePartUsageKeyword().rulePartKeyword().K_PART() != null) // sanity
+
+    var identifier: String = ""
+    var specializations: ISZ[FeatureSpecialization] = ISZ()
+    if (nonEmpty(partUsage.ruleUsage().ruleUsageDeclaration())) {
+      partUsage.ruleUsage().ruleUsageDeclaration().ruleFeatureDeclaration() match {
+        case d1: RuleFeatureDeclaration1Context =>
+          val id = visitRuleIdentification(d1.ruleIdentification())
+          if (id.size == 1) {
+            identifier = id(0)
+          } else {
+            reportError(d1, "Expecting simple names for part usages at the package level")
+          }
+
+          if(nonEmpty(d1.ruleFeatureSpecializationPart())) {
+            specializations = visitFeatureSpecialization(d1.ruleFeatureSpecializationPart())
+          }
+        case d2: RuleFeatureDeclaration2Context =>
+          reportError(d2, "Expecting part usages to have identifiers (in addition to optional specializations)")
+      }
+    } else {
+      reportError(partUsage.ruleUsage(), "Not expecting the usage declarations to be empty")
+    }
+
+    reportError(isEmpty(partUsage.ruleUsage().ruleUsageCompletion().ruleValuePart()), partUsage.ruleUsage().ruleUsageCompletion().ruleValuePart(),
+      "Not expecting a feature value here")
+
+    partUsage.ruleUsage().ruleUsageCompletion().ruleUsageBody().ruleDefinitionBody() match {
+      case db1: RuleDefinitionBody1Context =>
+        assert(db1.OP_SEMI() != null)
+      case db2: RuleDefinitionBody2Context =>
+        reportError(db2, "Part usages defined at the package level cannot have bodies")
+    }
+
+    return SysMLUtil.emptyFeature
+  }
+
+  private def visitFeatureSpecialization(fs: RuleFeatureSpecializationPartContext): ISZ[FeatureSpecialization] = {
+    var ret: ISZ[FeatureSpecialization] = ISZ()
+    fs match {
+      case s1: RuleFeatureSpecializationPart1Context =>
+        reportError(isEmpty(s1.ruleMultiplicityPart()), s1.ruleMultiplicityPart(), "Multiplicities are not currently supported")
+        for (s <- s1.ruleFeatureSpecialization().asScala){
+          s match {
+            case x: RuleFeatureSpecialization1Context =>
+              val typings = x.ruleTypings()
+              if (!typings.ruleFeatureTyping().isEmpty) {
+                reportError(typings.ruleFeatureTyping().get(0), "Comma-separated feature typings are not currently supported")
+              }
+              typings.ruleTypedBy().ruleFeatureTyping() match {
+                case t1: RuleFeatureTyping1Context =>
+                  t1.ruleOwnedFeatureTyping() match {
+                    case ot1: RuleOwnedFeatureTyping1Context =>
+                      ret = ret :+ QualifiedNameSpecialization(visitQualifiedName(ot1.ruleQualifiedName()))
+                    case ot2: RuleOwnedFeatureTyping2Context =>
+                      reportError(ot2.ruleOwnedFeatureChain(), "Feature chaining is not currently supported")
+                    case x =>
+                      halt(s"Not expecting $x")
+                  }
+
+                case t2: RuleFeatureTyping2Context =>
+                  reportError(t2, "Conjugated port typing is not currently supported")
+              }
+            case x: RuleFeatureSpecialization2Context =>
+              val subsettings = x.ruleSubsettings()
+              reportError(subsettings, "Subsets are not currently supported")
+            case x: RuleFeatureSpecialization3Context =>
+              val references = x.ruleReferences()
+              reportError(references, "References are not currently supported")
+            case x: RuleFeatureSpecialization4Context =>
+              val redefinitions = x.ruleRedefinitions()
+              reportError(redefinitions, "Redefinitions are not currently supported")
+            case x => halt(s"Not expecting $x")
+          }
+        }
+      case s2: RuleFeatureSpecializationPart2Context =>
+        reportError(s2.ruleMultiplicityPart(), "Not currently handling payload specialization")
+    }
+    return ret
+  }
+
+  private def visitOccurrenceUsagePrefix(ocup: RuleOccurrenceUsagePrefixContext): OccurrenceUsage = {
+    reportError(ocup.K_INDIVIDUAL() == null, ocup, "The 'individual' keyword is not currently supported")
+
+    var isAbstract: B = F
+    var direction: Option[FeatureDirection.Type] = None()
+
+    if (nonEmpty(ocup.ruleBasicUsagePrefix())) {
+      val bup = ocup.ruleBasicUsagePrefix()
+      reportError(bup.K_REF() == null, bup, "The 'ref' keyword is not currently supported")
+
+      if (nonEmpty(bup.ruleRefPrefix().ruleFeatureDirection())) {
+        bup.ruleRefPrefix().ruleFeatureDirection() match {
+          case x: RuleFeatureDirection1Context =>
+            assert (x.K_IN() != null) // sanity
+            direction = Some(FeatureDirection.In)
+          case x: RuleFeatureDirection2Context =>
+            assert (x.K_OUT() != null) // sanity
+            direction = Some(FeatureDirection.Out)
+          case x: RuleFeatureDirection3Context =>
+            assert (x.K_INOUT() != null)
+            direction = Some(FeatureDirection.InOut)
+          case x =>
+            reportError(x, s"Not expecting direction of type ${x.getClass.getSimpleName}")
+        }
+      }
+
+      isAbstract = bup.ruleRefPrefix().K_ABSTRACT() != null
+
+      reportError(bup.ruleRefPrefix().K_VARIATION() == null, bup.ruleRefPrefix(), "The 'variation' keyword is not currently supported")
+      reportError(bup.ruleRefPrefix().K_READONLY() == null, bup.ruleRefPrefix(), "The 'readonly' keyword is not currently supported")
+      reportError(bup.ruleRefPrefix().K_DERIVED() == null, bup.ruleRefPrefix(), "The 'derived' keyword is not currently supported")
+      reportError(bup.ruleRefPrefix().K_END() == null, bup.ruleRefPrefix(), "The 'end' keyword is not currently supported")
+    }
+
+    reportError(ocup.K_INDIVIDUAL() == null, ocup, "The 'idividual' keyword is not currently supported")
+
+    reportError(isEmpty(ocup.rulePortionKind()), ocup.rulePortionKind(), "'snapshot' and 'timeslice' keywords are not currently supported")
+
+    reportError(ocup.ruleUsageExtensionKeyword().isEmpty, ocup, "Usage extensions are not currently supported")
+
+    return OccurrenceUsage(
+      isAbstract = isAbstract,
+      direction = direction)
+  }
+
+  def isEmpty(p: ParserRuleContext): B = {
+    return p == null || p.getChildCount == 0
+  }
+
+  def nonEmpty(p: ParserRuleContext): B = {
+    return !isEmpty(p)
   }
 
   private def listToISZ[T](l: util.List[T]): ISZ[T] = {
