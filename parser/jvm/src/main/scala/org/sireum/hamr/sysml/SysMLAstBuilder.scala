@@ -29,6 +29,15 @@ object SysMLAstBuilder {
     }
   }
 
+  def isEmptyRelationshipBody(context: ParserRuleContext): B = {
+    context match {
+      case x: SysMLv2Parser.RuleRelationshipBody1Context =>
+        assert (x.OP_SEMI().getChildCount >= 0) // sanity check
+        return true
+      case x =>
+        return F
+    }
+  }
 }
 
 case class SysMLAstBuilder(uriOpt: Option[String]) {
@@ -487,7 +496,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     for (alias <- aliases) {
       reportError(alias.ruleMemberPrefix().getChildCount == 0, alias.ruleMemberPrefix(), "Visibility annotations not currently supported for aliases")
       reportError(alias.LANGLE() == null && alias.RANGLE() == null, alias, "Alias short names are not currently supported")
-      reportError(SysMLUtil.isEmptyRelationshipBody(alias.ruleRelationshipBody()), alias.ruleRelationshipBody(), "Alias relationship bodies are not currently supported")
+      reportError(SysMLAstBuilder.isEmptyRelationshipBody(alias.ruleRelationshipBody()), alias.ruleRelationshipBody(), "Alias relationship bodies are not currently supported")
       reportError(alias.ruleName().size() == 1, alias, "Only expecting a single name before 'for' keyword")
 
       var theAlias: String = ""
