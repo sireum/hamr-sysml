@@ -1,7 +1,7 @@
 package TempControlAadl {
 
 	import AADL_Properties::*;
-	import AADL_Definitions::*;
+	import AADL_Definitions_omg::*;
 	
 	part def TempControlSystem :> System {
 		// subcomponents
@@ -30,6 +30,7 @@ package TempControlAadl {
 		out port currentTemp : DataPort { :> valueType : Temperature; }
 		out port tempChanged : EventPort;
 
+		
 		@Properties {
 			Dispatch_Protocol = Periodic;
 			Period = 1000;

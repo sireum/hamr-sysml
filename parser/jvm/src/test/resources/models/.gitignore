@@ -1,1 +1,5 @@
 **/sysml.library
+**/hamr/slang/
+*.json
+readme.md
+*.jpg

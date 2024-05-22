@@ -8,20 +8,19 @@ import org.sireum.test.TestSuite
 class TestAstBuilder extends TestSuite {
   val resourceDir: Os.Path = Os.path(implicitly[sourcecode.File].value).up.up.up.up.up.up / "resources"
 
-  val santosDir: Os.Path = resourceDir / "models" / "sysmlv2-models"
+  val santosDir: Os.Path = resourceDir / "models" / "sysmlv2-models" / "omg"
 
   TestUtil.fetchSysmlLibrary(resourceDir)
 
-  val filter: B = T
+  val filter: B = F
   val filters: ISZ[Os.Path => B] = ISZ(
-    p => ops.StringOps(p.value).contains("omg"),
-    p => ops.StringOps(p.value).contains("aadl.contributions")
   )
 
   //val modelsDir = resourceDir / "models" // include models that may not be in our subset of sysml
   val modelsDir = santosDir
 
-  for (f <- Os.Path.walk(modelsDir, F, F, p => (p.ext.native == "sysml" || p.ext.native == "kerml"))) {
+  for (f <- Os.Path.walk(modelsDir, F, F, p =>
+    (p.ext.native == "sysml" || p.ext.native == "kerml"))) {
 
     val testName = resourceDir.relativize(f).toString
     if (!filter || filters.elements.exists(e => e(f))) {
