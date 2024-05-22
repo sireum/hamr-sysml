@@ -14,7 +14,7 @@ class TestParser extends TestSuite {
     registerTest(resourceDir.relativize(f).toString) {
       val reporter = Reporter.create
       println(s"Parsing ${f.toUri}")
-      val model: Aadl = SysMLGrammar.parseH(Some(f.toUri), f.read, f.ext.native == "sysml", reporter)
+      val tree = SysMLGrammar_Ext.parseSK(Some(f.toUri), f.read, f.ext.native == "sysml", reporter)
 
       reporter.printMessages()
       assert(!reporter.hasIssue)

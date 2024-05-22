@@ -40,7 +40,7 @@ object cli {
     usageDescOpt = None(),
     opts = ISZ(
       Opt(name = "version", longKey = "version", shortKey = Some('v'),
-        tpe = Type.Str(sep = None(), default = Some("2024-03")),
+        tpe = Type.Str(sep = None(), default = Some("2024-04.1")),
         description = "SysML v2 grammar version"),
       Opt(name = "url", longKey = "url", shortKey = Some('u'),
         tpe = Type.Str(sep = None(), default = Some("https://raw.githubusercontent.com/Systems-Modeling/SysML-v2-Pilot-Implementation/%version/org.omg.sysml.xtext/src-gen/org/omg/sysml/xtext/parser/antlr/internal/InternalSysML.g")),
