@@ -4,7 +4,7 @@ import org.sireum._
 import org.sireum.message._
 import org.antlr.v4.runtime.ParserRuleContext
 import org.sireum.hamr.ir._
-import org.sireum.hamr.sysml.SysMLAstUtil._
+import org.sireum.hamr.sysml.SysmlAst._
 import org.sireum.hamr.sysml.parser.SysMLv2Parser._
 import org.sireum.hamr.sysml.parser.SysMLv2Parser
 import org.sireum.message.{Position, Reporter}
@@ -53,8 +53,9 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     for (packageBodyElement <- ctx.ruleRootNamespace().rulePackageBodyElement().asScala) {
       packageBodyElement match {
         case r1: RulePackageBodyElement1Context =>
+          // rulePackageMember: ruleMemberPrefix (ruleDefinitionElement | ruleUsageElement);
           val m1: RulePackageMemberContext = r1.rulePackageMember()
-          var visibility: String = visitRuleVisibilityIndicator(m1.ruleMemberPrefix().ruleVisibilityIndicator())
+          var visibility = visitVisibilityIndicator(m1.ruleMemberPrefix().ruleVisibilityIndicator())
           if (m1.ruleDefinitionElement() != null) {
             assert (m1.ruleUsageElement() == null)
             visitPackage(m1.ruleDefinitionElement())
@@ -87,6 +88,13 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         isLibrary = T
         isStandard = d2.ruleLibraryPackage().K_STANDARD() != null
         (d2.ruleLibraryPackage.rulePrefixMetadataMember().asScala, d2.ruleLibraryPackage().rulePackageDeclaration(), d2.ruleLibraryPackage().rulePackageBody())
+      case d3: RuleDefinitionElement3Context =>
+
+        if (!SysmlAstUtil.isRegularComment(d3.ruleAnnotatingElement())) {
+          visitAnnotatingElement(d3.ruleAnnotatingElement())
+        }
+
+        return
       case x =>
           reportError(x, s"Not currently handling the following package level node: $x")
           return
@@ -94,28 +102,26 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     if (prefixMetaDataMembers.nonEmpty) {
       reportError(packageDeclaration, "Package metadata not currently supported")
     }
-    var packageName: ISZ[String] = ISZ()
-    if (packageDeclaration.ruleIdentification() != null) {
-      packageName = visitRuleIdentification(packageDeclaration.ruleIdentification())
-    } else {
-      reportError(packageDeclaration, "Why is package identification optional?")
-    }
+
+    var identification: Option[Identification] =
+      if (isEmpty(packageDeclaration.ruleIdentification())) None()
+      else Some(visitIdentification(packageDeclaration.ruleIdentification()))
+
     packageBody match {
       case b1: RulePackageBody1Context =>
         reportError(b1, "Empty package definitions are not currently supported")
       case b2: RulePackageBody2Context =>
         reportError(b2.ruleElementFilterMember().isEmpty, b2, "Package filter members are not currently supported")
 
-        val imports: ISZ[ISZ[String]] = visitImports(b2.ruleImport().asScala)
-        val aliases: ISZ[(String, ISZ[String])] = visitAliases(b2.ruleAliasMember().asScala)
+        val imports: ISZ[Import] = visitImports(b2.ruleImport().asScala)
+        val aliases: ISZ[Alias] = visitAliases(b2.ruleAliasMember().asScala)
 
-        reportWarn(imports.isEmpty, b2, s"Need to add imports to AST: $imports")
-        reportWarn(aliases.isEmpty, b2, s"Need to add aliasing to AST: $aliases")
+        reportWarn(imports.isEmpty, b2.ruleImport(), s"Need to add imports to AST: $imports")
+        reportWarn(aliases.isEmpty, b2.ruleAliasMember(), s"Need to add aliasing to AST: $aliases")
 
         var components: ISZ[Component] = ISZ()
         for (member <- b2.rulePackageMember().asScala) {
-          val visibility = visitRuleVisibilityIndicator(member.ruleMemberPrefix().ruleVisibilityIndicator())
-          reportWarn(visibility == string"public", member, "Need to add visibility to AST")
+          val visibility = visitVisibilityIndicator(member.ruleMemberPrefix().ruleVisibilityIndicator())
 
           if (member.ruleUsageElement() != null) {
             reportWarn(member.ruleUsageElement(), "Why not just have user select the system part def they want to instantiate?")
@@ -126,10 +132,73 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     }
   }
 
+  def visitAnnotatingElement(context: RuleAnnotatingElementContext): AnnotatingElement = {
+    assert (!SysmlAstUtil.isRegularComment(context), "Filter out regular comments")
+    context match {
+      case i1: RuleAnnotatingElement1Context =>
+        val comment = i1.ruleComment()
+
+        val id: Option[Identification] =
+        if (isEmpty(comment.ruleIdentification())) None()
+          else Some(visitIdentification(comment.ruleIdentification()))
+
+        var abouts: ISZ[QualifiedName] = ISZ()
+        for (a <- comment.ruleAnnotation().asScala) {
+          abouts = abouts :+ visitQualifiedName(a.ruleQualifiedName())
+        }
+
+        val locale: Option[String] =
+          if (comment.K_LOCALE() == null) None()
+          else Some(comment.RULE_STRING_VALUE().string)
+
+        return Comment(
+          id = id,
+          abouts = abouts,
+          locale = locale,
+          comment = comment.RULE_REGULAR_COMMENT().string)
+
+      case i2: RuleAnnotatingElement2Context =>
+        val doc = i2.ruleDocumentation()
+
+        val id: Option[Identification] =
+          if (isEmpty(doc.ruleIdentification())) None()
+          else Some(visitIdentification(doc.ruleIdentification()))
+
+        val locale: Option[String] =
+          if (doc.K_LOCALE() == null) None()
+          else Some(doc.RULE_STRING_VALUE().string)
+
+        return Documentation(
+          id = id,
+          locale = locale,
+          comment = doc.RULE_REGULAR_COMMENT().string)
+
+      case i3: RuleAnnotatingElement3Context =>
+        val text = i3.ruleTextualRepresentation()
+
+        val id: Option[Identification] =
+          if (isEmpty(text.ruleIdentification())) None()
+          else Some(visitIdentification(text.ruleIdentification()))
+
+        return TextualRepresentation(
+          id = id,
+          language = text.RULE_STRING_VALUE().string,
+          comment = text.RULE_REGULAR_COMMENT().string)
+
+      case i4: RuleAnnotatingElement4Context =>
+        val dummy = i4.ruleMetadataUsage()
+        halt("Not yet handling metadata annotations")
+
+      case x =>
+        halt(s"Not expecting this annotating element $x")
+    }
+  }
+
   def visitPackageMember(context: RuleDefinitionElementContext): Component = {
     context match {
-      case d11: RuleDefinitionElement11Context =>
-        return visitPackage_PartDefinition(d11.rulePartDefinition())
+      case d1: RuleDefinitionElement1Context =>
+        reportWarn(d1, "Need to handle nested package definitions")
+        return SysMLUtil.emptyComponent
 
       case d6: RuleDefinitionElement6Context =>
         reportWarn(d6, "Need to handle enum definitions")
@@ -144,11 +213,19 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       case d10: RuleDefinitionElement10Context =>
         return visitMetadataDefinition(d10.ruleMetadataDefinition())
 
+      case d11: RuleDefinitionElement11Context =>
+        return visitPackage_PartDefinition(d11.rulePartDefinition())
+
       case d12: RuleDefinitionElement12Context =>
         // e.g. connection def PortConnection :> BinaryConnection {
         //		    end source : AbstractFeature[0..*] :>> BinaryConnection::source;
         val connectionDef = d12.ruleConnectionDefinition()
         reportWarn(connectionDef, "Need to handle connection definitions at the package level")
+        return SysMLUtil.emptyComponent
+
+      case d15: RuleDefinitionElement15Context =>
+        val allocationDef = d15.ruleAllocationDefinition()
+        reportWarn(allocationDef, "Need to handle allocation definitions at the package level")
         return SysMLUtil.emptyComponent
 
       case d16: RuleDefinitionElement16Context =>
@@ -172,34 +249,19 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
   private def visitPackage_PartDefinition(partDef: RulePartDefinitionContext): Component = {
 
-    var isAbstract: B = F
-    if (partDef.ruleOccurrenceDefinitionPrefix().getChildCount != 0) {
-      val occurrenceDefPrefix = visitOccurrenceDefinitionPrefix(partDef.ruleOccurrenceDefinitionPrefix())
-      isAbstract = occurrenceDefPrefix.isAbstract
-    }
+    val occurrenceDefPrefix = visitOccurrenceDefinitionPrefix(partDef.ruleOccurrenceDefinitionPrefix())
 
-    reportError(partDef.ruleDefinition().ruleDefinitionDeclaration().ruleIdentification() != null, partDef.ruleDefinition().ruleDefinitionDeclaration().ruleIdentification(),
-      "Part definitions must have an identification")
+    val decl = partDef.ruleDefinition().ruleDefinitionDeclaration()
+    val identifier: Option[Identification] =
+      if (isEmpty(decl.ruleIdentification())) None()
+      else Some(visitIdentification(decl.ruleIdentification()))
 
-    val identifier: Name =
-      partDef.ruleDefinition().ruleDefinitionDeclaration().ruleIdentification() match {
-      case i2: RuleIdentification2Context =>
-        Name(name = ISZ(visitName(i2.ruleName())), pos = toPosOpt(i2.ruleName()))
-      case i1: RuleIdentification1Context =>
-          reportError(i1, "Not currently supporting short names")
-          SysMLUtil.emptyName()
-    }
-
-    val specializations: ISZ[ISZ[String]] = {
-      if (nonEmpty(partDef.ruleDefinition().ruleDefinitionDeclaration().ruleSubclassificationPart())) {
-        for (subclass <- listToISZ(partDef.ruleDefinition().ruleDefinitionDeclaration().ruleSubclassificationPart().ruleOwnedSubclassification())) yield
+    val specializations: ISZ[QualifiedName] = {
+      if (nonEmpty(decl.ruleSubclassificationPart()))
+        for (subclass <- listToISZ(decl.ruleSubclassificationPart().ruleOwnedSubclassification())) yield
           visitQualifiedName(subclass.ruleQualifiedName())
-      } else if (!isAbstract) {
-        reportError(partDef, "Non-abstract package level part definitions must specialize a component type")
+      else
         ISZ()
-      } else {
-        ISZ()
-      }
     }
 
     var subComponents: ISZ[Component] = ISZ()
@@ -207,6 +269,9 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     var connections: ISZ[Connection] = ISZ()
 
     partDef.ruleDefinition().ruleDefinitionBody() match {
+      case i1: RuleDefinitionBody1Context =>
+        assert(i1.OP_SEMI() != null)
+
       case i2: RuleDefinitionBody2Context =>
         for (item <- i2.ruleDefinitionBodyItem().asScala) {
           item match {
@@ -272,8 +337,8 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
                         features = features :+ visitPackage_PartUsage(partUsage)
                       case su9: RuleStructureUsageElement9Context =>
                         // e.g. port ports { ... }
-                        val portUsage = su9.rulePortUsage()
-                        reportWarn(portUsage, "Need to handle port usages")
+                        val portUsage: PortUsage = visitPortUsage(su9.rulePortUsage())
+                        reportWarn(su9.rulePortUsage(), s"Need to handle port usages: $portUsage")
                       case su10: RuleStructureUsageElement10Context =>
                         val connectionUsage = su10.ruleConnectionUsage()
                         reportWarn(connectionUsage, "Need to handle connection usages")
@@ -288,29 +353,63 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
               reportError(x, s"${x.getClass.getSimpleName} are not currently supported in component definitions")
           }
         }
-      case i1: RuleDefinitionBody1Context =>
-        if (!isAbstract) {
-          reportError(i1, "Non-abstract part definitions cannot be empty")
+    }
+
+    return SysMLUtil.emptyComponent
+  }
+
+  def visitPortUsage(portUsage: RulePortUsageContext): PortUsage = {
+    //  A port usage is a kind of occurrence usage definition that is a usage of a port definition.
+    val occurrenceUsage: OccurrenceUsage = visitOccurrenceUsagePrefix(portUsage.ruleOccurrenceUsagePrefix())
+
+    val u = portUsage.ruleUsage()
+
+    var identification: Option[Identification] = None()
+    var specializations: ISZ[FeatureSpecialization] = ISZ()
+    if (nonEmpty(u.ruleUsageDeclaration())) {
+      u.ruleUsageDeclaration().ruleFeatureDeclaration() match {
+        case i1: RuleFeatureDeclaration1Context =>
+          identification = Some(visitIdentification(i1.ruleIdentification()))
+          specializations = visitFeatureSpecialization(i1.ruleFeatureSpecializationPart())
+        case i2: RuleFeatureDeclaration2Context =>
+          specializations = visitFeatureSpecialization(i2.ruleFeatureSpecializationPart())
+      }
+    }
+
+    reportError(isEmpty(u.ruleUsageCompletion().ruleValuePart()), u, "Need an example of a port with a valuePart")
+
+    var definitionBodyItems: ISZ[DefinitionBodyItem] = ISZ()
+    u.ruleUsageCompletion().ruleUsageBody().ruleDefinitionBody() match {
+      case i: RuleDefinitionBody1Context =>
+        assert (i.OP_SEMI() != null)
+      case i: RuleDefinitionBody2Context =>
+        for (bi <- i.ruleDefinitionBodyItem().asScala) {
+          reportWarn(bi, "Need to handle port usage body items")
         }
     }
 
-    return Component(
-      identifier = identifier,
-      category = ComponentCategory.Process,
-      classifier = None(),
-      features = features,
-      subComponents = subComponents,
-      connections = connections,
-      connectionInstances = ISZ(),
-      properties = ISZ(),
-      flows = ISZ(),
-      modes = ISZ(),
-      annexes = ISZ(),
-      uriFrag = "")
-
+    return PortUsage(
+      occurrenceUsage = occurrenceUsage,
+      identification = identification,
+      specializations = specializations,
+      definitionBodyItems = definitionBodyItems)
   }
 
-  private def visitComponent_AttributeUsage(context: RuleAttributeUsageContext): Unit = {
+  private def visitIdentification(id: RuleIdentificationContext): Identification = {
+    id match {
+      case i1: RuleIdentification1Context =>
+        val shortName = visitName(i1.ruleName().get(0))
+        if (i1.ruleName().size() == 2) {
+          return Identification(shortName = None(), name = Some(visitName(i1.ruleName().get(1))))
+        } else {
+          return Identification(shortName = Some(shortName), name = None())
+        }
+      case i2: RuleIdentification2Context =>
+        return Identification(shortName = None(), name = Some(visitName(i2.ruleName())))
+    }
+  }
+
+  def visitComponent_AttributeUsage(context: RuleAttributeUsageContext): Unit = {
     reportWarn(context, "Need to handle component level attribute usages")
   }
 
@@ -336,35 +435,23 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   }
 
   private def visitPackage_PartUsage(partUsage: RulePartUsageContext): Feature = {
-    var isAbstract: B = F
-    if (nonEmpty(partUsage.ruleOccurrenceUsagePrefix())) {
-      val occurrenceUsage = visitOccurrenceUsagePrefix(partUsage.ruleOccurrenceUsagePrefix())
-      isAbstract = occurrenceUsage.isAbstract
-      reportError(occurrenceUsage.direction.isEmpty, partUsage.ruleOccurrenceUsagePrefix(), "Feature directions not currently allowed at the package level")
-    }
+    val occurrenceUsage = visitOccurrenceUsagePrefix(partUsage.ruleOccurrenceUsagePrefix())
 
-    assert (partUsage.rulePartUsageKeyword().rulePartKeyword().K_PART() != null) // sanity
+    assert (partUsage.rulePartUsageKeyword().rulePartKeyword().K_PART() != null, "No 'part' keyword") // sanity
 
-    var identifier: String = ""
+    var identifier: Option[Identification] = None()
     var specializations: ISZ[FeatureSpecialization] = ISZ()
     if (nonEmpty(partUsage.ruleUsage().ruleUsageDeclaration())) {
       partUsage.ruleUsage().ruleUsageDeclaration().ruleFeatureDeclaration() match {
         case d1: RuleFeatureDeclaration1Context =>
-          val id = visitRuleIdentification(d1.ruleIdentification())
-          if (id.size == 1) {
-            identifier = id(0)
-          } else {
-            reportError(d1, "Expecting simple names for part usages at the package level")
-          }
+          identifier = Some(visitIdentification(d1.ruleIdentification()))
 
           if(nonEmpty(d1.ruleFeatureSpecializationPart())) {
             specializations = visitFeatureSpecialization(d1.ruleFeatureSpecializationPart())
           }
         case d2: RuleFeatureDeclaration2Context =>
-          reportError(d2, "Expecting part usages to have identifiers (in addition to optional specializations)")
+          specializations = visitFeatureSpecialization(d2.ruleFeatureSpecializationPart())
       }
-    } else {
-      reportError(partUsage.ruleUsage(), "Not expecting the usage declarations to be empty")
     }
 
     reportError(isEmpty(partUsage.ruleUsage().ruleUsageCompletion().ruleValuePart()), partUsage.ruleUsage().ruleUsageCompletion().ruleValuePart(),
@@ -427,13 +514,20 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   private def visitOccurrenceUsagePrefix(ocup: RuleOccurrenceUsagePrefixContext): OccurrenceUsage = {
     reportError(ocup.K_INDIVIDUAL() == null, ocup, "The 'individual' keyword is not currently supported")
 
-    var isAbstract: B = F
     var direction: Option[FeatureDirection.Type] = None()
+    var isAbstract: B = F
+    var isVariation: B = F
+    var isReadOnly: B = F
+    var isDerived: B = F
+    var isEnd: B = F
+    var isRef: B = F
+    var isIndividual: B = F
+    var isSnapshot: B = F
+    var isTimeslice: B = F
+    var usageExtensions: ISZ[QualifiedName] = ISZ()
 
     if (nonEmpty(ocup.ruleBasicUsagePrefix())) {
       val bup = ocup.ruleBasicUsagePrefix()
-      reportError(bup.K_REF() == null, bup, "The 'ref' keyword is not currently supported")
-
       if (nonEmpty(bup.ruleRefPrefix().ruleFeatureDirection())) {
         bup.ruleRefPrefix().ruleFeatureDirection() match {
           case x: RuleFeatureDirection1Context =>
@@ -451,22 +545,47 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       }
 
       isAbstract = bup.ruleRefPrefix().K_ABSTRACT() != null
+      isVariation = bup.ruleRefPrefix().K_VARIATION() != null
+      isReadOnly = bup.ruleRefPrefix().K_READONLY() != null
+      isDerived = bup.ruleRefPrefix().K_DERIVED() != null
+      isEnd = bup.ruleRefPrefix().K_END() != null
 
-      reportError(bup.ruleRefPrefix().K_VARIATION() == null, bup.ruleRefPrefix(), "The 'variation' keyword is not currently supported")
-      reportError(bup.ruleRefPrefix().K_READONLY() == null, bup.ruleRefPrefix(), "The 'readonly' keyword is not currently supported")
-      reportError(bup.ruleRefPrefix().K_DERIVED() == null, bup.ruleRefPrefix(), "The 'derived' keyword is not currently supported")
-      reportError(bup.ruleRefPrefix().K_END() == null, bup.ruleRefPrefix(), "The 'end' keyword is not currently supported")
+      isRef = bup.K_REF() != null
     }
 
-    reportError(ocup.K_INDIVIDUAL() == null, ocup, "The 'idividual' keyword is not currently supported")
+    isIndividual = ocup.K_INDIVIDUAL() != null
 
-    reportError(isEmpty(ocup.rulePortionKind()), ocup.rulePortionKind(), "'snapshot' and 'timeslice' keywords are not currently supported")
+    if (nonEmpty(ocup.rulePortionKind())) {
+      ocup.rulePortionKind() match {
+        case i: RulePortionKind1Context =>
+          assert (i.K_SNAPSHOT() != null)
+          isSnapshot = T
+        case i: RulePortionKind2Context =>
+          assert (i.K_TIMESLICE() != null)
+          isTimeslice = T
+      }
+    }
 
-    reportError(ocup.ruleUsageExtensionKeyword().isEmpty, ocup, "Usage extensions are not currently supported")
+    if (!ocup.ruleUsageExtensionKeyword().isEmpty) {
+      for (ue <- ocup.ruleUsageExtensionKeyword().asScala) {
+        usageExtensions = usageExtensions :+
+          visitQualifiedName(ue.rulePrefixMetadataMember().rulePrefixMetadataUsage().ruleMetadataTyping().ruleQualifiedName())
+      }
+    }
 
     return OccurrenceUsage(
+      direction = direction,
       isAbstract = isAbstract,
-      direction = direction)
+      isVariation = isVariation,
+      isReadOnly = isReadOnly,
+      isDerived = isDerived,
+      isEnd = isEnd,
+      isRef = isRef,
+      isIndividual = isIndividual,
+      isSnapshot = isSnapshot,
+      isTimeslice = isTimeslice,
+      usageExtensions = usageExtensions
+    )
   }
 
   def isEmpty(p: ParserRuleContext): B = {
@@ -481,64 +600,97 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     return ISZ(l.asScala.toSeq:_*)
   }
 
-  def visitRuleIdentification(id: RuleIdentificationContext): ISZ[String] = {
-    return id match {
-      case id1: RuleIdentification1Context =>
-        reportError(id1, "Not currently supporting ruleIdentification1")
-        return ISZ()
-      case id2: RuleIdentification2Context =>
-        return ISZ(visitName(id2.ruleName()))
-    }
-  }
-
-  def visitAliases(aliases: mutable.Buffer[RuleAliasMemberContext]): ISZ[(String, ISZ[String])] = {
-    var ret: ISZ[(String, ISZ[String])] = ISZ()
+  /** ruleAliasMember: ruleMemberPrefix 'alias' ('<' ruleName '>')? ruleName? 'for' ruleQualifiedName ruleRelationshipBody;
+   */
+  def visitAliases(aliases: mutable.Buffer[RuleAliasMemberContext]): ISZ[Alias] = {
+    var ret: ISZ[Alias] = ISZ()
     for (alias <- aliases) {
-      reportError(alias.ruleMemberPrefix().getChildCount == 0, alias.ruleMemberPrefix(), "Visibility annotations not currently supported for aliases")
-      reportError(alias.LANGLE() == null && alias.RANGLE() == null, alias, "Alias short names are not currently supported")
-      reportError(SysMLAstBuilder.isEmptyRelationshipBody(alias.ruleRelationshipBody()), alias.ruleRelationshipBody(), "Alias relationship bodies are not currently supported")
-      reportError(alias.ruleName().size() == 1, alias, "Only expecting a single name before 'for' keyword")
+      reportError(SysMLAstBuilder.isEmptyRelationshipBody(alias.ruleRelationshipBody()), alias.ruleRelationshipBody(),
+        "Alias relationship bodies are not currently supported")
 
-      var theAlias: String = ""
-      if (!alias.ruleName().isEmpty) {
-        theAlias = visitName(alias.ruleName.get(0))
+      val visibility: Visibility.Type = visitVisibilityIndicator(alias.ruleMemberPrefix().ruleVisibilityIndicator())
+
+      val id = alias.ruleName().size() match {
+        case 0 =>
+          reportError(alias, "Aliases must have a name")
+          Identification(shortName = None(), name = None())
+        case 1 =>
+          if (alias.LANGLE() != null) { // just the short name
+            Identification(shortName = Some(visitName(alias.ruleName(0))), name = None())
+          } else {
+            Identification(shortName = None(), name = Some(visitName(alias.ruleName(0))))
+          }
+        case 2 =>
+          Identification(shortName = Some(visitName(alias.ruleName(0))), name = Some(visitName(alias.ruleName(1))))
+        case x => halt(s"Infeasible: $x")
       }
 
-      val theFor: ISZ[String] = visitQualifiedName(alias.ruleQualifiedName())
+      val target: ISZ[String] = visitQualifiedName(alias.ruleQualifiedName())
 
-      ret = ret :+ (theAlias, theFor)
+      ret = ret :+ Alias(visibility = visibility, identification = id, target = target)
     }
 
     return ret
   }
 
-  def visitImports(imports: mutable.Buffer[RuleImportContext]): ISZ[ISZ[String]] = {
-    var ret: ISZ[ISZ[String]] = ISZ()
-    for (importe <- imports ){
-      reportError(importe.ruleRelationshipBody().isInstanceOf[RuleRelationshipBody1Context], importe.ruleRelationshipBody(),
-        "Not currently handling import annotations")
+  def visitImports(imports: mutable.Buffer[RuleImportContext]): ISZ[Import] = {
+    var ret: ISZ[Import] = ISZ()
+    for (importe <- imports ) {
+      var annotations: ISZ[AnnotatingElement] = ISZ()
+      importe.ruleRelationshipBody() match {
+        case rb1: RuleRelationshipBody1Context =>
+          assert(rb1.OP_SEMI() != null) // sanity check
 
-      if (importe.ruleMembershipImport() != null) {
-        assert (importe.ruleNamespaceImport() == null)
+        case rb2: RuleRelationshipBody2Context =>
+          for(oa <- rb2.ruleOwnedAnnotation().asScala if !SysmlAstUtil.isRegularComment(oa.ruleAnnotatingElement())) {
+            annotations = annotations :+ visitAnnotatingElement(oa.ruleAnnotatingElement())
+          }
+      }
+
+      if (nonEmpty(importe.ruleMembershipImport())) {
+        assert (isEmpty(importe.ruleNamespaceImport()))
+
         val mimport = importe.ruleMembershipImport()
 
-        reportError(mimport.ruleImportPrefix().ruleVisibilityIndicator() == null, mimport, "Not currently handling visibility annotations for imports")
-        reportError(mimport.ruleImportPrefix().K_ALL() == null, mimport, "Not currently handling 'all' import annotations")
+        val visibility = visitVisibilityIndicator(mimport.ruleImportPrefix().ruleVisibilityIndicator())
 
-        ret = ret :+ visitQualifiedName(mimport.ruleImportedMembership().ruleQualifiedName())
+        // 'all' is not detailed in the spec
+        reportError(mimport.ruleImportPrefix().K_ALL() == null, mimport,
+          "Not currently handling 'all' import annotations")
+
+        val qualifiedName = visitQualifiedName(mimport.ruleImportedMembership().ruleQualifiedName())
+
+        ret = ret :+ Import(
+          visibility = visibility,
+          qualifiedName = qualifiedName,
+          star = F,
+          starStar = mimport.ruleImportedMembership().OP_STAR_STAR() != null,
+          annotations = annotations)
       } else {
         val nimport = importe.ruleNamespaceImport()
 
-        reportError(nimport.ruleImportPrefix().ruleVisibilityIndicator() == null, nimport, "Not currently handling visibility annotations for imports")
-        reportError(nimport.ruleImportPrefix().K_ALL() == null, nimport, "Not currently handling 'all' import annotations")
+        val visibility = visitVisibilityIndicator(nimport.ruleImportPrefix().ruleVisibilityIndicator())
 
-        if (nimport.ruleFilterPackage() != null) {
+        // 'all' is not detailed in the spec
+        reportError(nimport.ruleImportPrefix().K_ALL() == null, nimport,
+          "Not currently handling 'all' import annotations")
+
+        if (nonEmpty(nimport.ruleFilterPackage())) {
           reportError(nimport, "Not currently handling filtered imports")
         } else {
           val namespace = nimport.ruleImportedNamespace()
-          ret = ret :+ (visitQualifiedName(namespace.ruleQualifiedName()) :+ "*")
 
-          reportError(namespace.OP_STAR_STAR() == null, namespace, "Not currently handling '**' imports")
+          val qualfiedName = visitQualifiedName(namespace.ruleQualifiedName())
+
+          assert (nimport.ruleImportedNamespace().OP_STAR() != null, "The star is not optional")
+
+          ret = ret :+ Import(
+            visibility = visibility,
+            qualifiedName = qualfiedName,
+            star = T,
+            starStar = nimport.ruleImportedNamespace().OP_STAR_STAR() != null,
+            annotations = annotations
+          )
         }
       }
     }
@@ -561,22 +713,22 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     }
   }
 
-  def visitRuleVisibilityIndicator(context: RuleVisibilityIndicatorContext): String = {
+  def visitVisibilityIndicator(context: RuleVisibilityIndicatorContext): Visibility.Type = {
       context match {
         case null =>
-          return "public" // TODO: assuming default visibility is public in sysmlv2
+          return Visibility.Public
         case v1: RuleVisibilityIndicator1Context =>
-          val dummyTest = v1.K_PUBLIC()
-          return "public"
+          assert(v1.K_PUBLIC() != null)
+          return Visibility.Public
         case v2:RuleVisibilityIndicator2Context =>
-          val dummyTest = v2.K_PRIVATE()
-          return "private"
+          assert(v2.K_PRIVATE() != null)
+          return Visibility.Private
         case v3:RuleVisibilityIndicator3Context =>
-          val dummyTest = v3.K_PROTECTED()
-          return "protected"
+          assert(v3.K_PROTECTED() != null)
+          return Visibility.Protected
         case x =>
           reportError(x, s"Not expecting visibility: $x ")
-          return ""
+          return Visibility.Public
       }
   }
 
@@ -593,23 +745,33 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     )
   }
 
-  def reportWarn(node: ParserRuleContext, message: String): Unit = {
-   reportWarn(F, node, message)
+  def reportWarn(nodeOrList: Object, message: String): Unit = {
+   reportWarn(F, nodeOrList, message)
   }
 
-  def reportWarn(cond: B, node: ParserRuleContext, message: String): Unit = {
+  def reportWarn(cond: B, nodeOrList: Object, message: String): Unit = {
     if (!cond) {
-      reporter.warn(toPosOpt(node), kind, message)
+      var o: Option[ParserRuleContext] = None()
+      nodeOrList match {
+        case i: ParserRuleContext => o = Some(i)
+        case i: java.util.List[x] => o = Some(i.get(0).asInstanceOf[ParserRuleContext])
+      }
+      reporter.warn (toPosOpt (o.get), kind, message)
     }
   }
 
-  def reportError(node: ParserRuleContext, message: String): Unit = {
-    reportError(F, node, message)
+  def reportError(nodeOrList: Object, message: String): Unit = {
+    reportError(F, nodeOrList, message)
   }
 
-  def reportError(cond: B, node: ParserRuleContext, message: String): Unit = {
+  def reportError(cond: B, nodeOrList: Object, message: String): Unit = {
     if (!cond) {
-      reporter.error(toPosOpt(node), kind, message)
+      var o: Option[ParserRuleContext] = None()
+      nodeOrList match {
+        case i: ParserRuleContext => o = Some(i)
+        case i: java.util.List[x] => o = Some(i.get(0).asInstanceOf[ParserRuleContext])
+      }
+      reporter.error(toPosOpt(o.get), kind, message)
     }
   }
 }

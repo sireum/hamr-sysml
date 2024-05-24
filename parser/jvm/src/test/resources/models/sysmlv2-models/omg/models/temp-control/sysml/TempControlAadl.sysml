@@ -42,12 +42,12 @@ package TempControlAadl {
 
 	part def TempControl :> Thread {
 		// features
-		port currentTemp : DataPort { in :> type : Temperature; }
+		in port <tc> currentTemp : DataPort { in :> type : Temperature; }
 		
 		// EventPort does not have an item usage with visiblity rules.
-		in port tempChanged : EventPort;
+		in port <'this is a short name'> tempChanged : EventPort;
 		
-		out port fanCmd : EventDataPort { out :> type : FanCmd; }
+		out port <'just short'> fanCmd : EventDataPort { out :> type : FanCmd; }
 		in port fanAck : EventDataPort { in :> type : FanAck; }
 		in port setPoint : EventDataPort { in :> type : SetPoint; }
 		
