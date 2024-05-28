@@ -7,6 +7,27 @@ import org.sireum._
 object SysmlAst {
   type QualifiedName = ISZ[String]
 
+  @sig trait DefinitionElement
+
+  @sig trait UsageElement
+
+  @datatype class UsageHolder(val identification: Option[Identification],
+                              val specializations: ISZ[FeatureSpecialization],
+                              val definitionBodyItems: ISZ[BodyElement])
+
+  @datatype class EnumerationDefinition(val identification: Identification,
+                                        val annotations: ISZ[AnnotatingElement],
+                                        val enumValues: ISZ[EnumeratedValue]
+                                       ) extends DefinitionElement with PackageElement
+
+  @datatype class EnumeratedValue(val visibility: Visibility.Type,
+                                  val identification: Option[Identification],
+                                  val specializations: ISZ[FeatureSpecialization],
+                                  val definitionBodyItems: ISZ[BodyElement])
+
+  @sig trait PackageBodyElement extends DefinitionElement with UsageElement
+
+
   @datatype class OccurrenceDefinition(val isAbstract: B)
 
   @enum object FeatureDirection {
@@ -15,33 +36,77 @@ object SysmlAst {
     "InOut"
   }
 
-  @sig trait DefinitionBodyItem
+  @datatype class Root(val packageBodyElements: ISZ[PackageBodyElement])
+
+
+  @datatype class PackageMember(val isLibrary: B,
+                                val isStandard: B,
+                               ) extends PackageElement
+
+  @sig trait PackageElement
+
+  @datatype class PlaceholderPackageElement extends PackageElement
+
+  @datatype class PartDefinition(val occurrenceDef: OccurrenceDefinition,
+                                 val identifier: Option[Identification],
+                                 val specializations: ISZ[FeatureSpecialization],
+                                 val bodyItems: ISZ[BodyElement]) extends PackageElement
+
+  @datatype class PortDefinition(val isAbstract: B,
+                                 val isVariation: B,
+                                 val identification: Option[Identification],
+                                 val specializations: ISZ[FeatureSpecialization],
+                                 val definitionBodyItems: ISZ[BodyElement]) extends PackageElement
+
+
+  @sig trait BodyElement
+
+  @datatype class PartUsage(val occurrenceUsage: OccurrenceUsage,
+                            val identification: Option[Identification],
+                            val specializations: ISZ[FeatureSpecialization],
+                            val definitionBodyItems: ISZ[BodyElement]) extends BodyElement
 
   @datatype class PortUsage(val occurrenceUsage: OccurrenceUsage,
                             val identification: Option[Identification],
                             val specializations: ISZ[FeatureSpecialization],
-                            val definitionBodyItems: ISZ[DefinitionBodyItem])
+                            val definitionBodyItems: ISZ[BodyElement]) extends BodyElement
 
-  @datatype class OccurrenceUsage(// ref prefix
-                                  val direction: Option[FeatureDirection.Type],
-                                  val isAbstract: B,
-                                  val isVariation: B,
-                                  val isReadOnly: B,
-                                  val isDerived: B,
-                                  val isEnd: B,
+  @datatype class AttributeUsage(val prefix: UsagePrefix,
+                                 val identification: Option[Identification],
+                                 val specializations: ISZ[FeatureSpecialization],
+                                 val definitionBodyItems: ISZ[BodyElement]) extends BodyElement
 
-                                 // basic usage prefix
-                                 val isRef: B,
+  @datatype class OccurrenceUsage( // ref prefix
+                                   val direction: Option[FeatureDirection.Type],
+                                   val isAbstract: B,
+                                   val isVariation: B,
+                                   val isReadOnly: B,
+                                   val isDerived: B,
+                                   val isEnd: B,
 
-                                 // occurrence usage prefix
-                                 val isIndividual: B,
+                                   // basic usage prefix
+                                   val isRef: B,
 
-                                  // portion kind
-                                  val isSnapshot: B,
-                                  val isTimeslice: B,
+                                   // occurrence usage prefix
+                                   val isIndividual: B,
 
-                                  val usageExtensions: ISZ[QualifiedName]
-   )
+                                   // portion kind
+                                   val isSnapshot: B,
+                                   val isTimeslice: B,
+
+                                   val usageExtensions: ISZ[QualifiedName]
+                                 )
+
+  @datatype class UsagePrefix(val direction: Option[FeatureDirection.Type],
+                              val isAbstract: B,
+                              val isVariation: B,
+                              val isReadOnly: B,
+                              val isDerived: B,
+                              val isEnd: B,
+
+                              // basic usage prefix
+                              val isRef: B,
+                              val usageExtensions: ISZ[QualifiedName])
 
   @enum object Visibility {
     "Public"
@@ -49,8 +114,9 @@ object SysmlAst {
     "Protected"
   }
 
-  @sig trait AnnotatingElement {
+  @sig trait AnnotatingElement extends DefinitionElement {
     def id: Option[Identification]
+
     def comment: String
   }
 
@@ -73,11 +139,13 @@ object SysmlAst {
                          val star: B,
                          val starStar: B,
                          val annotations: ISZ[AnnotatingElement])
+    extends PackageBodyElement with BodyElement
 
 
   @datatype class Alias(val visibility: Visibility.Type,
                         val identification: Identification,
                         val target: QualifiedName)
+    extends PackageBodyElement with BodyElement
 
 
   @datatype class Identification(val shortName: Option[String],
@@ -87,4 +155,6 @@ object SysmlAst {
   @sig trait FeatureSpecialization
 
   @datatype class QualifiedNameSpecialization(val names: ISZ[String]) extends FeatureSpecialization
+
+  @datatype class RedefinitionSpecialization(val qualifiedNames: ISZ[QualifiedName]) extends FeatureSpecialization
 }
