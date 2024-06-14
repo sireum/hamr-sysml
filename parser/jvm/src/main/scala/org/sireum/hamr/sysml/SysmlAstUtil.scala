@@ -26,6 +26,14 @@ object SysmlAstUtil {
       )
     }
 
+    def emptyDefinitionElement: DefinitionElement = {
+      return Comment(
+        id = None(),
+        abouts = ISZ(),
+        locale = None(),
+        comment = "PLACEHOLDER")
+    }
+
     def emptyResolvedAttr(posOpt: Option[Position]): AST.ResolvedAttr = {
       return AST.ResolvedAttr(posOpt = posOpt, resOpt = None(), typedOpt = None())
     }
@@ -38,22 +46,43 @@ object SysmlAstUtil {
       return AST.Exp.LitString(value = "TODO", attr = emptyAttr)
     }
 
-    def BodyItemPlaceholder: BodyElement = {
-      return Alias(
-        Visibility.Public,
-        IdentificationPlaceholder,
-        QualifiedNamePlaceholder
+    def emptyRefPrefix: RefPrefix = {
+      return RefPrefix(direction = None(), isAbstract = F, isVariation = F, isReadOnly = F, isDerived = F, isEnd = F)
+    }
+
+    def emptyUsagePrefix: UsagePrefix = {
+      return UsagePrefix(refPrefix = emptyRefPrefix,
+        isRef = F, usageExtensions = ISZ())
+    }
+
+    def NonOccurrenceUsageElementPlaceholder: NonOccurrenceUsageElement = {
+      return AttributeUsage(
+        visibility = Visibility.Public,
+        prefix = emptyUsagePrefix,
+        identification = None(),
+        specializations = ISZ(),
+        definitionBodyItems = ISZ()
       )
     }
 
-    def IdentificationPlaceholder: Identification = {
-      return Identification(
-        None(), None()
+    def emptyOccurrenceUsagePrefix: OccurrenceUsagePrefix = {
+      return OccurrenceUsagePrefix(
+        refPrefix = emptyRefPrefix,
+        isRef = F,
+        isIndividual = F,
+        isSnapshot = F,
+        isTimeslice = F,
+        usageExtensions = ISZ()
       )
     }
 
-    def QualifiedNamePlaceholder: QualifiedName = {
-      return ISZ()
+    def OccurrenceUsageElementPlaceholder: OccurrenceUsageElement = {
+      return ItemUsage(
+        visibility = Visibility.Public,
+        occurrenceUsagePrefix = emptyOccurrenceUsagePrefix,
+        identification = None(),
+        specializations = ISZ(),
+        definitionBodyItems = ISZ())
     }
   }
 

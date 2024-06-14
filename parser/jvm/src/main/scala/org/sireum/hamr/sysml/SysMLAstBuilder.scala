@@ -3,9 +3,10 @@ package org.sireum.hamr.sysml
 import org.sireum._
 import org.sireum.message._
 import org.antlr.v4.runtime.ParserRuleContext
+import org.antlr.v4.runtime.tree.TerminalNodeImpl
 import org.sireum.hamr.ir._
 import org.sireum.hamr.sysml.SysmlAst._
-import org.sireum.hamr.sysml.SysmlAstUtil.{Placeholders, isRegularComment}
+import org.sireum.hamr.sysml.SysmlAstUtil.{Placeholders, isRegularComment, mergePos}
 import org.sireum.hamr.sysml.parser.SysMLv2Parser._
 import org.sireum.hamr.sysml.parser.SysMLv2Parser
 import org.sireum.message.{Position, Reporter}
@@ -13,7 +14,6 @@ import org.sireum.lang.{ast => AST}
 import org.sireum.lang.ast.Exp
 
 import java.util
-import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 object SysMLAstBuilder {
@@ -57,7 +57,13 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           var visibility = visitVisibilityIndicator(m1.ruleMemberPrefix().ruleVisibilityIndicator())
           if (m1.ruleDefinitionElement() != null) {
             assert(m1.ruleUsageElement() == null)
-            visitPackage(m1.ruleDefinitionElement())
+            visitDefinitionElement(visibility, m1.ruleDefinitionElement()) match {
+              case p: Package => bodyElements = bodyElements :+ p
+              case a: AnnotatingElement => bodyElements :+ a
+              case x =>
+                halt(s"Wasn't expecting package body element: ${x}")
+            }
+
           } else {
             assert(m1.ruleUsageElement() != null)
             halt("todo")
@@ -78,63 +84,157 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     return Root(bodyElements)
   }
 
-  def visitPackage(context: RuleDefinitionElementContext): Unit = {
-    var isLibrary = F
-    var isStandard = F
-    val (prefixMetaDataMembers, packageDeclaration, packageBody): (mutable.Buffer[RulePrefixMetadataMemberContext], RulePackageDeclarationContext, RulePackageBodyContext) =
-      context match {
-        case d1: RuleDefinitionElement1Context =>
-          (d1.rulePackage().rulePrefixMetadataMember().asScala, d1.rulePackage().rulePackageDeclaration(), d1.rulePackage().rulePackageBody())
-        case d2: RuleDefinitionElement2Context =>
-          assert(d2.ruleLibraryPackage().K_LIBRARY() != null)
-          isLibrary = T
-          isStandard = d2.ruleLibraryPackage().K_STANDARD() != null
-          (d2.ruleLibraryPackage.rulePrefixMetadataMember().asScala, d2.ruleLibraryPackage().rulePackageDeclaration(), d2.ruleLibraryPackage().rulePackageBody())
-        case d3: RuleDefinitionElement3Context =>
+  def visitDefinitionElement(visibility: Visibility.Type, context: RuleDefinitionElementContext): DefinitionElement = {
+    context match {
+      case d1: RuleDefinitionElement1Context =>
+        return helper_definitionElementPackage(
+          standard = F,
+          library = F,
+          prefixMetadataMembers = d1.rulePackage().rulePrefixMetadataMember(),
+          identification = d1.rulePackage().rulePackageDeclaration().ruleIdentification(),
+          body = d1.rulePackage().rulePackageBody(),
+          parent = context)
 
-          if (!SysmlAstUtil.isRegularComment(d3.ruleAnnotatingElement())) {
-            val annotatingElem = visitAnnotatingElement(d3.ruleAnnotatingElement())
-          }
+      case d2: RuleDefinitionElement2Context =>
+        assert(d2.ruleLibraryPackage().K_LIBRARY() != null)
 
-          return
-        case x =>
-          reportError(x, s"Not currently handling the following package level node: $x")
-          return
-      }
-    if (prefixMetaDataMembers.nonEmpty) {
-      reportError(packageDeclaration, "Package metadata not currently supported")
+        return helper_definitionElementPackage(
+          standard = d2.ruleLibraryPackage().K_STANDARD() != null,
+          library = T,
+          prefixMetadataMembers = d2.ruleLibraryPackage().rulePrefixMetadataMember(),
+          identification = d2.ruleLibraryPackage().rulePackageDeclaration().ruleIdentification(),
+          body = d2.ruleLibraryPackage().rulePackageBody(),
+          parent = context)
+
+      case d3: RuleDefinitionElement3Context =>
+
+        if (!SysmlAstUtil.isRegularComment(d3.ruleAnnotatingElement())) {
+          return visitAnnotatingElement(d3.ruleAnnotatingElement())
+        } else {
+          return Placeholders.emptyDefinitionElement
+        }
+
+      case d5: RuleDefinitionElement5Context =>
+        return visitAttributeDefinition(d5.ruleAttributeDefinition())
+
+      case d6: RuleDefinitionElement6Context =>
+        return visitEnumerationDefinition(d6.ruleEnumerationDefinition())
+
+      case d11: RuleDefinitionElement11Context =>
+        return visitPartDefinition(d11.rulePartDefinition())
+
+      case d12: RuleDefinitionElement12Context =>
+        return visitConnectionDefinition(d12.ruleConnectionDefinition())
+
+      case d15: RuleDefinitionElement15Context =>
+        return visitAllocationDefinition(d15.ruleAllocationDefinition())
+
+      case d16: RuleDefinitionElement16Context =>
+        return visitPortDefinition(d16.rulePortDefinition())
+
+      case x =>
+        reportError(x, s"Not currently handling the following definition element: ${x.getClass.getSimpleName}")
+        return Placeholders.emptyDefinitionElement
+    }
+  }
+
+  private def visitAllocationDefinition(context: RuleAllocationDefinitionContext): AllocationDefinition = {
+    val occurDef = visitOccurrenceDefinitionPrefix(context.ruleOccurrenceDefinitionPrefix())
+
+    val (identifier, subClassifications, bodyItems) = visitDefinition(context.ruleDefinition())
+
+    return AllocationDefinition(
+      occurrenceDefPrefix = occurDef,
+      identifier = identifier,
+      subClassifications = subClassifications,
+      bodyItems = bodyItems
+    )
+  }
+
+  private def visitAttributeDefinition(context: RuleAttributeDefinitionContext): AttributeDefinition = {
+    val defPrefix = visitDefinitionPrefix(context.ruleDefinitionPrefix())
+
+    val (identifier, subClassifications, bodyItems) = visitDefinition(context.ruleDefinition())
+
+    return AttributeDefinition(
+      defPrefix = defPrefix,
+      identification = identifier,
+      subClassifications = subClassifications,
+      definitionBodyItems = bodyItems
+    )
+  }
+
+  private def visitConnectionDefinition(context: RuleConnectionDefinitionContext): ConnectionDefinition = {
+    val occurrenceDefPrefix = visitOccurrenceDefinitionPrefix(context.ruleOccurrenceDefinitionPrefix())
+
+    val (identifier, subClassifications, bodyItems) = visitDefinition(context.ruleDefinition())
+
+    return ConnectionDefinition(
+      occurrenceDefPrefix = occurrenceDefPrefix,
+      identifier = identifier,
+      subClassifications = subClassifications,
+      bodyItems = bodyItems
+    )
+  }
+
+  private def helper_definitionElementPackage(standard: B,
+                                              library: B,
+                                              prefixMetadataMembers: util.List[RulePrefixMetadataMemberContext],
+                                              identification: RuleIdentificationContext,
+                                              body: RulePackageBodyContext,
+                                              parent: RuleDefinitionElementContext): DefinitionElement = {
+
+    if (!prefixMetadataMembers.isEmpty) {
+      reportError(parent, "Package metadata not currently supported")
     }
 
-    var identification: Option[Identification] =
-      if (isEmpty(packageDeclaration.ruleIdentification())) None()
-      else Some(visitIdentification(packageDeclaration.ruleIdentification()))
+    var id: Option[Identification] =
+      if (isEmpty(identification)) None()
+      else Some(visitIdentification(identification))
 
-    var packageElements: ISZ[PackageElement] = ISZ()
-    packageBody match {
+    if (id.isEmpty) {
+      reportError(parent, "Packages must have an identification")
+      return Placeholders.emptyDefinitionElement
+    }
+
+    var packageElements: ISZ[PackageBodyElement] = ISZ()
+    body match {
       case b1: RulePackageBody1Context =>
         assert(b1.OP_SEMI() != null)
 
       case b2: RulePackageBody2Context =>
 
-        reportError(b2.ruleElementFilterMember().isEmpty, b2, "Package filter members are not currently supported")
+        // iterate over children to preserve ordering
+        for (c <- b2.children.asScala) {
+          c match {
+            case i: RulePackageMemberContext =>
+              val visibility = visitVisibilityIndicator(i.ruleMemberPrefix().ruleVisibilityIndicator())
 
-        val imports: ISZ[Import] = visitImports(b2.ruleImport().asScala)
-        val aliases: ISZ[Alias] = visitAliases(b2.ruleAliasMember().asScala)
+              if (nonEmpty(i.ruleDefinitionElement())) {
+                packageElements = packageElements :+ visitDefinitionElement(visibility, i.ruleDefinitionElement())
+              } else {
+                packageElements = packageElements :+ visitUsageElement(visibility, i.ruleUsageElement())
+              }
 
-        reportWarn(imports.isEmpty, b2.ruleImport(), s"Need to add imports to AST: $imports")
-        reportWarn(aliases.isEmpty, b2.ruleAliasMember(), s"Need to add aliasing to AST: $aliases")
+            case i: RuleElementFilterMemberContext =>
+              reportError(i, "Filter members are not currently supported")
 
-        for (member <- b2.rulePackageMember().asScala) {
-          val visibility = visitVisibilityIndicator(member.ruleMemberPrefix().ruleVisibilityIndicator())
+            case i: RuleAliasMemberContext =>
+              packageElements = packageElements :+ visitAlias(i)
 
-          if (member.ruleUsageElement() != null) {
-            reportWarn(member.ruleUsageElement(), "Why not just have user select the system part def they want to instantiate?")
-          } else {
-            packageElements = packageElements :+
-              visitPackageMember(member.ruleDefinitionElement())
+            case i: RuleImportContext =>
+              packageElements = packageElements :+ visitImport(i)
+
+            case i: org.antlr.v4.runtime.tree.TerminalNode =>
+            // do nothing
           }
         }
     }
+
+    return Package(
+      identification = id.get,
+      packageElements = packageElements
+    )
   }
 
   def visitAnnotatingElement(context: RuleAnnotatingElementContext): AnnotatingElement = {
@@ -199,47 +299,6 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     }
   }
 
-  def visitPackageMember(context: RuleDefinitionElementContext): PackageElement = {
-    context match {
-      case d1: RuleDefinitionElement1Context =>
-        reportWarn(d1, "Need to handle nested package definitions")
-        return PlaceholderPackageElement()
-
-      case d6: RuleDefinitionElement6Context =>
-        return visitEnumerationDefinition(d6.ruleEnumerationDefinition())
-
-      case d5: RuleDefinitionElement5Context =>
-        reportWarn(d5, "Need to handle attribute definition (aka data type defs)")
-        val attributeDef = d5.ruleAttributeDefinition()
-        return PlaceholderPackageElement()
-
-      case d10: RuleDefinitionElement10Context =>
-        return visitMetadataDefinition(d10.ruleMetadataDefinition())
-
-      case d11: RuleDefinitionElement11Context =>
-        return visitPartDefinition(d11.rulePartDefinition())
-
-      case d12: RuleDefinitionElement12Context =>
-        // e.g. connection def PortConnection :> BinaryConnection {
-        //		    end source : AbstractFeature[0..*] :>> BinaryConnection::source;
-        val connectionDef = d12.ruleConnectionDefinition()
-        reportWarn(connectionDef, "Need to handle connection definitions at the package level")
-        return PlaceholderPackageElement()
-
-      case d15: RuleDefinitionElement15Context =>
-        val allocationDef = d15.ruleAllocationDefinition()
-        reportWarn(allocationDef, "Need to handle allocation definitions at the package level")
-        return PlaceholderPackageElement()
-
-      case d16: RuleDefinitionElement16Context =>
-        return visitPortDefinition(d16.rulePortDefinition())
-
-      case x =>
-        reportError(x, s"Not currently supporting package members of type: ${x.getClass.getSimpleName}")
-        return PlaceholderPackageElement()
-    }
-  }
-
   private def visitEnumerationDefinition(o: RuleEnumerationDefinitionContext): EnumerationDefinition = {
     reportError(o.ruleDefinitionExtensionKeyword().isEmpty, o,
       "Enum extensions are not currently handled")
@@ -280,13 +339,29 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       enumValues = enumValues)
   }
 
-  private def visitPortDefinition(portDef: RulePortDefinitionContext): PackageElement = {
+  private def visitPortDefinition(portDef: RulePortDefinitionContext): PortDefinition = {
+    val defPrefix = visitDefinitionPrefix(portDef.ruleDefinitionPrefix())
+
+    val (identifier, subClassifications, bodyItems) = visitDefinition(portDef.ruleDefinition())
+
+    // TODO: conjugated port def leads to an empty rule
+    val empty = portDef.ruleConjugatedPortDefinitionMember().ruleConjugatedPortDefinition().rulePortConjugation()
+
+    return PortDefinition(
+      defPrefix = defPrefix,
+      identification = identifier,
+      subClassifications = subClassifications,
+      definitionBodyItems = bodyItems
+    )
+  }
+
+  private def visitDefinitionPrefix(context: RuleDefinitionPrefixContext): DefinitionPrefix = {
 
     var isAbstract = F
     var isVariation = F
 
-    if (nonEmpty(portDef.ruleDefinitionPrefix().ruleBasicDefinitionPrefix())) {
-      portDef.ruleDefinitionPrefix().ruleBasicDefinitionPrefix() match {
+    if (nonEmpty(context.ruleBasicDefinitionPrefix())) {
+      context.ruleBasicDefinitionPrefix() match {
         case p1: RuleBasicDefinitionPrefix1Context =>
           assert(p1.K_ABSTRACT() != null)
           isAbstract = T
@@ -296,131 +371,165 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       }
     }
 
-    if (!portDef.ruleDefinitionPrefix().ruleDefinitionExtensionKeyword().isEmpty) {
-      reportError(portDef.ruleDefinitionPrefix(), "Need to handle definition extensions")
-    }
+    reportError(context.ruleDefinitionExtensionKeyword().isEmpty, context, "Need to handle definition extensions")
 
-    val (identifier, specializations, bodyItems) = visitDefinition(portDef.ruleDefinition())
-
-    // TODO: conjugated port def leads to an empty rule
-    val empty = portDef.ruleConjugatedPortDefinitionMember().ruleConjugatedPortDefinition().rulePortConjugation()
-
-    return PortDefinition(
+    return DefinitionPrefix(
       isAbstract = isAbstract,
-      isVariation = isVariation,
-      identification = identifier,
-      specializations = specializations,
-      definitionBodyItems = bodyItems
+      isVariation = isVariation
     )
   }
 
-  private def visitMetadataDefinition(metadataDefinition: RuleMetadataDefinitionContext): PackageElement = {
-    reportWarn(metadataDefinition, "Need to handle metadata definitions")
-    return PlaceholderPackageElement()
+  private def visitMetadataDefinition(metadataDefinition: RuleMetadataDefinitionContext): MetadataDefinition = {
+    reportError(metadataDefinition, "Need to handle metadata definitions")
+    return MetadataDefinition()
   }
 
-  private def visitPartDefinition(partDef: RulePartDefinitionContext): PackageElement = {
+  private def visitPartDefinition(partDef: RulePartDefinitionContext): PartDefinition = {
 
     val occurrenceDefPrefix = visitOccurrenceDefinitionPrefix(partDef.ruleOccurrenceDefinitionPrefix())
 
-    val (identifier, specializations, bodyItems) = visitDefinition(partDef.ruleDefinition())
+    val (identifier, subClassifications, bodyItems) = visitDefinition(partDef.ruleDefinition())
 
     return PartDefinition(
-      occurrenceDef = occurrenceDefPrefix,
+      occurrenceDefPrefix = occurrenceDefPrefix,
       identifier = identifier,
-      specializations = specializations,
+      subClassifications = subClassifications,
       bodyItems = bodyItems
     )
   }
 
+  private def visitUsageElement(visibility: Visibility.Type, context: RuleUsageElementContext): UsageElement = {
+    context match {
+      case i: RuleUsageElement1Context =>
+        return visitNonOccurrenceUsageElement(visibility, i.ruleNonOccurrenceUsageElement())
+      case i: RuleUsageElement2Context =>
+        return visitOccurrenceUsageElement(visibility, i.ruleOccurrenceUsageElement())
+    }
+  }
 
-  private def visitPartUsage(partUsage: RulePartUsageContext): PartUsage = {
-    /** eg.
-      * part tempSensor : TempSensor;
-		  * part tempControl : TempControl;
-		  */
-    val occurrenceUsage: OccurrenceUsage = visitOccurrenceUsagePrefix(partUsage.ruleOccurrenceUsagePrefix())
+  private def visitItemUsage(visibility: Visibility.Type, context: RuleItemUsageContext): ItemUsage = {
+    val occurrenceUsagePrefix: OccurrenceUsagePrefix = visitOccurrenceUsagePrefix(context.ruleOccurrenceUsagePrefix())
 
-    val u = visitUsage(partUsage.ruleUsage())
+    val u = visitUsage(context.ruleUsage())
 
-    return PartUsage(
-      occurrenceUsage = occurrenceUsage,
+    return ItemUsage(
+      visibility = visibility,
+      occurrenceUsagePrefix = occurrenceUsagePrefix,
       identification = u.identification,
       specializations = u.specializations,
       definitionBodyItems = u.definitionBodyItems)
   }
 
-  def visitPortUsage(portUsage: RulePortUsageContext): PortUsage = {
+  private def visitPartUsage(visibility: Visibility.Type, partUsage: RulePartUsageContext): PartUsage = {
+    /** eg.
+      * part tempSensor : TempSensor;
+		  * part tempControl : TempControl;
+		  */
+    val occurrenceUsagePrefix: OccurrenceUsagePrefix = visitOccurrenceUsagePrefix(partUsage.ruleOccurrenceUsagePrefix())
+
+    val u = visitUsage(partUsage.ruleUsage())
+
+    return PartUsage(
+      visibility = visibility,
+      occurrenceUsagePrefix = occurrenceUsagePrefix,
+      identification = u.identification,
+      specializations = u.specializations,
+      definitionBodyItems = u.definitionBodyItems)
+  }
+
+  def visitPortUsage(visibility: Visibility.Type, portUsage: RulePortUsageContext): PortUsage = {
     /** e.g.
       * out port currentTemp : DataPort { out :> type : Temperature; }
 		  * out port tempChanged : EventPort;
       */
 
     //  A port usage is a kind of occurrence usage definition that is a usage of a port definition.
-    val occurrenceUsage: OccurrenceUsage = visitOccurrenceUsagePrefix(portUsage.ruleOccurrenceUsagePrefix())
+    val occurrenceUsagePrefix: OccurrenceUsagePrefix = visitOccurrenceUsagePrefix(portUsage.ruleOccurrenceUsagePrefix())
 
     val u = visitUsage(portUsage.ruleUsage())
 
     return PortUsage(
-      occurrenceUsage = occurrenceUsage,
+      visibility = visibility,
+      occurrenceUsagePrefix = occurrenceUsagePrefix,
       identification = u.identification,
       specializations = u.specializations,
       definitionBodyItems = u.definitionBodyItems)
   }
 
-  private def visitUsage(ruleUsage: RuleUsageContext): UsageHolder = {
-
+  def visitFeatureDeclaration(o: RuleFeatureDeclarationContext): (Option[Identification], ISZ[FeatureSpecialization]) = {
     var identification: Option[Identification] = None()
     var specializations: ISZ[FeatureSpecialization] = ISZ()
-    if (nonEmpty(ruleUsage.ruleUsageDeclaration())) {
-      ruleUsage.ruleUsageDeclaration().ruleFeatureDeclaration() match {
-        case i1: RuleFeatureDeclaration1Context =>
-          identification = Some(visitIdentification(i1.ruleIdentification()))
-          if (nonEmpty(i1.ruleFeatureSpecializationPart())) {
-            specializations = visitFeatureSpecialization(i1.ruleFeatureSpecializationPart())
-          }
-        case i2: RuleFeatureDeclaration2Context =>
-          specializations = visitFeatureSpecialization(i2.ruleFeatureSpecializationPart())
+
+    o match {
+      case i1: RuleFeatureDeclaration1Context =>
+        identification = Some(visitIdentification(i1.ruleIdentification()))
+        if (nonEmpty(i1.ruleFeatureSpecializationPart())) {
+          specializations = visitFeatureSpecializationPart(i1.ruleFeatureSpecializationPart())
+        }
+      case i2: RuleFeatureDeclaration2Context =>
+        specializations = visitFeatureSpecializationPart(i2.ruleFeatureSpecializationPart())
+    }
+
+    return (identification, specializations)
+  }
+
+  private def visitUsage(ruleUsage: RuleUsageContext): UsageHolder = {
+    val (identification, specializations): (Option[Identification], ISZ[FeatureSpecialization]) =
+      if (isEmpty(ruleUsage.ruleUsageCompletion())) {
+        (None(), ISZ())
+      } else {
+        visitFeatureDeclaration(ruleUsage.ruleUsageDeclaration().ruleFeatureDeclaration())
       }
-    }
 
-    if (nonEmpty(ruleUsage.ruleUsageCompletion().ruleValuePart())) {
-      val v = ruleUsage.ruleUsageCompletion().ruleValuePart().ruleFeatureValue()
-      val isBound = v.OP_EQ() != null
-      val isInitial = v.OP_COLON_EQ() != null
-      val isDefault = v.K_DEFAULT() != null
-      val exp = visitOwnedExpression(v.ruleOwnedExpression())
-    }
-
+    val featureValue: Option[FeatureValue] =
+      if (isEmpty(ruleUsage.ruleUsageCompletion().ruleValuePart())) {
+        None()
+      } else {
+        Some(visitFeatureValue(ruleUsage.ruleUsageCompletion().ruleValuePart().ruleFeatureValue()))
+      }
 
     val definitionBodyItems: ISZ[BodyElement] = visitDefinitionBody(ruleUsage.ruleUsageCompletion().ruleUsageBody().ruleDefinitionBody())
 
     return UsageHolder(
       identification,
       specializations,
+      featureValue,
       definitionBodyItems
+    )
+  }
+
+  private def visitFeatureValue(context: RuleFeatureValueContext): FeatureValue = {
+    val isBound = context.OP_EQ() != null
+    val isInitial = context.OP_COLON_EQ() != null
+    val isDefault = context.K_DEFAULT() != null
+    val exp = visitOwnedExpression(context.ruleOwnedExpression())
+    return FeatureValue(
+      isBound = isBound,
+      isInitial = isInitial,
+      isDefault = isDefault,
+      exp = exp
     )
   }
 
 
   private def visitDefinition(ruleDefinition: RuleDefinitionContext):
-  (Option[Identification], ISZ[FeatureSpecialization], ISZ[BodyElement]) = {
+  (Option[Identification], ISZ[QualifiedName], ISZ[BodyElement]) = {
     val decl = ruleDefinition.ruleDefinitionDeclaration()
+
     val identifier: Option[Identification] =
       if (isEmpty(decl.ruleIdentification())) None()
       else Some(visitIdentification(decl.ruleIdentification()))
 
-    val specializations: ISZ[FeatureSpecialization] = {
-      if (nonEmpty(decl.ruleSubclassificationPart()))
-        for (subclass <- listToISZ(decl.ruleSubclassificationPart().ruleOwnedSubclassification())) yield
-          QualifiedNameSpecialization(visitQualifiedName(subclass.ruleQualifiedName()))
+    val subclassifications: ISZ[QualifiedName] = {
+      if (isEmpty(decl.ruleSubclassificationPart())) ISZ()
       else
-        ISZ()
+        for (subclass <- listToISZ(decl.ruleSubclassificationPart().ruleOwnedSubclassification())) yield
+          visitQualifiedName(subclass.ruleQualifiedName())
     }
 
     val bodyItems: ISZ[BodyElement] = visitDefinitionBody(ruleDefinition.ruleDefinitionBody())
 
-    return (identifier, specializations, bodyItems)
+    return (identifier, subclassifications, bodyItems)
   }
 
   private def visitDefinitionBody(body: RuleDefinitionBodyContext): ISZ[BodyElement] = {
@@ -428,6 +537,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       case i: RuleDefinitionBody1Context =>
         assert(i.OP_SEMI() != null)
         return ISZ()
+
       case i: RuleDefinitionBody2Context =>
         var items: ISZ[BodyElement] = ISZ()
         for (bi <- i.ruleDefinitionBodyItem().asScala) {
@@ -435,9 +545,9 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
             case bi1: RuleDefinitionBodyItem1Context =>
               val defMember = bi1.ruleDefinitionMember()
               val visibility = visitVisibilityIndicator(defMember.ruleMemberPrefix().ruleVisibilityIndicator())
-              val defElem = defMember.ruleDefinitionElement()
+              val defElem = visitDefinitionElement(visibility, defMember.ruleDefinitionElement())
 
-              reportWarn(defElem, "Need to handle definition member in definition body")
+              reportError(defElem, "Need to handle definition member in definition body")
 
             case bi2: RuleDefinitionBodyItem2Context =>
               val variant = bi2.ruleVariantUsageMember()
@@ -447,14 +557,17 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
               reportError(variantElem, "Variants are not currently handled in definition body")
 
             case bi3: RuleDefinitionBodyItem3Context =>
-              items = items :+ visitNonOccurrenceUsage(bi3.ruleNonOccurrenceUsageMember())
+              val noum = bi3.ruleNonOccurrenceUsageMember()
+              val visibility = visitVisibilityIndicator(noum.ruleMemberPrefix().ruleVisibilityIndicator())
+              items = items :+ visitNonOccurrenceUsageElement(visibility, noum.ruleNonOccurrenceUsageElement())
 
             case bi4: RuleDefinitionBodyItem4Context =>
               if (nonEmpty(bi4.ruleEmptySuccessionMember())) {
                 reportError(bi4.ruleEmptySuccessionMember(),
                   "Successions are not currently handled in definition body")
               }
-              items = items :+ visitOccurrenceUsage(bi4.ruleOccurrenceUsageMember())
+              val visibility = visitVisibilityIndicator(bi4.ruleOccurrenceUsageMember().ruleMemberPrefix().ruleVisibilityIndicator())
+              items = items :+ visitOccurrenceUsageElement(visibility, bi4.ruleOccurrenceUsageMember().ruleOccurrenceUsageElement())
 
             case bi5: RuleDefinitionBodyItem5Context =>
               items = items :+ visitAlias(bi5.ruleAliasMember())
@@ -467,78 +580,186 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     }
   }
 
-  private def visitOccurrenceUsage(o: RuleOccurrenceUsageMemberContext): BodyElement = {
-    val visibility = visitVisibilityIndicator(o.ruleMemberPrefix().ruleVisibilityIndicator())
-    o.ruleOccurrenceUsageElement() match {
+  private def visitOccurrenceUsageElement(visibility: Visibility.Type, o: RuleOccurrenceUsageElementContext): OccurrenceUsageElement = {
+    o match {
       case i1: RuleOccurrenceUsageElement1Context =>
         i1.ruleStructureUsageElement() match {
+          case su5: RuleStructureUsageElement5Context =>
+            return visitItemUsage(visibility, su5.ruleItemUsage())
+
           case su6: RuleStructureUsageElement6Context =>
-            return visitPartUsage(su6.rulePartUsage())
+            return visitPartUsage(visibility, su6.rulePartUsage())
 
           case su9: RuleStructureUsageElement9Context =>
-            return visitPortUsage(su9.rulePortUsage())
+            return visitPortUsage(visibility, su9.rulePortUsage())
 
           case su10: RuleStructureUsageElement10Context =>
-            val connectionUsage = su10.ruleConnectionUsage()
-            reportError(connectionUsage, "Need to handle occurrence connection usages")
-            return Placeholders.BodyItemPlaceholder
+            return visitConnectionUsage(visibility, su10.ruleConnectionUsage())
 
           case x =>
             reportError(x, s"${x.getClass.getSimpleName} are not currently supported")
-            return Placeholders.BodyItemPlaceholder
+            return Placeholders.OccurrenceUsageElementPlaceholder
         }
 
       case i2: RuleOccurrenceUsageElement2Context =>
         val elem = i2.ruleBehaviorUsageElement()
         reportError(elem, "Not currently supporting behavior usages")
-        return Placeholders.BodyItemPlaceholder
+        return Placeholders.OccurrenceUsageElementPlaceholder
     }
   }
 
-  private def visitNonOccurrenceUsage(o: RuleNonOccurrenceUsageMemberContext): BodyElement = {
-    val visibility = visitVisibilityIndicator(o.ruleMemberPrefix().ruleVisibilityIndicator())
-    o.ruleNonOccurrenceUsageElement() match {
+  /*
+   * ConnectionUsage returns SysML::ConnectionUsage :
+	 * OccurrenceUsagePrefix
+	 * ( ConnectionUsageKeyword UsageDeclaration? ValuePart? ( ConnectorKeyword ConnectorPart )?
+	 *   | ConnectorKeyword ConnectorPart
+	 * ) UsageBody;
+   */
+  private def visitConnectionUsage(visibility: Visibility.Type, context: RuleConnectionUsageContext): ConnectionUsage = {
+    val occurrenceUsagePrefix = visitOccurrenceUsagePrefix(context.ruleOccurrenceUsagePrefix())
+
+    val (identification, specializations): (Option[Identification], ISZ[FeatureSpecialization]) =
+      if (isEmpty(context.ruleUsageDeclaration())) {
+        (None(), ISZ())
+      } else {
+        visitFeatureDeclaration(context.ruleUsageDeclaration().ruleFeatureDeclaration())
+      }
+
+    val featureValue: Option[FeatureValue] =
+      if (isEmpty(context.ruleValuePart())) None()
+      else Some(visitFeatureValue(context.ruleValuePart().ruleFeatureValue()))
+
+    val connectorPart: Option[ConnectorPart] =
+      if (isEmpty(context.ruleConnectorKeyword())) {
+        assert(isEmpty(context.ruleConnectorPart()))
+        None()
+      } else {
+        context.ruleConnectorPart() match {
+          case c1: RuleConnectorPart1Context =>
+            assert(c1.ruleBinaryConnectorPart().ruleConnectorEndMember().size() == 2)
+            val src = visitConnectorEnd(c1.ruleBinaryConnectorPart().ruleConnectorEndMember(0).ruleConnectorEnd())
+            val dst = visitConnectorEnd(c1.ruleBinaryConnectorPart().ruleConnectorEndMember(1).ruleConnectorEnd())
+            Some(BinaryConnectorPart(src, dst))
+          case c2: RuleConnectorPart2Context =>
+            val ends = for (c <- listToISZ(c2.ruleNaryConnectorPart().ruleConnectorEndMember())) yield visitConnectorEnd(c.ruleConnectorEnd())
+            Some(NaryConnectorPart(connectorEnds = ends))
+        }
+      }
+
+    val bodyItems = visitDefinitionBody(context.ruleUsageBody().ruleDefinitionBody())
+
+    return ConnectionUsage(
+      visibility = visibility,
+      occurrenceUsagePrefix = occurrenceUsagePrefix,
+      identification = identification,
+      specializations = specializations,
+      featureValue = featureValue,
+      connectorPart = connectorPart,
+      bodyItems = bodyItems)
+  }
+
+  private def visitConnectorEnd(context: RuleConnectorEndContext): ConnectorEnd = {
+    if (nonEmpty(context.ruleName())) {
+      halt("Need to see and example of this")
+    }
+
+    val ref: ISZ[QualifiedName] = context.ruleOwnedReferenceSubsetting() match {
+      case s1: RuleOwnedReferenceSubsetting1Context =>
+        ISZ(visitQualifiedName(s1.ruleQualifiedName()))
+      case s2: RuleOwnedReferenceSubsetting2Context =>
+        visitFeatureChain(s2.ruleOwnedFeatureChain().ruleFeatureChain())
+    }
+
+    reportError(isEmpty(context.ruleOwnedMultiplicity()), context, "Multiplicities are not currently supported")
+
+    return ConnectorEnd(reference = ref)
+  }
+
+  private def visitFeatureChain(context: RuleFeatureChainContext): ISZ[QualifiedName] = {
+    var chain = ISZ(visitQualifiedName(context.ruleOwnedFeatureChaining(0).ruleQualifiedName()))
+    for (i <- 1 until context.ruleOwnedFeatureChaining().size()) {
+      chain = chain :+ visitQualifiedName(context.ruleOwnedFeatureChaining(i).ruleQualifiedName())
+    }
+    return chain
+  }
+
+  private def visitNonOccurrenceUsageElement(visibility: Visibility.Type, o: RuleNonOccurrenceUsageElementContext): NonOccurrenceUsageElement = {
+    o match {
       case i1: RuleNonOccurrenceUsageElement1Context =>
-        val refDefaultUsage = i1.ruleDefaultReferenceUsage()
-        reportError(refDefaultUsage, "Need to handle non-occurrence default usages")
-        return Placeholders.BodyItemPlaceholder
+        return visitDefaultReferenceUsage(visibility, i1.ruleDefaultReferenceUsage())
 
       case i2: RuleNonOccurrenceUsageElement2Context =>
-        val refUsage = i2.ruleReferenceUsage()
-        reportError(refUsage, "Need to handle non-occurrence reference usages")
-        return Placeholders.BodyItemPlaceholder
+        return visitReferenceUsage(visibility, i2.ruleReferenceUsage())
 
       case i3: RuleNonOccurrenceUsageElement3Context =>
-        return visitAttributeUsage(i3.ruleAttributeUsage())
+        return visitAttributeUsage(visibility, i3.ruleAttributeUsage())
 
       case i4: RuleNonOccurrenceUsageElement4Context =>
         val enumUsage = i4.ruleEnumerationUsage()
         reportError(enumUsage, "Need to handle non-occurrence enum usages")
-        return Placeholders.BodyItemPlaceholder
+        return Placeholders.NonOccurrenceUsageElementPlaceholder
 
       case i5: RuleNonOccurrenceUsageElement5Context =>
         val bindingConnector = i5.ruleBindingConnectorAsUsage()
         reportError(bindingConnector, "Need to handle non-occurrence binding connectors")
-        return Placeholders.BodyItemPlaceholder
+        return Placeholders.NonOccurrenceUsageElementPlaceholder
 
       case i6: RuleNonOccurrenceUsageElement6Context =>
         val successionUsage = i6.ruleSuccessionAsUsage()
         reportError(successionUsage, "Need to handle non-occurrence succession usages")
-        return Placeholders.BodyItemPlaceholder
+        return Placeholders.NonOccurrenceUsageElementPlaceholder
 
       case i7: RuleNonOccurrenceUsageElement7Context =>
         val extendedUsage = i7.ruleExtendedUsage()
         reportError(extendedUsage, "Need to handle non-occurrence extended usages")
-        return Placeholders.BodyItemPlaceholder
+        return Placeholders.NonOccurrenceUsageElementPlaceholder
     }
   }
 
-  def visitAttributeUsage(o: RuleAttributeUsageContext): AttributeUsage = {
+  private def visitDefaultReferenceUsage(visibility: Visibility.Type, context: RuleDefaultReferenceUsageContext): DefaultReferenceUsage = {
+    val refPrefix = visitRefPrefix(context.ruleRefPrefix())
+
+    val (identification, specializations) = visitFeatureDeclaration(context.ruleUsageDeclaration().ruleFeatureDeclaration())
+
+    val featureValue: Option[FeatureValue] =
+      if (isEmpty(context.ruleValuePart())) {
+        None()
+      } else {
+        Some(visitFeatureValue(context.ruleValuePart().ruleFeatureValue()))
+      }
+
+    val bodyItems = visitDefinitionBody(context.ruleUsageBody().ruleDefinitionBody())
+
+    return DefaultReferenceUsage(
+      visibility = visibility,
+      prefix = refPrefix,
+      identification = identification,
+      specializations = specializations,
+      featureValue = featureValue,
+      definitionBodyItems = bodyItems
+    )
+  }
+
+  def visitReferenceUsage(visibility: Visibility.Type, o: RuleReferenceUsageContext): ReferenceUsage = {
+    val p = visitRefPrefix(o.ruleRefPrefix())
+    val u = visitUsage(o.ruleUsage())
+
+    return ReferenceUsage(
+      visibility = visibility,
+      prefix = p,
+      identification = u.identification,
+      specializations = u.specializations,
+      definitionBodyItems = u.definitionBodyItems
+    )
+  }
+
+  def visitAttributeUsage(visibility: Visibility.Type, o: RuleAttributeUsageContext): AttributeUsage = {
 
     val p = visitUsagePrefix(o.ruleUsagePrefix())
     val u = visitUsage(o.ruleUsage())
 
     return AttributeUsage(
+      visibility = visibility,
       prefix = p,
       identification = u.identification,
       specializations = u.specializations,
@@ -561,14 +782,15 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   }
 
 
-  private def visitOccurrenceDefinitionPrefix(occurrenceDef: RuleOccurrenceDefinitionPrefixContext): OccurrenceDefinition = {
-    reportError(occurrenceDef.K_INDIVIDUAL() == null, occurrenceDef, "The 'individual' keyword is not currently supported")
+  private def visitOccurrenceDefinitionPrefix(occurrenceDef: RuleOccurrenceDefinitionPrefixContext): OccurrenceDefinitionPrefix = {
+
     reportError(occurrenceDef.ruleLifeClassMembership() == null, occurrenceDef.ruleLifeClassMembership(),
       "Life Classes are not currently supported")
     reportError(occurrenceDef.ruleDefinitionExtensionKeyword().isEmpty, occurrenceDef,
       "Extension definitions are not currently supported")
 
     var isAbstract = F
+    var isVariation = F
     if (occurrenceDef.ruleBasicDefinitionPrefix() != null) {
       occurrenceDef.ruleBasicDefinitionPrefix() match {
         case x: RuleBasicDefinitionPrefix1Context =>
@@ -576,109 +798,126 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           isAbstract = T
 
         case x: RuleBasicDefinitionPrefix2Context =>
-          reportError(x, "The 'variation' keyword is not currently supported")
+          assert(x.K_VARIATION() != null)
+          isVariation = T
       }
     }
-    return OccurrenceDefinition(isAbstract = isAbstract)
+
+    return OccurrenceDefinitionPrefix(
+      isAbstract = isAbstract,
+      isVariation = isVariation
+    )
   }
 
-  private def visitFeatureSpecialization(fs: RuleFeatureSpecializationPartContext): ISZ[FeatureSpecialization] = {
+  private def visitFeatureSpecializationPart(fs: RuleFeatureSpecializationPartContext): ISZ[FeatureSpecialization] = {
     var ret: ISZ[FeatureSpecialization] = ISZ()
     fs match {
       case s1: RuleFeatureSpecializationPart1Context =>
-        reportError(isEmpty(s1.ruleMultiplicityPart()), s1.ruleMultiplicityPart(), "Multiplicities are not currently supported")
-        for (s <- s1.ruleFeatureSpecialization().asScala) {
-          s match {
-            case x: RuleFeatureSpecialization1Context =>
-              val typings = x.ruleTypings()
-              if (!typings.ruleFeatureTyping().isEmpty) {
-                reportError(typings.ruleFeatureTyping().get(0), "Comma-separated feature typings are not currently supported")
-              }
-              typings.ruleTypedBy().ruleFeatureTyping() match {
-                case t1: RuleFeatureTyping1Context =>
-                  t1.ruleOwnedFeatureTyping() match {
-                    case ot1: RuleOwnedFeatureTyping1Context =>
-                      ret = ret :+ QualifiedNameSpecialization(visitQualifiedName(ot1.ruleQualifiedName()))
-                    case ot2: RuleOwnedFeatureTyping2Context =>
-                      reportError(ot2.ruleOwnedFeatureChain(), "Feature chaining is not currently supported")
-                    case x =>
-                      halt(s"Not expecting $x")
-                  }
+        //ruleFeatureSpecialization+ ruleMultiplicityPart? ruleFeatureSpecialization* #ruleFeatureSpecializationPart1
 
-                case t2: RuleFeatureTyping2Context =>
-                  reportError(t2, "Conjugated port typing is not currently supported")
-              }
-            case x: RuleFeatureSpecialization2Context =>
-              val subsettings = x.ruleSubsettings()
-              reportError(subsettings, "Subsets are not currently supported")
-            case x: RuleFeatureSpecialization3Context =>
-              val references = x.ruleReferences()
-              reportError(references, "References are not currently supported")
-            case x: RuleFeatureSpecialization4Context =>
-              def qns(or: RuleOwnedRedefinitionContext): QualifiedName = {
-                or match {
-                  case o1: RuleOwnedRedefinition1Context => return visitQualifiedName(o1.ruleQualifiedName())
-                  case o2: RuleOwnedRedefinition2Context =>
-                    reportError(o2, "Feature chaining is not currently supported")
-                    return ISZ()
-                }
-              }
-
-              val redefinitions = x.ruleRedefinitions()
-              var qualifiedNames: ISZ[QualifiedName] = ISZ(qns(redefinitions.ruleRedefines().ruleOwnedRedefinition()))
-              qualifiedNames = qualifiedNames ++ (for (rod <- listToISZ(redefinitions.ruleOwnedRedefinition())) yield qns(rod))
-
-              ret = ret :+ RedefinitionSpecialization(qualifiedNames)
-
-            case x => halt(s"Not expecting $x")
+        // iterate over children to preserve ordering
+        for (c <- s1.children.asScala) {
+          c match {
+            case i: RuleFeatureSpecializationContext =>
+              ret = ret :+ visitFeatureSpecialization(i)
+            case i: RuleMultiplicityPartContext =>
+              reportError(isEmpty(s1.ruleMultiplicityPart()), s1.ruleMultiplicityPart(), "Multiplicities are not currently supported")
           }
         }
+
       case s2: RuleFeatureSpecializationPart2Context =>
         reportError(s2.ruleMultiplicityPart(), "Not currently handling payload specialization")
     }
     return ret
   }
 
+  def visitFeatureSpecialization(context: SysMLv2Parser.RuleFeatureSpecializationContext): FeatureSpecialization = {
+    context match {
+      case x: RuleFeatureSpecialization1Context =>
+        // ruleTypings: ruleTypedBy (',' ruleFeatureTyping)*;
+        // ruleTypedBy: ruleDefinedByKeyword ruleFeatureTyping;
+
+        val typings = x.ruleTypings()
+        val featureTypings: ISZ[RuleFeatureTypingContext] =
+          ISZ(typings.ruleTypedBy().ruleFeatureTyping()) ++
+            listToISZ(typings.ruleFeatureTyping())
+
+        var types: ISZ[QualifiedName] = ISZ()
+        for (t <- featureTypings) {
+          t match {
+            case t1: RuleFeatureTyping1Context =>
+              t1.ruleOwnedFeatureTyping() match {
+                case ot1: RuleOwnedFeatureTyping1Context =>
+                  types = types :+ visitQualifiedName(ot1.ruleQualifiedName())
+                case ot2: RuleOwnedFeatureTyping2Context =>
+                  types = types ++ visitFeatureChain(ot2.ruleOwnedFeatureChain().ruleFeatureChain())
+              }
+            case t2: RuleFeatureTyping2Context =>
+              reportError(t2, "Conjugated port typing is not currently supported")
+          }
+        }
+        return TypingsSpecialization(types)
+
+      case x: RuleFeatureSpecialization2Context =>
+        // ruleSubsettings: ruleSubsets (',' ruleOwnedSubsetting)*;
+        // ruleSubsets: ruleSubsetsKeyword ruleOwnedSubsetting;
+
+        val subsettings = x.ruleSubsettings()
+        val ownedSubsettings = ISZ(subsettings.ruleSubsets().ruleOwnedSubsetting()) ++ listToISZ(subsettings.ruleOwnedSubsetting())
+
+        var subsets: ISZ[QualifiedName] = ISZ()
+        for (s <- ownedSubsettings) {
+          s match {
+            case i: RuleOwnedSubsetting1Context =>
+              subsets = subsets :+ visitQualifiedName(i.ruleQualifiedName())
+            case i: RuleOwnedSubsetting2Context =>
+              subsets = subsets ++ visitFeatureChain(i.ruleOwnedFeatureChain().ruleFeatureChain())
+          }
+        }
+        return SubsettingsSpecialization(subsettings = subsets)
+
+      case x: RuleFeatureSpecialization3Context =>
+        // ruleReferences: ruleReferencesKeyword ruleOwnedReferenceSubsetting;
+
+        val references = x.ruleReferences()
+        reportError(references, "References are not currently supported")
+
+        references.ruleOwnedReferenceSubsetting() match {
+          case i: RuleOwnedReferenceSubsetting1Context =>
+            return ReferencesSpecialization(ISZ(visitQualifiedName(i.ruleQualifiedName())))
+          case i: RuleOwnedReferenceSubsetting2Context =>
+            return ReferencesSpecialization(visitFeatureChain(i.ruleOwnedFeatureChain().ruleFeatureChain()))
+        }
+
+      case x: RuleFeatureSpecialization4Context =>
+        // ruleRedefinitions: ruleRedefines (',' ruleOwnedRedefinition)*;
+        // ruleRedefines: ruleRedefinesKeyword ruleOwnedRedefinition;
+
+        val redefs = x.ruleRedefinitions()
+        val ownedRedefinitions =
+          ISZ(redefs.ruleRedefines().ruleOwnedRedefinition()) ++
+            listToISZ(redefs.ruleOwnedRedefinition())
+
+        var redefines: ISZ[QualifiedName] = ISZ()
+        for (o <- ownedRedefinitions) {
+          o match {
+            case i: RuleOwnedRedefinition1Context =>
+              redefines = redefines :+ visitQualifiedName(i.ruleQualifiedName())
+            case i: RuleOwnedRedefinition2Context =>
+              redefines = redefines ++ visitFeatureChain(i.ruleOwnedFeatureChain().ruleFeatureChain())
+          }
+        }
+        return RedefinitionsSpecialization(redefines)
+
+      case x => halt(s"Not expecting $x")
+    }
+  }
+
   private def visitUsagePrefix(o: RuleUsagePrefixContext): UsagePrefix = {
 
-    var direction: Option[FeatureDirection.Type] = None()
-    var isAbstract: B = F
-    var isVariation: B = F
-    var isReadOnly: B = F
-    var isDerived: B = F
-    var isEnd: B = F
-    var isRef: B = F
-    var isIndividual: B = F
+    val refPrefix = visitRefPrefix(o.ruleBasicUsagePrefix().ruleRefPrefix())
+
     var usageExtensions: ISZ[QualifiedName] = ISZ()
-
-
-    if (nonEmpty(o.ruleBasicUsagePrefix())) {
-      val bup = o.ruleBasicUsagePrefix()
-      if (nonEmpty(bup.ruleRefPrefix().ruleFeatureDirection())) {
-        bup.ruleRefPrefix().ruleFeatureDirection() match {
-          case x: RuleFeatureDirection1Context =>
-            assert(x.K_IN() != null) // sanity
-            direction = Some(FeatureDirection.In)
-          case x: RuleFeatureDirection2Context =>
-            assert(x.K_OUT() != null) // sanity
-            direction = Some(FeatureDirection.Out)
-          case x: RuleFeatureDirection3Context =>
-            assert(x.K_INOUT() != null)
-            direction = Some(FeatureDirection.InOut)
-          case x =>
-            reportError(x, s"Not expecting direction of type ${x.getClass.getSimpleName}")
-        }
-      }
-
-      isAbstract = bup.ruleRefPrefix().K_ABSTRACT() != null
-      isVariation = bup.ruleRefPrefix().K_VARIATION() != null
-      isReadOnly = bup.ruleRefPrefix().K_READONLY() != null
-      isDerived = bup.ruleRefPrefix().K_DERIVED() != null
-      isEnd = bup.ruleRefPrefix().K_END() != null
-
-      isRef = bup.K_REF() != null
-    }
-
     if (!o.ruleUsageExtensionKeyword().isEmpty) {
       for (ue <- o.ruleUsageExtensionKeyword().asScala) {
         usageExtensions = usageExtensions :+
@@ -687,60 +926,45 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     }
 
     return UsagePrefix(
-      direction = direction,
-      isAbstract = isAbstract,
-      isVariation = isVariation,
-      isReadOnly = isReadOnly,
-      isDerived = isDerived,
-      isEnd = isEnd,
-      isRef = isRef,
+      refPrefix = refPrefix,
+      isRef = o.ruleBasicUsagePrefix().K_REF() != null,
       usageExtensions = usageExtensions)
   }
 
-  private def visitOccurrenceUsagePrefix(ocup: RuleOccurrenceUsagePrefixContext): OccurrenceUsage = {
-    reportError(ocup.K_INDIVIDUAL() == null, ocup, "The 'individual' keyword is not currently supported")
+  private def visitRefPrefix(context: RuleRefPrefixContext): RefPrefix = {
 
     var direction: Option[FeatureDirection.Type] = None()
-    var isAbstract: B = F
-    var isVariation: B = F
-    var isReadOnly: B = F
-    var isDerived: B = F
-    var isEnd: B = F
-    var isRef: B = F
-    var isIndividual: B = F
-    var isSnapshot: B = F
-    var isTimeslice: B = F
-    var usageExtensions: ISZ[QualifiedName] = ISZ()
-
-    if (nonEmpty(ocup.ruleBasicUsagePrefix())) {
-      val bup = ocup.ruleBasicUsagePrefix()
-      if (nonEmpty(bup.ruleRefPrefix().ruleFeatureDirection())) {
-        bup.ruleRefPrefix().ruleFeatureDirection() match {
-          case x: RuleFeatureDirection1Context =>
-            assert(x.K_IN() != null) // sanity
-            direction = Some(FeatureDirection.In)
-          case x: RuleFeatureDirection2Context =>
-            assert(x.K_OUT() != null) // sanity
-            direction = Some(FeatureDirection.Out)
-          case x: RuleFeatureDirection3Context =>
-            assert(x.K_INOUT() != null)
-            direction = Some(FeatureDirection.InOut)
-          case x =>
-            reportError(x, s"Not expecting direction of type ${x.getClass.getSimpleName}")
-        }
+    if (nonEmpty(context.ruleFeatureDirection())) {
+      context.ruleFeatureDirection() match {
+        case x: RuleFeatureDirection1Context =>
+          assert(x.K_IN() != null) // sanity
+          direction = Some(FeatureDirection.In)
+        case x: RuleFeatureDirection2Context =>
+          assert(x.K_OUT() != null) // sanity
+          direction = Some(FeatureDirection.Out)
+        case x: RuleFeatureDirection3Context =>
+          assert(x.K_INOUT() != null)
+          direction = Some(FeatureDirection.InOut)
+        case x =>
+          reportError(x, s"Not expecting direction of type ${x.getClass.getSimpleName}")
       }
-
-      isAbstract = bup.ruleRefPrefix().K_ABSTRACT() != null
-      isVariation = bup.ruleRefPrefix().K_VARIATION() != null
-      isReadOnly = bup.ruleRefPrefix().K_READONLY() != null
-      isDerived = bup.ruleRefPrefix().K_DERIVED() != null
-      isEnd = bup.ruleRefPrefix().K_END() != null
-
-      isRef = bup.K_REF() != null
     }
 
-    isIndividual = ocup.K_INDIVIDUAL() != null
+    return RefPrefix(
+      direction = direction,
+      isAbstract = context.K_ABSTRACT() != null,
+      isVariation = context.K_VARIATION() != null,
+      isReadOnly = context.K_READONLY() != null,
+      isDerived = context.K_DERIVED() != null,
+      isEnd = context.K_END() != null)
+  }
 
+  private def visitOccurrenceUsagePrefix(ocup: RuleOccurrenceUsagePrefixContext): OccurrenceUsagePrefix = {
+    val refPrefix = visitRefPrefix(ocup.ruleBasicUsagePrefix().ruleRefPrefix())
+    val isRef = ocup.ruleBasicUsagePrefix().K_REF() != null
+
+    var isSnapshot: B = F
+    var isTimeslice: B = F
     if (nonEmpty(ocup.rulePortionKind())) {
       ocup.rulePortionKind() match {
         case i: RulePortionKind1Context =>
@@ -752,6 +976,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       }
     }
 
+    var usageExtensions: ISZ[QualifiedName] = ISZ()
     if (!ocup.ruleUsageExtensionKeyword().isEmpty) {
       for (ue <- ocup.ruleUsageExtensionKeyword().asScala) {
         usageExtensions = usageExtensions :+
@@ -759,15 +984,10 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       }
     }
 
-    return OccurrenceUsage(
-      direction = direction,
-      isAbstract = isAbstract,
-      isVariation = isVariation,
-      isReadOnly = isReadOnly,
-      isDerived = isDerived,
-      isEnd = isEnd,
+    return OccurrenceUsagePrefix(
+      refPrefix = refPrefix,
       isRef = isRef,
-      isIndividual = isIndividual,
+      isIndividual = ocup.K_INDIVIDUAL() != null,
       isSnapshot = isSnapshot,
       isTimeslice = isTimeslice,
       usageExtensions = usageExtensions
@@ -784,16 +1004,6 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
   private def listToISZ[T](l: util.List[T]): ISZ[T] = {
     return ISZ(l.asScala.toSeq: _*)
-  }
-
-  /** ruleAliasMember: ruleMemberPrefix 'alias' ('<' ruleName '>')? ruleName? 'for' ruleQualifiedName ruleRelationshipBody;
-   */
-  def visitAliases(aliases: mutable.Buffer[RuleAliasMemberContext]): ISZ[Alias] = {
-    var ret: ISZ[Alias] = ISZ()
-    for (alias <- aliases) {
-      ret = ret :+ visitAlias(alias)
-    }
-    return ret
   }
 
   def visitAlias(alias: RuleAliasMemberContext): Alias = {
@@ -820,14 +1030,6 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     val target: ISZ[String] = visitQualifiedName(alias.ruleQualifiedName())
 
     return Alias(visibility = visibility, identification = id, target = target)
-  }
-
-  def visitImports(imports: mutable.Buffer[RuleImportContext]): ISZ[Import] = {
-    var ret: ISZ[Import] = ISZ()
-    for (importe <- imports) {
-      ret = ret :+ visitImport(importe)
-    }
-    return ret
   }
 
   def visitImport(importe: RuleImportContext): Import = {
@@ -874,13 +1076,13 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
       val namespace = nimport.ruleImportedNamespace()
 
-      val qualfiedName = visitQualifiedName(namespace.ruleQualifiedName())
+      val qualifiedName = visitQualifiedName(namespace.ruleQualifiedName())
 
       assert(nimport.ruleImportedNamespace().OP_STAR() != null, "The star is not optional")
 
       return Import(
         visibility = visibility,
-        qualifiedName = qualfiedName,
+        qualifiedName = qualifiedName,
         star = T,
         starStar = nimport.ruleImportedNamespace().OP_STAR_STAR() != null,
         annotations = annotations
@@ -1044,11 +1246,11 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           AST.Exp.BinaryOp.Ne
         case i: RuleEqualityOperator3Context =>
           assert(i.OP_EQ_EQ_EQ() != null)
-          reportWarn(i, "TODO, can sysmlv2's === be mapped to Slang's ===")
+          reportError(i, "TODO, can sysmlv2's === be mapped to Slang's ===")
           AST.Exp.BinaryOp.Equiv
         case i: RuleEqualityOperator4Context =>
           assert(i.OP_BANG_EQ_EQ() != null)
-          reportWarn(i, "TODO, can sysmlv2's !== be mapped to Slang's =!=")
+          reportError(i, "TODO, can sysmlv2's !== be mapped to Slang's =!=")
           AST.Exp.BinaryOp.Inequiv
       }
       s = s.push((binaryOp, visitClassificationExpression(o.getChild(i + 1).asInstanceOf[RuleClassificationExpressionContext])))
@@ -1222,17 +1424,124 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     }
   }
 
+  // rulePrimaryExpression:
+  //   ruleBaseExpression ( '.' ruleFeatureChainMember )?
+  //   ( ( '#' '(' ruleSequenceExpression ')'
+  //     | '[' ruleSequenceExpression ']'
+  //     | '->' ruleReferenceTyping (ruleBodyExpression | ruleFunctionReferenceExpression | ruleArgumentList)
+  //     | '.' ruleBodyExpression
+  //     | '.?' ruleBodyExpression
+  //     )
+  //     ( '.' ruleFeatureChainMember)?
+  //   )*;
   private def visitPrimaryExpression(o: RulePrimaryExpressionContext): AST.Exp = {
-    val e = visitBaseExpression(o.ruleBaseExpression())
+    var baseExp = visitBaseExpression(o.ruleBaseExpression())
 
-    reportError(o.ruleFeatureChainMember().isEmpty, o, "Chaining not yet supported")
-    reportError(o.ruleSequenceExpression().isEmpty, o, "Sequencing is not yet supported")
-    reportError(o.ruleReferenceTyping().isEmpty, o, "Reference typing is not yet supported")
-    reportError(o.ruleBodyExpression().isEmpty, o, "Body expressions are not yet supported")
-    reportError(o.ruleFunctionReferenceExpression().isEmpty, o, "Function references are not yet supported")
-    reportError(o.ruleArgumentList().isEmpty, o, "Argument lists are not yet supported")
+    var ret = baseExp
+    if (o.children.size() > 1) {
+      var index = 1
+      o.getChild(index) match {
+        case i: TerminalNodeImpl if i.getText == "." && o.getChild(index + 1).isInstanceOf[RuleFeatureChainMemberContext] =>
+          // ( '.' ruleFeatureChainMember )?
+          index = index + 1
+          o.getChild(index) match {
+            case i: RuleFeatureChainMember1Context =>
+              // e.g.  e.id
+              val id = visitQualifiedNameAsId(i.ruleQualifiedName())
+              assert(id.size == 1)
 
-    return e
+              baseExp = AST.Exp.Select(
+                receiverOpt = Some(baseExp),
+                id = id(0),
+                targs = ISZ(),
+                attr = Placeholders.emptyResolvedAttr(mergePos(baseExp.posOpt, id(0).attr.posOpt))
+              )
+            case i: RuleFeatureChainMember2Context =>
+              // e.blah::x.blah2::y
+              halt("todo, need example of this")
+          }
+          index = index + 1
+        case _ =>
+      }
+
+      assert(o.getChildCount == o.children.size())
+
+      ret = baseExp
+
+      while (index < o.getChildCount) {
+
+        o.getChild(index) match {
+          case i: TerminalNodeImpl if i.getText == "#" =>
+            // ( '#' '(' ruleSequenceExpression ')'
+            val se = visitSequenceExpression(o.getChild(index + 2).asInstanceOf[RuleSequenceExpressionContext])
+            index = index + 4
+            halt("")
+          case i: TerminalNodeImpl if i.getText == "[" =>
+            //     | '[' ruleSequenceExpression ']'
+            val se = visitSequenceExpression(o.getChild(index + 1).asInstanceOf[RuleSequenceExpressionContext])
+            reportWarn(o.getChild(index + 1), s"The sequencing expression '$se' is currently ignored")
+            index = index + 3
+
+          case i: TerminalNodeImpl if i.getText == "->" =>
+            //     | '->' ruleReferenceTyping (ruleBodyExpression | ruleFunctionReferenceExpression | ruleArgumentList)
+            val rt = visitReferenceTyping(o.getChild(index + 1).asInstanceOf[RuleReferenceTypingContext])
+            val subExp = o.getChild(index + 2) match {
+              case bec: RuleBodyExpressionContext =>
+                visitBodyExpression(bec)
+              case fre: RuleFunctionReferenceExpressionContext =>
+                visitFunctionReferenceExpression(fre)
+              case al: RuleArgumentListContext =>
+                visitArgumentList(al)
+            }
+            index = index + 3
+            halt("Need example of this")
+          case i: TerminalNodeImpl if i.getText == "." =>
+            o.getChild(index + 1) match {
+              case i: TerminalNodeImpl =>
+                //     | '.?' ruleBodyExpression
+                assert(i.getText == "?")
+                val be = visitBodyExpression(o.getChild(index + 2).asInstanceOf[RuleBodyExpressionContext])
+                index = index + 3
+                halt("Need example of this")
+              case i =>
+                //     | '.' ruleBodyExpression
+                val be = visitBodyExpression(i.asInstanceOf[RuleBodyExpressionContext])
+                index = index + 2
+                halt("Need example of this")
+            }
+          case x =>
+            halt(s"wasn't expecting ${x}")
+        }
+
+        if (index < o.getChildCount) {
+          o.getChild(index) match {
+            case i: TerminalNodeImpl if i.getText == "." && o.getChild(index + 1).isInstanceOf[RuleFeatureChainMemberContext] =>
+              //     ( '.' ruleFeatureChainMember)?
+              index = index + 1
+              // blah
+              index = index + 1
+              halt("Need example of this")
+
+            case _ =>
+          }
+        }
+
+      }
+    }
+
+    return ret
+  }
+
+  private def visitArgumentList(al: RuleArgumentListContext): AST.Exp = {
+    halt("todo")
+  }
+
+  private def visitFunctionReferenceExpression(fre: RuleFunctionReferenceExpressionContext): AST.Exp = {
+    halt("todo")
+  }
+
+  private def visitReferenceTyping(context: RuleReferenceTypingContext): AST.Exp = {
+    halt("todo")
   }
 
   private def visitBaseExpression(o: RuleBaseExpressionContext): AST.Exp = {
@@ -1280,7 +1589,13 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   }
 
   private def visitSequenceExpression(o: RuleSequenceExpressionContext): AST.Exp = {
-    halt("")
+    val oe = visitOwnedExpression(o.ruleOwnedExpression())
+
+    if (o.getChildCount > 1) {
+      reportError(o, "comma separated sequencing expressions are not currently supported")
+    }
+
+    return oe
   }
 
   private def visitBodyExpression(o: RuleBodyExpressionContext): AST.Exp = {
@@ -1300,10 +1615,10 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       case i: RuleLiteralExpression1Context =>
         i.ruleLiteralBoolean().ruleBooleanValue() match {
           case i: RuleBooleanValue1Context =>
-            assert (i.K_TRUE() != null)
+            assert(i.K_TRUE() != null)
             return AST.Exp.LitB(value = T, attr = Placeholders.emptyAttr)
           case i: RuleBooleanValue2Context =>
-            assert (i.K_FALSE() != null)
+            assert(i.K_FALSE() != null)
             return AST.Exp.LitB(value = F, attr = Placeholders.emptyAttr)
         }
 

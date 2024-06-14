@@ -91,8 +91,8 @@ object SysMLGrammar_Ext {
                 }
               case "." => st"."
               case _ if t.getChildCount > 0 => printRangeOrNotSet(t)
-              case _ =>
-                halt("Infeasible")
+              case x =>
+                halt(s"Infeasible: $x")
             }
         }
       }
@@ -202,7 +202,8 @@ object SysMLGrammar_Ext {
           if (id == "RULE_SL_NOTE") st"$id: '//' ~'*' (~('\\n' | '\\r') ~('\\n' | '\\r')*)? ('\\r'? '\\n')?$hiddenOpt;"
           else if (alts.size == 1) st"$id: ${alts(0)}$hiddenOpt;"
           else {
-            alts = for (i <- 1 to alts.size) yield st"${alts(i - 1)} #$id$i"
+            //alts = for (i <- 1 to alts.size) yield st"${alts(i - 1)} #$id$i"
+            alts = for (i <- 1 to alts.size) yield st"${alts(i - 1)} ${if (isParser) s"#$id$i" else "" }"
             st"""$id:
                 |  ${(alts, "\n| ")}$hiddenOpt;"""
           })
@@ -263,7 +264,9 @@ object SysMLGrammar_Ext {
         case '{' => "LBRACE"
         case '}' => "RBRACE"
         case '?' => "QMARK"
-        case _ => halt(s"Infeasible: $c")
+        case x =>
+          //halt(s"Infeasible: $c")
+        s"____${x}____"
       }
 
       def getParenTokenDef(c: C): ST = st"${getSymbolName(c)}: '$c';"
@@ -331,6 +334,7 @@ object SysMLGrammar_Ext {
       eprintln(s"Could not download from $u")
       return ERROR_URL
     }
+    println(input)
     val content = input.read
     val reporter = message.Reporter.create
     val tree = parseGrammar(Some(input.toUri), content, reporter)

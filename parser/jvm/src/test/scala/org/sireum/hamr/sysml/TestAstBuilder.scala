@@ -14,6 +14,7 @@ class TestAstBuilder extends TestSuite {
 
   val filter: B = F
   val filters: ISZ[Os.Path => B] = ISZ(
+    p => p.name.native == "Deployment_Properties.sysml"
   )
 
   //val modelsDir = resourceDir / "models" // include models that may not be in our subset of sysml
