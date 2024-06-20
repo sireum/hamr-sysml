@@ -1,18 +1,25 @@
 // #Sireum
 
-package org.sireum.hamr.sysml
+package org.sireum.hamr.sysml.ast
 
 import org.sireum._
 import org.sireum.lang.{ast => AST}
+import org.sireum.message.Position
+
 object SysmlAst {
 
   type QualifiedName = ISZ[String]
 
-  @datatype class Root(val packageBodyElements: ISZ[PackageBodyElement])
+  @datatype class Root(val fileUri: Option[String],
+                       val packageBodyElements: ISZ[PackageBodyElement])
 
-  @sig trait PackageBodyElement
+  @sig trait AttrNode {
+    def posOpt: Option[Position]
+  }
 
-  @sig trait BodyElement
+  @sig trait PackageBodyElement extends AttrNode
+
+  @sig trait BodyElement extends AttrNode
 
   @enum object Visibility {
     "Public"
@@ -31,16 +38,23 @@ object SysmlAst {
                                   val definitionBodyItems: ISZ[BodyElement])
 
   @datatype class Import(val visibility: Visibility.Type,
+                         val all: B,
                          val qualifiedName: QualifiedName,
                          val star: B,
                          val starStar: B,
-                         val annotations: ISZ[AnnotatingElement])
-    extends PackageBodyElement with BodyElement
+                         val annotations: ISZ[AnnotatingElement],
+                         @hidden val attr: Attr) extends PackageBodyElement with BodyElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
+
 
   @datatype class Alias(val visibility: Visibility.Type,
-                        val identification: Identification,
-                        val target: QualifiedName)
-    extends PackageBodyElement with BodyElement
+                        val identification: Option[Identification],
+                        val target: QualifiedName,
+                        val annotations: ISZ[AnnotatingElement],
+                        @hidden val attr: Attr) extends PackageBodyElement with BodyElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
 
   @datatype class Identification(val shortName: Option[String],
@@ -95,38 +109,60 @@ object SysmlAst {
   @datatype class AttributeDefinition(val defPrefix: DefinitionPrefix,
                                       val identification: Option[Identification],
                                       val subClassifications: ISZ[QualifiedName],
-                                      val definitionBodyItems: ISZ[BodyElement]) extends DefinitionElement
+                                      val definitionBodyItems: ISZ[BodyElement],
+                                      @hidden val attr: Attr) extends DefinitionElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
   @datatype class AllocationDefinition(val occurrenceDefPrefix: OccurrenceDefinitionPrefix,
                                        val identifier: Option[Identification],
                                        val subClassifications: ISZ[QualifiedName],
-                                       val bodyItems: ISZ[BodyElement]) extends DefinitionElement
+                                       val bodyItems: ISZ[BodyElement],
+                                       @hidden val attr: Attr) extends DefinitionElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
   @datatype class ConnectionDefinition(val occurrenceDefPrefix: OccurrenceDefinitionPrefix,
                                        val identifier: Option[Identification],
                                        val subClassifications: ISZ[QualifiedName],
-                                       val bodyItems: ISZ[BodyElement]) extends DefinitionElement
+                                       val bodyItems: ISZ[BodyElement],
+                                       @hidden val attr: Attr) extends DefinitionElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
-  @datatype class EnumerationDefinition(val identification: Identification,
+  @datatype class EnumerationDefinition(val identification: Option[Identification],
+                                        val subClassifications: ISZ[QualifiedName],
                                         val annotations: ISZ[AnnotatingElement],
-                                        val enumValues: ISZ[EnumeratedValue]
-                                       ) extends DefinitionElement
+                                        val enumValues: ISZ[EnumeratedValue],
+                                        @hidden val attr: Attr) extends DefinitionElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
-  @datatype class Package (val identification: Identification,
-                           val packageElements: ISZ[PackageBodyElement]
-                          ) extends DefinitionElement
+  @datatype class Package (val identification: Option[Identification],
+                           val packageElements: ISZ[PackageBodyElement],
+                           @hidden val attr: Attr) extends DefinitionElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
   @datatype class PartDefinition(val occurrenceDefPrefix: OccurrenceDefinitionPrefix,
                                  val identifier: Option[Identification],
                                  val subClassifications: ISZ[QualifiedName],
-                                 val bodyItems: ISZ[BodyElement]) extends DefinitionElement
+                                 val bodyItems: ISZ[BodyElement],
+                                 @hidden val attr: Attr) extends DefinitionElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
   @datatype class PortDefinition(val defPrefix: DefinitionPrefix,
                                  val identification: Option[Identification],
                                  val subClassifications: ISZ[QualifiedName],
-                                 val definitionBodyItems: ISZ[BodyElement]) extends DefinitionElement
+                                 val definitionBodyItems: ISZ[BodyElement],
+                                 @hidden val attr: Attr) extends DefinitionElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
-  @datatype class MetadataDefinition() extends DefinitionElement
+  @datatype class MetadataDefinition(@hidden val attr: Attr) extends DefinitionElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
   /****************************************************************
    * U S A G E S
@@ -167,20 +203,29 @@ object SysmlAst {
                                  val prefix: UsagePrefix,
                                  val identification: Option[Identification],
                                  val specializations: ISZ[FeatureSpecialization],
-                                 val definitionBodyItems: ISZ[BodyElement]) extends NonOccurrenceUsageElement
+                                 val definitionBodyItems: ISZ[BodyElement],
+                                 @hidden val attr: Attr) extends NonOccurrenceUsageElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
   @datatype class ReferenceUsage(val visibility: Visibility.Type,
                                  val prefix: RefPrefix,
                                  val identification: Option[Identification],
                                  val specializations: ISZ[FeatureSpecialization],
-                                 val definitionBodyItems: ISZ[BodyElement]) extends NonOccurrenceUsageElement
+                                 val definitionBodyItems: ISZ[BodyElement],
+                                 @hidden val attr: Attr) extends NonOccurrenceUsageElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
   @datatype class DefaultReferenceUsage(val visibility: Visibility.Type,
                                         val prefix: RefPrefix,
                                         val identification: Option[Identification],
                                         val specializations: ISZ[FeatureSpecialization],
                                         val featureValue: Option[FeatureValue],
-                                        val definitionBodyItems: ISZ[BodyElement]) extends NonOccurrenceUsageElement
+                                        val definitionBodyItems: ISZ[BodyElement],
+                                        @hidden val attr: Attr) extends NonOccurrenceUsageElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
   // Occurrence Usages
 
@@ -194,25 +239,37 @@ object SysmlAst {
                                   val specializations: ISZ[FeatureSpecialization],
                                   val featureValue: Option[FeatureValue],
                                   val connectorPart: Option[ConnectorPart],
-                                  val bodyItems: ISZ[BodyElement]) extends StructureUsageElement
+                                  val bodyItems: ISZ[BodyElement],
+                                  @hidden val attr: Attr) extends StructureUsageElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
   @datatype class ItemUsage(val visibility: Visibility.Type,
                             val occurrenceUsagePrefix: OccurrenceUsagePrefix,
                             val identification: Option[Identification],
                             val specializations: ISZ[FeatureSpecialization],
-                            val definitionBodyItems: ISZ[BodyElement]) extends StructureUsageElement
+                            val definitionBodyItems: ISZ[BodyElement],
+                            @hidden val attr: Attr) extends StructureUsageElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
   @datatype class PartUsage(val visibility: Visibility.Type,
                             val occurrenceUsagePrefix: OccurrenceUsagePrefix,
                             val identification: Option[Identification],
                             val specializations: ISZ[FeatureSpecialization],
-                            val definitionBodyItems: ISZ[BodyElement]) extends StructureUsageElement
+                            val definitionBodyItems: ISZ[BodyElement],
+                            @hidden val attr: Attr) extends StructureUsageElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
   @datatype class PortUsage(val visibility: Visibility.Type,
                             val occurrenceUsagePrefix: OccurrenceUsagePrefix,
                             val identification: Option[Identification],
                             val specializations: ISZ[FeatureSpecialization],
-                            val definitionBodyItems: ISZ[BodyElement]) extends StructureUsageElement
+                            val definitionBodyItems: ISZ[BodyElement],
+                            @hidden val attr: Attr) extends StructureUsageElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
   /****************************************************************
    * A N N O T A T I O N S
@@ -227,14 +284,25 @@ object SysmlAst {
   @datatype class Comment(val id: Option[Identification],
                           val abouts: ISZ[QualifiedName],
                           val locale: Option[String],
-                          val comment: String) extends AnnotatingElement
+                          val comment: String,
+                          @hidden val attr: Attr) extends AnnotatingElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
   @datatype class Documentation(val id: Option[Identification],
                                 val locale: Option[String],
-                                val comment: String) extends AnnotatingElement
+                                val comment: String,
+                                @hidden val attr: Attr) extends AnnotatingElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
   @datatype class TextualRepresentation(val id: Option[Identification],
                                         val language: String,
-                                        val comment: String) extends AnnotatingElement
+                                        val comment: String,
+                                        @hidden val attr: Attr) extends AnnotatingElement {
+    @strictpure override def posOpt: Option[Position] = attr.posOpt
+  }
 
 }
+
+@datatype class Attr(val posOpt: Option[Position])

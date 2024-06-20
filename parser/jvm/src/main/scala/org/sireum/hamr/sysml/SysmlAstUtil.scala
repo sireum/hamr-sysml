@@ -1,9 +1,10 @@
 package org.sireum.hamr.sysml
 
 import org.sireum._
-import org.sireum.hamr.sysml.SysmlAst.{BodyElement, Visibility}
+import org.sireum.hamr.sysml.ast.SysmlAst.{BodyElement, Visibility}
 import org.sireum.hamr.sysml.parser.{SysMLv2Parser => Sysml}
-import SysmlAst._
+import org.sireum.hamr.sysml.{ast => SAST}
+import org.sireum.hamr.sysml.ast.SysmlAst._
 import org.sireum.lang.ast.Exp
 import org.sireum.message.{FlatPos, Position}
 import org.sireum.lang.{ast => AST}
@@ -31,7 +32,8 @@ object SysmlAstUtil {
         id = None(),
         abouts = ISZ(),
         locale = None(),
-        comment = "PLACEHOLDER")
+        comment = "PLACEHOLDER",
+        attr = SAST.Attr(posOpt = None()))
     }
 
     def emptyResolvedAttr(posOpt: Option[Position]): AST.ResolvedAttr = {
@@ -61,8 +63,8 @@ object SysmlAstUtil {
         prefix = emptyUsagePrefix,
         identification = None(),
         specializations = ISZ(),
-        definitionBodyItems = ISZ()
-      )
+        definitionBodyItems = ISZ(),
+        attr = SAST.Attr(None()))
     }
 
     def emptyOccurrenceUsagePrefix: OccurrenceUsagePrefix = {
@@ -82,7 +84,8 @@ object SysmlAstUtil {
         occurrenceUsagePrefix = emptyOccurrenceUsagePrefix,
         identification = None(),
         specializations = ISZ(),
-        definitionBodyItems = ISZ())
+        definitionBodyItems = ISZ(),
+        attr = SAST.Attr(None()))
     }
   }
 
