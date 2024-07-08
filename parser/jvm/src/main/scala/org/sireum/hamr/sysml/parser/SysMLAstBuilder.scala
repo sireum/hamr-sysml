@@ -6,7 +6,7 @@ import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.tree.TerminalNodeImpl
 import org.sireum.hamr.sysml.ast.SysmlAst._
 import org.sireum.hamr.sysml.SysmlAstUtil.{Placeholders, isRegularComment, mergePos}
-import org.sireum.hamr.sysml.ast.Attr
+import org.sireum.hamr.sysml.ast.{Attr, ResolvedAttr}
 import org.sireum.hamr.sysml.parser.SysMLv2Parser._
 import org.sireum.hamr.sysml.parser.SysMLv2Parser
 import org.sireum.message.{Position, Reporter}
@@ -131,12 +131,13 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   private def visitAllocationDefinition(context: RuleAllocationDefinitionContext): AllocationDefinition = {
     val occurDef = visitOccurrenceDefinitionPrefix(context.ruleOccurrenceDefinitionPrefix())
 
-    val (identifier, subClassifications, bodyItems) = visitDefinition(context.ruleDefinition())
+    val (identification, subClassifications, bodyItems) = visitDefinition(context.ruleDefinition())
 
     return AllocationDefinition(
       occurrenceDefPrefix = occurDef,
-      identifier = identifier,
+      identification = identification,
       subClassifications = subClassifications,
+      parents = ISZ(),
       bodyItems = bodyItems,
       attr = toAttr(context)
     )
@@ -151,7 +152,8 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       defPrefix = defPrefix,
       identification = identifier,
       subClassifications = subClassifications,
-      definitionBodyItems = bodyItems,
+      parents = ISZ(),
+      bodyItems = bodyItems,
       attr = toAttr(o)
     )
   }
@@ -159,12 +161,13 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   private def visitConnectionDefinition(o: RuleConnectionDefinitionContext): ConnectionDefinition = {
     val occurrenceDefPrefix = visitOccurrenceDefinitionPrefix(o.ruleOccurrenceDefinitionPrefix())
 
-    val (identifier, subClassifications, bodyItems) = visitDefinition(o.ruleDefinition())
+    val (identification, subClassifications, bodyItems) = visitDefinition(o.ruleDefinition())
 
     return ConnectionDefinition(
       occurrenceDefPrefix = occurrenceDefPrefix,
-      identifier = identifier,
+      identification = identification,
       subClassifications = subClassifications,
+      parents = ISZ(),
       bodyItems = bodyItems,
       attr = toAttr(o)
     )
@@ -345,7 +348,8 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       defPrefix = defPrefix,
       identification = identifier,
       subClassifications = subClassifications,
-      definitionBodyItems = bodyItems,
+      parents = ISZ(),
+      bodyItems = bodyItems,
       attr = toAttr(o))
   }
 
@@ -382,12 +386,13 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
     val occurrenceDefPrefix = visitOccurrenceDefinitionPrefix(o.ruleOccurrenceDefinitionPrefix())
 
-    val (identifier, subClassifications, bodyItems) = visitDefinition(o.ruleDefinition())
+    val (identification, subClassifications, bodyItems) = visitDefinition(o.ruleDefinition())
 
     return PartDefinition(
       occurrenceDefPrefix = occurrenceDefPrefix,
-      identifier = identifier,
+      identification = identification,
       subClassifications = subClassifications,
+      parents = ISZ(),
       bodyItems = bodyItems,
       attr = toAttr(o))
   }
@@ -411,8 +416,10 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       occurrenceUsagePrefix = occurrenceUsagePrefix,
       identification = u.identification,
       specializations = u.specializations,
+      featureValue = u.featureValue,
       definitionBodyItems = u.definitionBodyItems,
-      attr = toAttr(o))
+      tipeOpt = None(),
+      attr = toResolvedAttr(o))
   }
 
   private def visitPartUsage(visibility: Visibility.Type, o: RulePartUsageContext): PartUsage = {
@@ -429,8 +436,10 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       occurrenceUsagePrefix = occurrenceUsagePrefix,
       identification = u.identification,
       specializations = u.specializations,
+      featureValue = u.featureValue,
       definitionBodyItems = u.definitionBodyItems,
-      attr = toAttr(o))
+      tipeOpt = None(),
+      attr = toResolvedAttr(o))
   }
 
   def visitPortUsage(visibility: Visibility.Type, o: RulePortUsageContext): PortUsage = {
@@ -449,8 +458,10 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       occurrenceUsagePrefix = occurrenceUsagePrefix,
       identification = u.identification,
       specializations = u.specializations,
+      featureValue = u.featureValue,
       definitionBodyItems = u.definitionBodyItems,
-      attr = toAttr(o))
+      tipeOpt = None(),
+      attr = toResolvedAttr(o))
   }
 
   def visitDefinitionDeclaration(decl: RuleDefinitionDeclarationContext): (Option[Identification], ISZ[Name]) = {
@@ -485,6 +496,11 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
     return (identification, specializations)
   }
+
+  case class UsageHolder(val identification: Option[Identification],
+                               val specializations: ISZ[FeatureSpecialization],
+                               val featureValue: Option[FeatureValue],
+                               val definitionBodyItems: ISZ[BodyElement])
 
   private def visitUsage(ruleUsage: RuleUsageContext): UsageHolder = {
     val (identification, specializations): (Option[Identification], ISZ[FeatureSpecialization]) =
@@ -549,7 +565,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
               val visibility = visitVisibilityIndicator(defMember.ruleMemberPrefix().ruleVisibilityIndicator())
               val defElem = visitDefinitionElement(visibility, defMember.ruleDefinitionElement())
 
-              reportError(defElem, "Need to handle definition member in definition body")
+              reportError(defMember.ruleDefinitionElement(), "Need to handle definition member in definition body")
 
             case bi2: RuleDefinitionBodyItem2Context =>
               val variant = bi2.ruleVariantUsageMember()
@@ -620,6 +636,9 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   private def visitConnectionUsage(visibility: Visibility.Type, o: RuleConnectionUsageContext): ConnectionUsage = {
     val occurrenceUsagePrefix = visitOccurrenceUsagePrefix(o.ruleOccurrenceUsagePrefix())
 
+    // NOTE: can't use visitUsage as ConnectionUsage doesn't use ruleUsage, though it still
+    // has the same usage fields
+
     val (identification, specializations): (Option[Identification], ISZ[FeatureSpecialization]) =
       if (isEmpty(o.ruleUsageDeclaration())) {
         (None(), ISZ())
@@ -657,8 +676,9 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       specializations = specializations,
       featureValue = featureValue,
       connectorPart = connectorPart,
-      bodyItems = bodyItems,
-      attr = toAttr(o))
+      definitionBodyItems = bodyItems,
+      tipeOpt = None(),
+      attr = toResolvedAttr(o))
   }
 
   private def visitConnectorEnd(context: RuleConnectorEndContext): ConnectorEnd = {
@@ -742,6 +762,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       specializations = specializations,
       featureValue = featureValue,
       definitionBodyItems = bodyItems,
+      tipeOpt = None(),
       attr = toAttr(o))
   }
 
@@ -754,7 +775,9 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       prefix = p,
       identification = u.identification,
       specializations = u.specializations,
+      featureValue = u.featureValue,
       definitionBodyItems = u.definitionBodyItems,
+      tipeOpt = None(),
       attr = toAttr(o))
   }
 
@@ -768,21 +791,27 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       prefix = p,
       identification = u.identification,
       specializations = u.specializations,
+      featureValue = u.featureValue,
       definitionBodyItems = u.definitionBodyItems,
-      attr = toAttr(o))
+      tipeOpt = None(),
+      attr = toResolvedAttr(o))
   }
 
+  /* ruleIdentification:
+   *   '<' ruleName '>' ruleName? #ruleIdentification1
+   *   | ruleName #ruleIdentification2;
+   */
   private def visitIdentification(id: RuleIdentificationContext): Identification = {
     id match {
       case i1: RuleIdentification1Context =>
         val shortName = visitName(i1.ruleName().get(0))
         if (i1.ruleName().size() == 2) {
-          return Identification(shortName = None(), name = Some(visitName(i1.ruleName().get(1))))
+          return Identification(shortName = Some(shortName), name = Some(visitName(i1.ruleName().get(1))), attr = toAttr(id))
         } else {
-          return Identification(shortName = Some(shortName), name = None())
+          return Identification(shortName = Some(shortName), name = None(), attr = toAttr(id))
         }
       case i2: RuleIdentification2Context =>
-        return Identification(shortName = None(), name = Some(visitName(i2.ruleName())))
+        return Identification(shortName = None(), name = Some(visitName(i2.ruleName())), attr = toAttr(id))
     }
   }
 
@@ -1033,15 +1062,16 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       }
       else if (o.ruleName().size() == 1) {
         if (o.LANGLE() != null) {
-          Some(Identification(shortName = Some(visitName(o.ruleName(0))), name = None()))
+          Some(Identification(shortName = Some(visitName(o.ruleName(0))), name = None(), attr = toAttr(o.ruleName(0))))
         } else {
-          Some(Identification(shortName = None(), name = Some(visitName(o.ruleName(0)))))
+          Some(Identification(shortName = None(), name = Some(visitName(o.ruleName(0))), attr = toAttr(o.ruleName(0))))
         }
       } else {
         assert (o.ruleName().size() == 2)
         Some(Identification(
           shortName = Some(visitName(o.ruleName(0))),
-          name = Some(visitName(o.ruleName(1)))
+          name = Some(visitName(o.ruleName(1))),
+          attr = Attr(SysmlAstUtil.mergePos(toPosOpt(o.ruleName(0)), toPosOpt(o.ruleName(1))))
         ))
       }
 
@@ -1684,6 +1714,10 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
   def toAttr(o: ParserRuleContext): Attr = {
     return Attr(posOpt = toPosOpt(o))
+  }
+
+  def toResolvedAttr(o: ParserRuleContext): ResolvedAttr = {
+    return ResolvedAttr(posOpt = toPosOpt(o), resOpt = None(), typedOpt = None())
   }
 
   def toPosOpt(x: ParserRuleContext): Option[Position] = {

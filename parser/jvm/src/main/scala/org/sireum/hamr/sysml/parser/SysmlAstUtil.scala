@@ -62,8 +62,10 @@ object SysmlAstUtil {
         prefix = emptyUsagePrefix,
         identification = None(),
         specializations = ISZ(),
+        featureValue = None(),
         definitionBodyItems = ISZ(),
-        attr = SAST.Attr(None()))
+        tipeOpt = None(),
+        attr = SAST.ResolvedAttr(None(), None(), None()))
     }
 
     def emptyOccurrenceUsagePrefix: OccurrenceUsagePrefix = {
@@ -83,8 +85,10 @@ object SysmlAstUtil {
         occurrenceUsagePrefix = emptyOccurrenceUsagePrefix,
         identification = None(),
         specializations = ISZ(),
+        featureValue = None(),
         definitionBodyItems = ISZ(),
-        attr = SAST.Attr(None()))
+        tipeOpt = None(),
+        attr = SAST.ResolvedAttr(None(), None(), None()))
     }
   }
 

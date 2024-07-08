@@ -28,7 +28,7 @@ class TestAstBuilder extends TestSuite {
     if (!filter || filters.elements.exists(e => e(f))) {
       registerTest(testName) {
         val reporter = Reporter.create
-        println(s"Parsing ${f.toUri}")
+        println(s"Processing: ${f.toUri}")
         val ast = SysMLParser.parseH(Some(f.toUri), f.read, f.ext.native == "sysml", reporter)
 
         reporter.printMessages()

@@ -3,9 +3,9 @@ package org.sireum.hamr.sysml
 
 import org.sireum._
 import org.sireum.hamr.sysml.ast.SysmlAst.TopUnit
-import org.sireum.hamr.sysml.symbol.{GlobalDeclarationResolver, Resolver}
-import org.sireum.hamr.sysml.symbol.Resolver.NameMap
-import org.sireum.hamr.sysml.symbol.Resolver.TypeMap
+import org.sireum.hamr.sysml.symbol.{GlobalDeclarationResolver, Info, Resolver}
+import org.sireum.hamr.sysml.symbol.Resolver.{NameMap, TypeMap, resolverKind}
+import org.sireum.lang.ast.Transformer
 import org.sireum.message.{Message, Reporter}
 
 object FrontEnd {
@@ -62,7 +62,7 @@ object FrontEnd {
     topUnitOpt match {
       case Some(topUnit) =>
         val gdr = GlobalDeclarationResolver(nameMap, typeMap, Reporter.create)
-        gdr.resolveProgram(topUnit)
+        gdr.resolveTopUnit(topUnit)
         reporter.reports(gdr.reporter.messages)
         return ParseResult(topUnit, gdr.globalNameMap, gdr.globalTypeMap, reporter.messages)
       case _ =>
@@ -72,7 +72,52 @@ object FrontEnd {
 
   @pure def combineParseResult(r: (ISZ[Message], ISZ[TopUnit], NameMap, TypeMap),
                                u: ParseResult): (ISZ[Message], ISZ[TopUnit], NameMap, TypeMap) = {
-    halt("todo")
+    var rNameMap = r._3
+    var rTypeMap = r._4
+    val uNameMap = u.nameMap
+    val uTypeMap = u.typeMap
+    val reporter = Reporter.create
+    for (p <- uNameMap.entries) {
+      val name = p._1
+      val uInfo = p._2
+      rNameMap.get(name) match {
+        case Some(rInfo) if !Resolver.isPosUriSuffixEq(rInfo.posOpt, uInfo.posOpt) =>
+          (rInfo, uInfo) match {
+            case (_: Info.Package, _: Info.Package) =>
+            case _ =>
+              rInfo.posOpt match {
+                case Some(pos) =>
+                  val file: String = pos.uriOpt match {
+                    case Some(fileUri) => s" in $fileUri"
+                    case _ => ""
+                  }
+                  reporter.error(uInfo.posOpt, resolverKind, st"Name '${(name, ".")}' has already been declared at [${pos.beginLine}, ${pos.beginColumn}]$file".render)
+                case _ =>
+              }
+          }
+        case _ => rNameMap = rNameMap + name ~> uInfo
+      }
+    }
+
+    for (t <- uTypeMap.entries) {
+      val name = t._1
+      val uInfo = t._2
+      rTypeMap.get(name) match {
+        case Some(rInfo) if !Resolver.isPosUriSuffixEq(rInfo.posOpt, uInfo.posOpt) =>
+          rInfo.posOpt match {
+            case Some(pos) =>
+              val file: String = pos.uriOpt match {
+                case Some(fileUri) => s" in $fileUri"
+                case _ => ""
+              }
+              reporter.error(uInfo.posOpt, resolverKind, st"Type name '${(name, ".")}' has already been declared at [${pos.beginLine}, ${pos.beginColumn}]$file".render)
+            case _ =>
+          }
+        case _ => rTypeMap = rTypeMap + name ~> uInfo
+      }
+    }
+    val topUnits: ISZ[TopUnit] = if (u.topUnit == TopUnit.empty) r._2 else r._2 :+ u.topUnit
+    return (r._1 ++ u.messages ++ reporter.messages, topUnits, rNameMap, rTypeMap)
   }
 
     @pure def parseAndGloballyResolve(par: Z,
@@ -86,8 +131,9 @@ object FrontEnd {
       reporter.reports(t._1)
       val nameMap = p._1
       val typeMap = p._2
-      /*
-      for (program <- t._2) {
+
+      for (topUnit <- t._2) {
+        /*
         for (stmt <- program.body.stmts) {
           stmt match {
             case stmt: AST.Stmt.Import =>
@@ -95,8 +141,9 @@ object FrontEnd {
             case _ =>
           }
         }
+        */
       }
-      */
+
       return (reporter, t._2, nameMap, typeMap)
   }
 }

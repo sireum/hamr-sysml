@@ -90,7 +90,7 @@ package TempControlAadl {
 
 	// Data Types
 	part def Temperature :> Data {
-		attribute degrees : Base_Types::Float_32;
+		attribute degrees : AADL_Base_Types::Float_32;
 		attribute unit : TempUnit;
 	}
 	
