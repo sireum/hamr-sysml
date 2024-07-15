@@ -2,7 +2,8 @@ package org.sireum.hamr.sysml
 
 import org.sireum._
 import org.sireum.hamr.sysml.FrontEnd.Input
-import org.sireum.hamr.sysml.stipe.{TypeHierarchy, TypeOutliner}
+import org.sireum.hamr.sysml.stipe.{TypeChecker, TypeHierarchy, TypeOutliner}
+import org.sireum.hamr.sysml.symbol.DelineableTypeInfo
 import org.sireum.test.TestSuite
 import org.sireum.hamr.sysml.symbol.Resolver._
 import org.sireum.message.Reporter
@@ -42,7 +43,19 @@ class SysmlFrontEndTests extends TestSuite {
     val input = omg_models / "temp-control" / "sysml" / "TempControlAadl.sysml"
     println(s"Resolving: ${input.toUri}")
     val inputs: ISZ[Input] = sysLibDefs ++ omgDefs :+ toInput(input)
+    test(inputs)
+  }
 
+  "RTS-sysml" in {
+    val root = omg_models / "RTS-sysml" / "sysml"
+    val rtsFiles = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
+
+    println(s"Resolving: ${root.toUri}")
+    val inputs: ISZ[Input] = sysLibDefs ++ omgDefs ++ (for(r <- rtsFiles) yield toInput(r))
+    test(inputs)
+  }
+
+  def test(inputs: ISZ[Input]): Unit = {
     var initNameMap: NameMap = HashSMap.empty
     var initTypeMap: TypeMap = HashSMap.empty
 
@@ -70,8 +83,19 @@ class SysmlFrontEndTests extends TestSuite {
     var th = TypeHierarchy.build(F, TypeHierarchy(globalNameMap, globalTypeMap, Poset.empty, HashSMap.empty), reporter)
     report("Type Hierarchy", T)
 
-    th = TypeOutliner.checkOutline(1, th, reporter)
+    th = TypeOutliner.checkOutline(0, th, reporter)
     report("Type Outliner", T)
+
+    for (th <- th.typeMap.values) {
+      th match {
+        case i: DelineableTypeInfo =>
+          assert (i.outlined) // sanity check
+        case _ =>
+      }
+    }
+
+    th = TypeChecker.checkDefinitions(0, th: TypeHierarchy, reporter)
+    report("Type Checker", T)
 
   }
 }

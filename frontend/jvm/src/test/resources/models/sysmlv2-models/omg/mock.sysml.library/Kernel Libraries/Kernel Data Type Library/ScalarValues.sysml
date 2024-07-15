@@ -12,12 +12,15 @@ standard library package ScalarValues {
 
 	part def Integer;
 
+    part def Number;
+
 	//*
 	abstract datatype ScalarValue specializes DataValue;
 	datatype Boolean specializes ScalarValue;
 	datatype String specializes ScalarValue;
 	abstract datatype NumericalValue specializes ScalarValue;
-	
+
+
     abstract datatype Number specializes NumericalValue;
 	datatype Complex specializes Number;
 	datatype Real specializes Complex;	

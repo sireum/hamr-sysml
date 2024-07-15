@@ -252,10 +252,15 @@ object Info {
                                       val scope: Scope,
                                       val ast: SAST.SysmlAst.AttributeDefinition)
 
+  @datatype trait UsageInfo extends Info {
+    def owner: ISZ[String]
+    def id: String
+  }
+
   @datatype class AttributeUsage(val owner: ISZ[String],
                                  val id: String,
                                  val scope: Scope,
-                                 val ast: SAST.SysmlAst.AttributeUsage) extends Info {
+                                 val ast: SAST.SysmlAst.AttributeUsage) extends UsageInfo {
     @strictpure def posOpt: Option[Position] = ast.attr.posOpt
 
     @strictpure def name: ISZ[String] = {
@@ -266,7 +271,7 @@ object Info {
   @datatype class ItemUsage(val owner: ISZ[String],
                             val id: String,
                             val scope: Scope,
-                            val ast: SAST.SysmlAst.ItemUsage) extends Info {
+                            val ast: SAST.SysmlAst.ItemUsage) extends UsageInfo {
     @strictpure def posOpt: Option[Position] = ast.attr.posOpt
 
     @strictpure def name: ISZ[String] = {
@@ -277,7 +282,7 @@ object Info {
   @datatype class PartUsage(val owner: ISZ[String],
                             val id: String,
                             val scope: Scope,
-                            val ast: SAST.SysmlAst.PartUsage) extends Info {
+                            val ast: SAST.SysmlAst.PartUsage) extends UsageInfo {
     @strictpure def posOpt: Option[Position] = ast.attr.posOpt
 
     @strictpure def name: ISZ[String] = {
@@ -288,7 +293,7 @@ object Info {
   @datatype class PortUsage(val owner: ISZ[String],
                             val id: String,
                             val scope: Scope,
-                            val ast: SAST.SysmlAst.PortUsage) extends Info {
+                            val ast: SAST.SysmlAst.PortUsage) extends UsageInfo {
     @strictpure def posOpt: Option[Position] = ast.attr.posOpt
 
     @strictpure def name: ISZ[String] = {
@@ -299,7 +304,7 @@ object Info {
   @datatype class ConnectionUsage(val owner: ISZ[String],
                                   val id: String,
                                   val scope: Scope,
-                                  val ast: SAST.SysmlAst.ConnectionUsage) extends Info {
+                                  val ast: SAST.SysmlAst.ConnectionUsage) extends UsageInfo {
     @strictpure def posOpt: Option[Position] = ast.attr.posOpt
 
     @strictpure def name: ISZ[String] = {
@@ -315,6 +320,10 @@ object Info {
   @pure def posOpt: Option[Position]
 
   @pure def tpe: Typed
+}
+
+@datatype trait DelineableTypeInfo extends TypeInfo {
+  def outlined: B
 }
 
 object TypeInfo {
@@ -338,7 +347,7 @@ object TypeInfo {
                                  val ancestors: ISZ[SAST.Typed.Name],
                                  val members: TypeInfo.Members,
                                  val scope: Scope.Global,
-                                 val ast: SAST.SysmlAst.PartDefinition) extends TypeInfo {
+                                 val ast: SAST.SysmlAst.PartDefinition) extends DelineableTypeInfo {
 
     val typedOpt: Option[SAST.Typed] = Some(SAST.Typed.Name(name))
 
@@ -368,7 +377,7 @@ object TypeInfo {
                                  val ancestors: ISZ[SAST.Typed.Name],
                                  val members: TypeInfo.Members,
                                  val scope: Scope.Global,
-                                 val ast: SAST.SysmlAst.PortDefinition) extends TypeInfo {
+                                 val ast: SAST.SysmlAst.PortDefinition) extends DelineableTypeInfo {
 
     val typedOpt: Option[SAST.Typed] = Some(SAST.Typed.Name(name))
 
@@ -390,7 +399,7 @@ object TypeInfo {
                                        val ancestors: ISZ[SAST.Typed.Name],
                                        val members: TypeInfo.Members,
                                        val scope: Scope.Global,
-                                       val ast: SAST.SysmlAst.ConnectionDefinition) extends TypeInfo {
+                                       val ast: SAST.SysmlAst.ConnectionDefinition) extends DelineableTypeInfo {
 
     val typedOpt: Option[SAST.Typed] = Some(SAST.Typed.Name(name))
 
@@ -412,7 +421,7 @@ object TypeInfo {
                                       val ancestors: ISZ[SAST.Typed.Name],
                                       val members: TypeInfo.Members,
                                       val scope: Scope.Global,
-                                      val ast: SAST.SysmlAst.AttributeDefinition) extends TypeInfo {
+                                      val ast: SAST.SysmlAst.AttributeDefinition) extends DelineableTypeInfo {
 
     val typedOpt: Option[SAST.Typed] = Some(SAST.Typed.Name(name))
 
@@ -434,7 +443,7 @@ object TypeInfo {
                                        val ancestors: ISZ[SAST.Typed.Name],
                                        val members: TypeInfo.Members,
                                        val scope: Scope.Global,
-                                       val ast: SAST.SysmlAst.AllocationDefinition) extends TypeInfo {
+                                       val ast: SAST.SysmlAst.AllocationDefinition) extends DelineableTypeInfo {
 
     val typedOpt: Option[SAST.Typed] = Some(SAST.Typed.Name(name))
 

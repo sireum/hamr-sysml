@@ -36,6 +36,7 @@ standard library package ISQ {
          * remarks: Duration is often just called time. Time is one of the seven base quantities in the International System of Quantities, ISQ (see ISO 80000-1). Duration is a measure of a time interval.
          */
         //attribute :>> num: Real;
+        attribute num: ScalarValues::Number;
         //attribute :>> mRef: DurationUnit[1];
     }
 }
