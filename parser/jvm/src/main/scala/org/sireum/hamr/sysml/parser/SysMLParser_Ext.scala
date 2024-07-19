@@ -3,7 +3,7 @@ package org.sireum.hamr.sysml
 import org.sireum._
 import org.antlr.v4.runtime.{BaseErrorListener, CharStreams, ParserRuleContext, Recognizer}
 import org.sireum.hamr.sysml.ast.SysmlAst.TopUnit
-import org.sireum.hamr.sysml.parser.{KerMLv2Lexer, KerMLv2Parser, SysMLv2Lexer, SysMLv2Parser}
+import org.sireum.hamr.sysml.parser.{KerMLv2Lexer, KerMLv2Parser, SysMLv2_GUMBOLexer, SysMLv2_GUMBOParser}
 
 import java.io.StringReader
 
@@ -33,9 +33,9 @@ object SysMLParser_Ext {
     def parseS(uriOpt: Option[String], content: String, reporter: message.Reporter): ParserRuleContext = {
       val docInfo = message.DocInfo.create(uriOpt, content)
       val input = CharStreams.fromReader(new StringReader(content.value))
-      val lexer = new SysMLv2Lexer(input)
+      val lexer = new SysMLv2_GUMBOLexer(input)
       val tokens = new org.antlr.v4.runtime.CommonTokenStream(lexer)
-      val parser = new SysMLv2Parser(tokens)
+      val parser = new SysMLv2_GUMBOParser(tokens)
       parser.removeErrorListeners()
       parser.addErrorListener(new BaseErrorListener {
         override def syntaxError(recognizer: Recognizer[_, _], offendingSymbol: Object, line: Int, charPositionInLine: Int,

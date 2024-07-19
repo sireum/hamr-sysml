@@ -7,8 +7,8 @@ import org.antlr.v4.runtime.tree.TerminalNodeImpl
 import org.sireum.hamr.sysml.ast.SysmlAst._
 import org.sireum.hamr.sysml.SysmlAstUtil.{Placeholders, isRegularComment, mergePos}
 import org.sireum.hamr.sysml.ast.{Attr, ResolvedAttr}
-import org.sireum.hamr.sysml.parser.SysMLv2Parser._
-import org.sireum.hamr.sysml.parser.SysMLv2Parser
+import org.sireum.hamr.sysml.parser.SysMLv2_GUMBOParser._
+import org.sireum.hamr.sysml.parser.SysMLv2_GUMBOParser
 import org.sireum.message.{Position, Reporter}
 import org.sireum.lang.{ast => AST}
 import org.sireum.lang.ast.Exp
@@ -22,7 +22,7 @@ object SysMLAstBuilder {
     if (isSysML) {
       assert(!reporter.hasError)
       val builder = SysMLAstBuilder(uriOpt)
-      val root = builder.visitEntryRuleRootNamespace(tree.asInstanceOf[SysMLv2Parser.EntryRuleRootNamespaceContext])
+      val root = builder.visitEntryRuleRootNamespace(tree.asInstanceOf[SysMLv2_GUMBOParser.EntryRuleRootNamespaceContext])
       reporter.reports(builder.reporter.messages)
       return Some(root)
     } else {
@@ -275,18 +275,40 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           attr = toAttr(o))
 
       case i3: RuleAnnotatingElement3Context =>
+        // Original Version
         // ruleTextualRepresentation: ('rep' ruleIdentification?)? 'language' RULE_STRING_VALUE RULE_REGULAR_COMMENT;
+        // GUMBO Version
+        // ruleTextualRepresentation: ('rep' ruleIdentification?)? 'language' (('"GUMBO"' '/*{' (('library' ruleGumboLibrary) | ruleGumboSubclause) '}*/' ) | (RULE_STRING_VALUE RULE_REGULAR_COMMENT));
         val text = i3.ruleTextualRepresentation()
 
         val id: Option[Identification] =
           if (isEmpty(text.ruleIdentification())) None()
           else Some(visitIdentification(text.ruleIdentification()))
 
-        return TextualRepresentation(
-          id = id,
-          language = text.RULE_STRING_VALUE().string,
-          comment = text.RULE_REGULAR_COMMENT().string,
-          attr = toAttr(o))
+        if (nonEmpty(text.ruleGumboLibrary())) {
+          reportWarn(text, "Need to handle gumbo library annexes")
+
+          return TextualRepresentation(
+            id = id,
+            language = "GUMBO",
+            comment = "TODO -- handle gumbo library annexes",
+            attr = toAttr(o))
+        } else if (nonEmpty(text.ruleGumboSubclause())) {
+          reportWarn(text, "Need to handle gumbo subclause annexes")
+
+          return TextualRepresentation(
+            id = id,
+            language = "GUMBO",
+            comment = "TODO -- handle gumbo subclause annexes",
+            attr = toAttr(o))
+        } else {
+          return TextualRepresentation(
+            id = id,
+            language = text.RULE_STRING_VALUE().string,
+            comment = text.RULE_REGULAR_COMMENT().string,
+            attr = toAttr(o))
+        }
+
 
       case i4: RuleAnnotatingElement4Context =>
         val dummy = i4.ruleMetadataUsage()
@@ -563,9 +585,10 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
             case bi1: RuleDefinitionBodyItem1Context =>
               val defMember = bi1.ruleDefinitionMember()
               val visibility = visitVisibilityIndicator(defMember.ruleMemberPrefix().ruleVisibilityIndicator())
-              val defElem = visitDefinitionElement(visibility, defMember.ruleDefinitionElement())
+              val defElem =  visitDefinitionElement(visibility, defMember.ruleDefinitionElement())
+              //items = items :+ visitDefinitionElement(visibility, defMember.ruleDefinitionElement())
 
-              reportError(defMember.ruleDefinitionElement(), "Need to handle definition member in definition body")
+              reportWarn(defMember, "Annotations are not currently handled in definition body")
 
             case bi2: RuleDefinitionBodyItem2Context =>
               val variant = bi2.ruleVariantUsageMember()
@@ -741,7 +764,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     }
   }
 
-  private def visitDefaultReferenceUsage(visibility: Visibility.Type, o: RuleDefaultReferenceUsageContext): DefaultReferenceUsage = {
+  private def visitDefaultReferenceUsage(visibility: Visibility.Type, o: RuleDefaultReferenceUsageContext): ReferenceUsage = {
     val refPrefix = visitRefPrefix(o.ruleRefPrefix())
 
     val (identification, specializations) = visitFeatureDeclaration(o.ruleUsageDeclaration().ruleFeatureDeclaration())
@@ -755,7 +778,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
     val bodyItems = visitDefinitionBody(o.ruleUsageBody().ruleDefinitionBody())
 
-    return DefaultReferenceUsage(
+    return ReferenceUsage(
       visibility = visibility,
       prefix = refPrefix,
       identification = identification,
@@ -763,7 +786,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       featureValue = featureValue,
       definitionBodyItems = bodyItems,
       tipeOpt = None(),
-      attr = toAttr(o))
+      attr = toResolvedAttr(o))
   }
 
   def visitReferenceUsage(visibility: Visibility.Type, o: RuleReferenceUsageContext): ReferenceUsage = {
@@ -778,7 +801,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       featureValue = u.featureValue,
       definitionBodyItems = u.definitionBodyItems,
       tipeOpt = None(),
-      attr = toAttr(o))
+      attr = toResolvedAttr(o))
   }
 
   def visitAttributeUsage(visibility: Visibility.Type, o: RuleAttributeUsageContext): AttributeUsage = {
@@ -865,7 +888,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     return ret
   }
 
-  def visitFeatureSpecialization(context: SysMLv2Parser.RuleFeatureSpecializationContext): FeatureSpecialization = {
+  def visitFeatureSpecialization(context: SysMLv2_GUMBOParser.RuleFeatureSpecializationContext): FeatureSpecialization = {
     context match {
       case x: RuleFeatureSpecialization1Context =>
         // ruleTypings: ruleTypedBy (',' ruleFeatureTyping)*;
@@ -1151,7 +1174,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     return Name(ids = ret :+ visitName(o.ruleName()), attr = toAttr(o))
   }
 
-  def visitQualifiedNameAsSlangName(o: SysMLv2Parser.RuleQualifiedNameContext): AST.Name = {
+  def visitQualifiedNameAsSlangName(o: SysMLv2_GUMBOParser.RuleQualifiedNameContext): AST.Name = {
     val name = visitQualifiedName(o)
     val ids = for(id <- name.ids) yield AST.Id(value = id.value, AST.Attr(posOpt = id.attr.posOpt))
     return AST.Name(ids = ids, attr = AST.Attr(posOpt = name.attr.posOpt))
@@ -1202,7 +1225,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     }
   }
 
-  def visitOwnedExpression(o: SysMLv2Parser.RuleOwnedExpressionContext): AST.Exp = {
+  def visitOwnedExpression(o: SysMLv2_GUMBOParser.RuleOwnedExpressionContext): AST.Exp = {
     o.ruleConditionalExpression() match {
       case e1: RuleConditionalExpression1Context =>
         return visitNullCoalescingExpression(e1.ruleNullCoalescingExpression())
@@ -1246,7 +1269,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     while (i < o.getChildCount) {
       o.getChild(i) match {
         case isLogicalOr: RuleOrOperatorContext =>
-          s = s.push(AST.Exp.BinaryOp.Or, visitXorExpression(o.getChild(i + 1).asInstanceOf[SysMLv2Parser.RuleXorExpressionContext]))
+          s = s.push(AST.Exp.BinaryOp.Or, visitXorExpression(o.getChild(i + 1).asInstanceOf[SysMLv2_GUMBOParser.RuleXorExpressionContext]))
         case isCondOr: RuleConditionalOrOperatorContext =>
           s = s.push(AST.Exp.BinaryOp.CondOr, visitXorExpression(o.getChild(i + 1).asInstanceOf[RuleXorExpressionReferenceContext].ruleXorExpressionMember().ruleXorExpression()))
       }

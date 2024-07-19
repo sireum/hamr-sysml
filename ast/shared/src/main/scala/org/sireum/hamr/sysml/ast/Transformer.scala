@@ -148,13 +148,6 @@ object Transformer {
            case PreResult(preCtx, continu, _) => PreResult(preCtx, continu, None[SysmlAst.AttrNode]())
           }
           return r
-        case o: SysmlAst.DefaultReferenceUsage =>
-          val r: PreResult[Context, SysmlAst.AttrNode] = preSysmlAstDefaultReferenceUsage(ctx, o) match {
-           case PreResult(preCtx, continu, Some(r: SysmlAst.AttrNode)) => PreResult(preCtx, continu, Some[SysmlAst.AttrNode](r))
-           case PreResult(_, _, Some(_)) => halt("Can only produce object of type SysmlAst.AttrNode")
-           case PreResult(preCtx, continu, _) => PreResult(preCtx, continu, None[SysmlAst.AttrNode]())
-          }
-          return r
         case o: SysmlAst.ConnectionUsage =>
           val r: PreResult[Context, SysmlAst.AttrNode] = preSysmlAstConnectionUsage(ctx, o) match {
            case PreResult(preCtx, continu, Some(r: SysmlAst.AttrNode)) => PreResult(preCtx, continu, Some[SysmlAst.AttrNode](r))
@@ -293,13 +286,6 @@ object Transformer {
            case PreResult(preCtx, continu, _) => PreResult(preCtx, continu, None[SysmlAst.PackageBodyElement]())
           }
           return r
-        case o: SysmlAst.DefaultReferenceUsage =>
-          val r: PreResult[Context, SysmlAst.PackageBodyElement] = preSysmlAstDefaultReferenceUsage(ctx, o) match {
-           case PreResult(preCtx, continu, Some(r: SysmlAst.PackageBodyElement)) => PreResult(preCtx, continu, Some[SysmlAst.PackageBodyElement](r))
-           case PreResult(_, _, Some(_)) => halt("Can only produce object of type SysmlAst.PackageBodyElement")
-           case PreResult(preCtx, continu, _) => PreResult(preCtx, continu, None[SysmlAst.PackageBodyElement]())
-          }
-          return r
         case o: SysmlAst.ConnectionUsage =>
           val r: PreResult[Context, SysmlAst.PackageBodyElement] = preSysmlAstConnectionUsage(ctx, o) match {
            case PreResult(preCtx, continu, Some(r: SysmlAst.PackageBodyElement)) => PreResult(preCtx, continu, Some[SysmlAst.PackageBodyElement](r))
@@ -377,13 +363,6 @@ object Transformer {
           return r
         case o: SysmlAst.ReferenceUsage =>
           val r: PreResult[Context, SysmlAst.BodyElement] = preSysmlAstReferenceUsage(ctx, o) match {
-           case PreResult(preCtx, continu, Some(r: SysmlAst.BodyElement)) => PreResult(preCtx, continu, Some[SysmlAst.BodyElement](r))
-           case PreResult(_, _, Some(_)) => halt("Can only produce object of type SysmlAst.BodyElement")
-           case PreResult(preCtx, continu, _) => PreResult(preCtx, continu, None[SysmlAst.BodyElement]())
-          }
-          return r
-        case o: SysmlAst.DefaultReferenceUsage =>
-          val r: PreResult[Context, SysmlAst.BodyElement] = preSysmlAstDefaultReferenceUsage(ctx, o) match {
            case PreResult(preCtx, continu, Some(r: SysmlAst.BodyElement)) => PreResult(preCtx, continu, Some[SysmlAst.BodyElement](r))
            case PreResult(_, _, Some(_)) => halt("Can only produce object of type SysmlAst.BodyElement")
            case PreResult(preCtx, continu, _) => PreResult(preCtx, continu, None[SysmlAst.BodyElement]())
@@ -670,13 +649,6 @@ object Transformer {
            case PreResult(preCtx, continu, _) => PreResult(preCtx, continu, None[SysmlAst.UsageElement]())
           }
           return r
-        case o: SysmlAst.DefaultReferenceUsage =>
-          val r: PreResult[Context, SysmlAst.UsageElement] = preSysmlAstDefaultReferenceUsage(ctx, o) match {
-           case PreResult(preCtx, continu, Some(r: SysmlAst.UsageElement)) => PreResult(preCtx, continu, Some[SysmlAst.UsageElement](r))
-           case PreResult(_, _, Some(_)) => halt("Can only produce object of type SysmlAst.UsageElement")
-           case PreResult(preCtx, continu, _) => PreResult(preCtx, continu, None[SysmlAst.UsageElement]())
-          }
-          return r
         case o: SysmlAst.ConnectionUsage =>
           val r: PreResult[Context, SysmlAst.UsageElement] = preSysmlAstConnectionUsage(ctx, o) match {
            case PreResult(preCtx, continu, Some(r: SysmlAst.UsageElement)) => PreResult(preCtx, continu, Some[SysmlAst.UsageElement](r))
@@ -724,13 +696,6 @@ object Transformer {
            case PreResult(preCtx, continu, _) => PreResult(preCtx, continu, None[SysmlAst.NonOccurrenceUsageElement]())
           }
           return r
-        case o: SysmlAst.DefaultReferenceUsage =>
-          val r: PreResult[Context, SysmlAst.NonOccurrenceUsageElement] = preSysmlAstDefaultReferenceUsage(ctx, o) match {
-           case PreResult(preCtx, continu, Some(r: SysmlAst.NonOccurrenceUsageElement)) => PreResult(preCtx, continu, Some[SysmlAst.NonOccurrenceUsageElement](r))
-           case PreResult(_, _, Some(_)) => halt("Can only produce object of type SysmlAst.NonOccurrenceUsageElement")
-           case PreResult(preCtx, continu, _) => PreResult(preCtx, continu, None[SysmlAst.NonOccurrenceUsageElement]())
-          }
-          return r
       }
     }
 
@@ -739,10 +704,6 @@ object Transformer {
     }
 
     @pure def preSysmlAstReferenceUsage(ctx: Context, o: SysmlAst.ReferenceUsage): PreResult[Context, SysmlAst.ReferenceUsage] = {
-      return PreResult(ctx, T, None())
-    }
-
-    @pure def preSysmlAstDefaultReferenceUsage(ctx: Context, o: SysmlAst.DefaultReferenceUsage): PreResult[Context, SysmlAst.DefaultReferenceUsage] = {
       return PreResult(ctx, T, None())
     }
 
@@ -880,25 +841,12 @@ object Transformer {
         case o: ResolvedInfo.Enum => return preResolvedInfoEnum(ctx, o)
         case o: ResolvedInfo.EnumElement => return preResolvedInfoEnumElement(ctx, o)
         case o: ResolvedInfo.AttributeUsage => return preResolvedInfoAttributeUsage(ctx, o)
+        case o: ResolvedInfo.ConnectionUsage => return preResolvedInfoConnectionUsage(ctx, o)
         case o: ResolvedInfo.ItemUsage => return preResolvedInfoItemUsage(ctx, o)
         case o: ResolvedInfo.PartUsage => return preResolvedInfoPartUsage(ctx, o)
         case o: ResolvedInfo.PortUsage => return preResolvedInfoPortUsage(ctx, o)
-        case o: ResolvedInfo.ConnectionUsage => return preResolvedInfoConnectionUsage(ctx, o)
+        case o: ResolvedInfo.ReferenceUsage => return preResolvedInfoReferenceUsage(ctx, o)
       }
-    }
-
-    @pure def preType(ctx: Context, o: Type): PreResult[Context, Type] = {
-      o match {
-        case o: Type.Named => return preTypeNamed(ctx, o)
-      }
-    }
-
-    @pure def preTypeNamed(ctx: Context, o: Type.Named): PreResult[Context, Type] = {
-      return PreResult(ctx, T, None())
-    }
-
-    @pure def preTypedAttr(ctx: Context, o: TypedAttr): PreResult[Context, TypedAttr] = {
-      return PreResult(ctx, T, None())
     }
 
     @pure def preResolvedInfoPackage(ctx: Context, o: ResolvedInfo.Package): PreResult[Context, ResolvedInfo] = {
@@ -917,6 +865,10 @@ object Transformer {
       return PreResult(ctx, T, None())
     }
 
+    @pure def preResolvedInfoConnectionUsage(ctx: Context, o: ResolvedInfo.ConnectionUsage): PreResult[Context, ResolvedInfo] = {
+      return PreResult(ctx, T, None())
+    }
+
     @pure def preResolvedInfoItemUsage(ctx: Context, o: ResolvedInfo.ItemUsage): PreResult[Context, ResolvedInfo] = {
       return PreResult(ctx, T, None())
     }
@@ -929,7 +881,21 @@ object Transformer {
       return PreResult(ctx, T, None())
     }
 
-    @pure def preResolvedInfoConnectionUsage(ctx: Context, o: ResolvedInfo.ConnectionUsage): PreResult[Context, ResolvedInfo] = {
+    @pure def preResolvedInfoReferenceUsage(ctx: Context, o: ResolvedInfo.ReferenceUsage): PreResult[Context, ResolvedInfo] = {
+      return PreResult(ctx, T, None())
+    }
+
+    @pure def preType(ctx: Context, o: Type): PreResult[Context, Type] = {
+      o match {
+        case o: Type.Named => return preTypeNamed(ctx, o)
+      }
+    }
+
+    @pure def preTypeNamed(ctx: Context, o: Type.Named): PreResult[Context, Type] = {
+      return PreResult(ctx, T, None())
+    }
+
+    @pure def preTypedAttr(ctx: Context, o: TypedAttr): PreResult[Context, TypedAttr] = {
       return PreResult(ctx, T, None())
     }
 
@@ -1033,13 +999,6 @@ object Transformer {
           return r
         case o: SysmlAst.ReferenceUsage =>
           val r: TPostResult[Context, SysmlAst.AttrNode] = postSysmlAstReferenceUsage(ctx, o) match {
-           case TPostResult(postCtx, Some(result: SysmlAst.AttrNode)) => TPostResult(postCtx, Some[SysmlAst.AttrNode](result))
-           case TPostResult(_, Some(_)) => halt("Can only produce object of type SysmlAst.AttrNode")
-           case TPostResult(postCtx, _) => TPostResult(postCtx, None[SysmlAst.AttrNode]())
-          }
-          return r
-        case o: SysmlAst.DefaultReferenceUsage =>
-          val r: TPostResult[Context, SysmlAst.AttrNode] = postSysmlAstDefaultReferenceUsage(ctx, o) match {
            case TPostResult(postCtx, Some(result: SysmlAst.AttrNode)) => TPostResult(postCtx, Some[SysmlAst.AttrNode](result))
            case TPostResult(_, Some(_)) => halt("Can only produce object of type SysmlAst.AttrNode")
            case TPostResult(postCtx, _) => TPostResult(postCtx, None[SysmlAst.AttrNode]())
@@ -1183,13 +1142,6 @@ object Transformer {
            case TPostResult(postCtx, _) => TPostResult(postCtx, None[SysmlAst.PackageBodyElement]())
           }
           return r
-        case o: SysmlAst.DefaultReferenceUsage =>
-          val r: TPostResult[Context, SysmlAst.PackageBodyElement] = postSysmlAstDefaultReferenceUsage(ctx, o) match {
-           case TPostResult(postCtx, Some(result: SysmlAst.PackageBodyElement)) => TPostResult(postCtx, Some[SysmlAst.PackageBodyElement](result))
-           case TPostResult(_, Some(_)) => halt("Can only produce object of type SysmlAst.PackageBodyElement")
-           case TPostResult(postCtx, _) => TPostResult(postCtx, None[SysmlAst.PackageBodyElement]())
-          }
-          return r
         case o: SysmlAst.ConnectionUsage =>
           val r: TPostResult[Context, SysmlAst.PackageBodyElement] = postSysmlAstConnectionUsage(ctx, o) match {
            case TPostResult(postCtx, Some(result: SysmlAst.PackageBodyElement)) => TPostResult(postCtx, Some[SysmlAst.PackageBodyElement](result))
@@ -1267,13 +1219,6 @@ object Transformer {
           return r
         case o: SysmlAst.ReferenceUsage =>
           val r: TPostResult[Context, SysmlAst.BodyElement] = postSysmlAstReferenceUsage(ctx, o) match {
-           case TPostResult(postCtx, Some(result: SysmlAst.BodyElement)) => TPostResult(postCtx, Some[SysmlAst.BodyElement](result))
-           case TPostResult(_, Some(_)) => halt("Can only produce object of type SysmlAst.BodyElement")
-           case TPostResult(postCtx, _) => TPostResult(postCtx, None[SysmlAst.BodyElement]())
-          }
-          return r
-        case o: SysmlAst.DefaultReferenceUsage =>
-          val r: TPostResult[Context, SysmlAst.BodyElement] = postSysmlAstDefaultReferenceUsage(ctx, o) match {
            case TPostResult(postCtx, Some(result: SysmlAst.BodyElement)) => TPostResult(postCtx, Some[SysmlAst.BodyElement](result))
            case TPostResult(_, Some(_)) => halt("Can only produce object of type SysmlAst.BodyElement")
            case TPostResult(postCtx, _) => TPostResult(postCtx, None[SysmlAst.BodyElement]())
@@ -1560,13 +1505,6 @@ object Transformer {
            case TPostResult(postCtx, _) => TPostResult(postCtx, None[SysmlAst.UsageElement]())
           }
           return r
-        case o: SysmlAst.DefaultReferenceUsage =>
-          val r: TPostResult[Context, SysmlAst.UsageElement] = postSysmlAstDefaultReferenceUsage(ctx, o) match {
-           case TPostResult(postCtx, Some(result: SysmlAst.UsageElement)) => TPostResult(postCtx, Some[SysmlAst.UsageElement](result))
-           case TPostResult(_, Some(_)) => halt("Can only produce object of type SysmlAst.UsageElement")
-           case TPostResult(postCtx, _) => TPostResult(postCtx, None[SysmlAst.UsageElement]())
-          }
-          return r
         case o: SysmlAst.ConnectionUsage =>
           val r: TPostResult[Context, SysmlAst.UsageElement] = postSysmlAstConnectionUsage(ctx, o) match {
            case TPostResult(postCtx, Some(result: SysmlAst.UsageElement)) => TPostResult(postCtx, Some[SysmlAst.UsageElement](result))
@@ -1614,13 +1552,6 @@ object Transformer {
            case TPostResult(postCtx, _) => TPostResult(postCtx, None[SysmlAst.NonOccurrenceUsageElement]())
           }
           return r
-        case o: SysmlAst.DefaultReferenceUsage =>
-          val r: TPostResult[Context, SysmlAst.NonOccurrenceUsageElement] = postSysmlAstDefaultReferenceUsage(ctx, o) match {
-           case TPostResult(postCtx, Some(result: SysmlAst.NonOccurrenceUsageElement)) => TPostResult(postCtx, Some[SysmlAst.NonOccurrenceUsageElement](result))
-           case TPostResult(_, Some(_)) => halt("Can only produce object of type SysmlAst.NonOccurrenceUsageElement")
-           case TPostResult(postCtx, _) => TPostResult(postCtx, None[SysmlAst.NonOccurrenceUsageElement]())
-          }
-          return r
       }
     }
 
@@ -1629,10 +1560,6 @@ object Transformer {
     }
 
     @pure def postSysmlAstReferenceUsage(ctx: Context, o: SysmlAst.ReferenceUsage): TPostResult[Context, SysmlAst.ReferenceUsage] = {
-      return TPostResult(ctx, None())
-    }
-
-    @pure def postSysmlAstDefaultReferenceUsage(ctx: Context, o: SysmlAst.DefaultReferenceUsage): TPostResult[Context, SysmlAst.DefaultReferenceUsage] = {
       return TPostResult(ctx, None())
     }
 
@@ -1770,25 +1697,12 @@ object Transformer {
         case o: ResolvedInfo.Enum => return postResolvedInfoEnum(ctx, o)
         case o: ResolvedInfo.EnumElement => return postResolvedInfoEnumElement(ctx, o)
         case o: ResolvedInfo.AttributeUsage => return postResolvedInfoAttributeUsage(ctx, o)
+        case o: ResolvedInfo.ConnectionUsage => return postResolvedInfoConnectionUsage(ctx, o)
         case o: ResolvedInfo.ItemUsage => return postResolvedInfoItemUsage(ctx, o)
         case o: ResolvedInfo.PartUsage => return postResolvedInfoPartUsage(ctx, o)
         case o: ResolvedInfo.PortUsage => return postResolvedInfoPortUsage(ctx, o)
-        case o: ResolvedInfo.ConnectionUsage => return postResolvedInfoConnectionUsage(ctx, o)
+        case o: ResolvedInfo.ReferenceUsage => return postResolvedInfoReferenceUsage(ctx, o)
       }
-    }
-
-    @pure def postType(ctx: Context, o: Type): TPostResult[Context, Type] = {
-      o match {
-        case o: Type.Named => return postTypeNamed(ctx, o)
-      }
-    }
-
-    @pure def postTypeNamed(ctx: Context, o: Type.Named): TPostResult[Context, Type] = {
-      return TPostResult(ctx, None())
-    }
-
-    @pure def postTypedAttr(ctx: Context, o: TypedAttr): TPostResult[Context, TypedAttr] = {
-      return TPostResult(ctx, None())
     }
 
     @pure def postResolvedInfoPackage(ctx: Context, o: ResolvedInfo.Package): TPostResult[Context, ResolvedInfo] = {
@@ -1807,6 +1721,10 @@ object Transformer {
       return TPostResult(ctx, None())
     }
 
+    @pure def postResolvedInfoConnectionUsage(ctx: Context, o: ResolvedInfo.ConnectionUsage): TPostResult[Context, ResolvedInfo] = {
+      return TPostResult(ctx, None())
+    }
+
     @pure def postResolvedInfoItemUsage(ctx: Context, o: ResolvedInfo.ItemUsage): TPostResult[Context, ResolvedInfo] = {
       return TPostResult(ctx, None())
     }
@@ -1819,7 +1737,21 @@ object Transformer {
       return TPostResult(ctx, None())
     }
 
-    @pure def postResolvedInfoConnectionUsage(ctx: Context, o: ResolvedInfo.ConnectionUsage): TPostResult[Context, ResolvedInfo] = {
+    @pure def postResolvedInfoReferenceUsage(ctx: Context, o: ResolvedInfo.ReferenceUsage): TPostResult[Context, ResolvedInfo] = {
+      return TPostResult(ctx, None())
+    }
+
+    @pure def postType(ctx: Context, o: Type): TPostResult[Context, Type] = {
+      o match {
+        case o: Type.Named => return postTypeNamed(ctx, o)
+      }
+    }
+
+    @pure def postTypeNamed(ctx: Context, o: Type.Named): TPostResult[Context, Type] = {
+      return TPostResult(ctx, None())
+    }
+
+    @pure def postTypedAttr(ctx: Context, o: TypedAttr): TPostResult[Context, TypedAttr] = {
       return TPostResult(ctx, None())
     }
 
@@ -1986,32 +1918,35 @@ import Transformer._
           val r0: TPostResult[Context, SysmlAst.DefinitionPrefix] = transformSysmlAstDefinitionPrefix(preR.ctx, o2.defPrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-          val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-          val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-            TPostResult(r4.ctx, Some(o2(defPrefix = r0.resultOpt.getOrElse(o2.defPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+          val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+            TPostResult(r5.ctx, Some(o2(defPrefix = r0.resultOpt.getOrElse(o2.defPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r4.ctx, None())
+            TPostResult(r5.ctx, None())
         case o2: SysmlAst.AllocationDefinition =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceDefinitionPrefix] = transformSysmlAstOccurrenceDefinitionPrefix(preR.ctx, o2.occurrenceDefPrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-          val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-          val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-            TPostResult(r4.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+          val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+            TPostResult(r5.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r4.ctx, None())
+            TPostResult(r5.ctx, None())
         case o2: SysmlAst.ConnectionDefinition =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceDefinitionPrefix] = transformSysmlAstOccurrenceDefinitionPrefix(preR.ctx, o2.occurrenceDefPrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-          val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-          val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-            TPostResult(r4.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+          val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+            TPostResult(r5.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r4.ctx, None())
+            TPostResult(r5.ctx, None())
         case o2: SysmlAst.EnumerationDefinition =>
           val r0: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(preR.ctx, o2.identification, transformSysmlAstIdentification _)
           val r1: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r0.ctx, o2.subClassifications, transformSysmlAstName _)
@@ -2026,22 +1961,24 @@ import Transformer._
           val r0: TPostResult[Context, SysmlAst.OccurrenceDefinitionPrefix] = transformSysmlAstOccurrenceDefinitionPrefix(preR.ctx, o2.occurrenceDefPrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-          val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-          val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-            TPostResult(r4.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+          val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+            TPostResult(r5.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r4.ctx, None())
+            TPostResult(r5.ctx, None())
         case o2: SysmlAst.PortDefinition =>
           val r0: TPostResult[Context, SysmlAst.DefinitionPrefix] = transformSysmlAstDefinitionPrefix(preR.ctx, o2.defPrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-          val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-          val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-            TPostResult(r4.ctx, Some(o2(defPrefix = r0.resultOpt.getOrElse(o2.defPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+          val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+            TPostResult(r5.ctx, Some(o2(defPrefix = r0.resultOpt.getOrElse(o2.defPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r4.ctx, None())
+            TPostResult(r5.ctx, None())
         case o2: SysmlAst.MetadataDefinition =>
           val r0: TPostResult[Context, Attr] = transformAttr(preR.ctx, o2.attr)
           if (hasChanged || r0.resultOpt.nonEmpty)
@@ -2054,33 +1991,24 @@ import Transformer._
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.ReferenceUsage =>
           val r0: TPostResult[Context, SysmlAst.RefPrefix] = transformSysmlAstRefPrefix(preR.ctx, o2.prefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
-        case o2: SysmlAst.DefaultReferenceUsage =>
-          val r0: TPostResult[Context, SysmlAst.RefPrefix] = transformSysmlAstRefPrefix(preR.ctx, o2.prefix)
-          val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
-          val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
-          val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
-          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
-          else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.ConnectionUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
@@ -2088,44 +2016,48 @@ import Transformer._
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, Option[SysmlAst.ConnectorPart]] = transformOption(r3.ctx, o2.connectorPart, transformSysmlAstConnectorPart _)
           val r5: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r4.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
-            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), connectorPart = r4.resultOpt.getOrElse(o2.connectorPart), definitionBodyItems = r5.resultOpt.getOrElse(o2.definitionBodyItems), attr = r6.resultOpt.getOrElse(o2.attr))))
+          val r6: TPostResult[Context, Option[Type]] = transformOption(r5.ctx, o2.tipeOpt, transformType _)
+          val r7: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r6.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty || r7.resultOpt.nonEmpty)
+            TPostResult(r7.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), connectorPart = r4.resultOpt.getOrElse(o2.connectorPart), definitionBodyItems = r5.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r6.resultOpt.getOrElse(o2.tipeOpt), attr = r7.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r6.ctx, None())
+            TPostResult(r7.ctx, None())
         case o2: SysmlAst.ItemUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.PartUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.PortUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.Comment =>
           val r0: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(preR.ctx, o2.id, transformSysmlAstIdentification _)
           val r1: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r0.ctx, o2.abouts, transformSysmlAstName _)
@@ -2202,32 +2134,35 @@ import Transformer._
           val r0: TPostResult[Context, SysmlAst.DefinitionPrefix] = transformSysmlAstDefinitionPrefix(preR.ctx, o2.defPrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-          val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-          val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-            TPostResult(r4.ctx, Some(o2(defPrefix = r0.resultOpt.getOrElse(o2.defPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+          val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+            TPostResult(r5.ctx, Some(o2(defPrefix = r0.resultOpt.getOrElse(o2.defPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r4.ctx, None())
+            TPostResult(r5.ctx, None())
         case o2: SysmlAst.AllocationDefinition =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceDefinitionPrefix] = transformSysmlAstOccurrenceDefinitionPrefix(preR.ctx, o2.occurrenceDefPrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-          val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-          val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-            TPostResult(r4.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+          val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+            TPostResult(r5.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r4.ctx, None())
+            TPostResult(r5.ctx, None())
         case o2: SysmlAst.ConnectionDefinition =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceDefinitionPrefix] = transformSysmlAstOccurrenceDefinitionPrefix(preR.ctx, o2.occurrenceDefPrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-          val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-          val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-            TPostResult(r4.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+          val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+            TPostResult(r5.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r4.ctx, None())
+            TPostResult(r5.ctx, None())
         case o2: SysmlAst.EnumerationDefinition =>
           val r0: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(preR.ctx, o2.identification, transformSysmlAstIdentification _)
           val r1: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r0.ctx, o2.subClassifications, transformSysmlAstName _)
@@ -2242,22 +2177,24 @@ import Transformer._
           val r0: TPostResult[Context, SysmlAst.OccurrenceDefinitionPrefix] = transformSysmlAstOccurrenceDefinitionPrefix(preR.ctx, o2.occurrenceDefPrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-          val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-          val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-            TPostResult(r4.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+          val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+            TPostResult(r5.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r4.ctx, None())
+            TPostResult(r5.ctx, None())
         case o2: SysmlAst.PortDefinition =>
           val r0: TPostResult[Context, SysmlAst.DefinitionPrefix] = transformSysmlAstDefinitionPrefix(preR.ctx, o2.defPrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-          val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-          val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-            TPostResult(r4.ctx, Some(o2(defPrefix = r0.resultOpt.getOrElse(o2.defPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+          val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+            TPostResult(r5.ctx, Some(o2(defPrefix = r0.resultOpt.getOrElse(o2.defPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r4.ctx, None())
+            TPostResult(r5.ctx, None())
         case o2: SysmlAst.MetadataDefinition =>
           val r0: TPostResult[Context, Attr] = transformAttr(preR.ctx, o2.attr)
           if (hasChanged || r0.resultOpt.nonEmpty)
@@ -2270,33 +2207,24 @@ import Transformer._
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.ReferenceUsage =>
           val r0: TPostResult[Context, SysmlAst.RefPrefix] = transformSysmlAstRefPrefix(preR.ctx, o2.prefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
-        case o2: SysmlAst.DefaultReferenceUsage =>
-          val r0: TPostResult[Context, SysmlAst.RefPrefix] = transformSysmlAstRefPrefix(preR.ctx, o2.prefix)
-          val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
-          val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
-          val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
-          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
-          else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.ConnectionUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
@@ -2304,44 +2232,48 @@ import Transformer._
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, Option[SysmlAst.ConnectorPart]] = transformOption(r3.ctx, o2.connectorPart, transformSysmlAstConnectorPart _)
           val r5: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r4.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
-            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), connectorPart = r4.resultOpt.getOrElse(o2.connectorPart), definitionBodyItems = r5.resultOpt.getOrElse(o2.definitionBodyItems), attr = r6.resultOpt.getOrElse(o2.attr))))
+          val r6: TPostResult[Context, Option[Type]] = transformOption(r5.ctx, o2.tipeOpt, transformType _)
+          val r7: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r6.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty || r7.resultOpt.nonEmpty)
+            TPostResult(r7.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), connectorPart = r4.resultOpt.getOrElse(o2.connectorPart), definitionBodyItems = r5.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r6.resultOpt.getOrElse(o2.tipeOpt), attr = r7.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r6.ctx, None())
+            TPostResult(r7.ctx, None())
         case o2: SysmlAst.ItemUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.PartUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.PortUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.Comment =>
           val r0: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(preR.ctx, o2.id, transformSysmlAstIdentification _)
           val r1: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r0.ctx, o2.abouts, transformSysmlAstName _)
@@ -2412,33 +2344,24 @@ import Transformer._
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.ReferenceUsage =>
           val r0: TPostResult[Context, SysmlAst.RefPrefix] = transformSysmlAstRefPrefix(preR.ctx, o2.prefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
-        case o2: SysmlAst.DefaultReferenceUsage =>
-          val r0: TPostResult[Context, SysmlAst.RefPrefix] = transformSysmlAstRefPrefix(preR.ctx, o2.prefix)
-          val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
-          val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
-          val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
-          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
-          else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.ConnectionUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
@@ -2446,44 +2369,48 @@ import Transformer._
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, Option[SysmlAst.ConnectorPart]] = transformOption(r3.ctx, o2.connectorPart, transformSysmlAstConnectorPart _)
           val r5: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r4.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
-            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), connectorPart = r4.resultOpt.getOrElse(o2.connectorPart), definitionBodyItems = r5.resultOpt.getOrElse(o2.definitionBodyItems), attr = r6.resultOpt.getOrElse(o2.attr))))
+          val r6: TPostResult[Context, Option[Type]] = transformOption(r5.ctx, o2.tipeOpt, transformType _)
+          val r7: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r6.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty || r7.resultOpt.nonEmpty)
+            TPostResult(r7.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), connectorPart = r4.resultOpt.getOrElse(o2.connectorPart), definitionBodyItems = r5.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r6.resultOpt.getOrElse(o2.tipeOpt), attr = r7.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r6.ctx, None())
+            TPostResult(r7.ctx, None())
         case o2: SysmlAst.ItemUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.PartUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.PortUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
       }
       rOpt
     } else if (preR.resultOpt.nonEmpty) {
@@ -2941,32 +2868,35 @@ import Transformer._
           val r0: TPostResult[Context, SysmlAst.DefinitionPrefix] = transformSysmlAstDefinitionPrefix(preR.ctx, o2.defPrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-          val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-          val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-            TPostResult(r4.ctx, Some(o2(defPrefix = r0.resultOpt.getOrElse(o2.defPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+          val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+            TPostResult(r5.ctx, Some(o2(defPrefix = r0.resultOpt.getOrElse(o2.defPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r4.ctx, None())
+            TPostResult(r5.ctx, None())
         case o2: SysmlAst.AllocationDefinition =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceDefinitionPrefix] = transformSysmlAstOccurrenceDefinitionPrefix(preR.ctx, o2.occurrenceDefPrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-          val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-          val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-            TPostResult(r4.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+          val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+            TPostResult(r5.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r4.ctx, None())
+            TPostResult(r5.ctx, None())
         case o2: SysmlAst.ConnectionDefinition =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceDefinitionPrefix] = transformSysmlAstOccurrenceDefinitionPrefix(preR.ctx, o2.occurrenceDefPrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-          val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-          val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-            TPostResult(r4.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+          val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+            TPostResult(r5.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r4.ctx, None())
+            TPostResult(r5.ctx, None())
         case o2: SysmlAst.EnumerationDefinition =>
           val r0: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(preR.ctx, o2.identification, transformSysmlAstIdentification _)
           val r1: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r0.ctx, o2.subClassifications, transformSysmlAstName _)
@@ -2981,22 +2911,24 @@ import Transformer._
           val r0: TPostResult[Context, SysmlAst.OccurrenceDefinitionPrefix] = transformSysmlAstOccurrenceDefinitionPrefix(preR.ctx, o2.occurrenceDefPrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-          val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-          val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-            TPostResult(r4.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+          val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+            TPostResult(r5.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r4.ctx, None())
+            TPostResult(r5.ctx, None())
         case o2: SysmlAst.PortDefinition =>
           val r0: TPostResult[Context, SysmlAst.DefinitionPrefix] = transformSysmlAstDefinitionPrefix(preR.ctx, o2.defPrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-          val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-          val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-            TPostResult(r4.ctx, Some(o2(defPrefix = r0.resultOpt.getOrElse(o2.defPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+          val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+            TPostResult(r5.ctx, Some(o2(defPrefix = r0.resultOpt.getOrElse(o2.defPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r4.ctx, None())
+            TPostResult(r5.ctx, None())
         case o2: SysmlAst.MetadataDefinition =>
           val r0: TPostResult[Context, Attr] = transformAttr(preR.ctx, o2.attr)
           if (hasChanged || r0.resultOpt.nonEmpty)
@@ -3133,12 +3065,13 @@ import Transformer._
       val r0: TPostResult[Context, SysmlAst.DefinitionPrefix] = transformSysmlAstDefinitionPrefix(preR.ctx, o2.defPrefix)
       val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
       val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-      val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-      val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-        TPostResult(r4.ctx, Some(o2(defPrefix = r0.resultOpt.getOrElse(o2.defPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+      val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+      val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+      val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+        TPostResult(r5.ctx, Some(o2(defPrefix = r0.resultOpt.getOrElse(o2.defPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
       else
-        TPostResult(r4.ctx, None())
+        TPostResult(r5.ctx, None())
     } else if (preR.resultOpt.nonEmpty) {
       TPostResult(preR.ctx, Some(preR.resultOpt.getOrElse(o)))
     } else {
@@ -3164,12 +3097,13 @@ import Transformer._
       val r0: TPostResult[Context, SysmlAst.OccurrenceDefinitionPrefix] = transformSysmlAstOccurrenceDefinitionPrefix(preR.ctx, o2.occurrenceDefPrefix)
       val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
       val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-      val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-      val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-        TPostResult(r4.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+      val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+      val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+      val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+        TPostResult(r5.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
       else
-        TPostResult(r4.ctx, None())
+        TPostResult(r5.ctx, None())
     } else if (preR.resultOpt.nonEmpty) {
       TPostResult(preR.ctx, Some(preR.resultOpt.getOrElse(o)))
     } else {
@@ -3195,12 +3129,13 @@ import Transformer._
       val r0: TPostResult[Context, SysmlAst.OccurrenceDefinitionPrefix] = transformSysmlAstOccurrenceDefinitionPrefix(preR.ctx, o2.occurrenceDefPrefix)
       val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
       val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-      val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-      val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-        TPostResult(r4.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+      val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+      val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+      val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+        TPostResult(r5.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
       else
-        TPostResult(r4.ctx, None())
+        TPostResult(r5.ctx, None())
     } else if (preR.resultOpt.nonEmpty) {
       TPostResult(preR.ctx, Some(preR.resultOpt.getOrElse(o)))
     } else {
@@ -3257,12 +3192,13 @@ import Transformer._
       val r0: TPostResult[Context, SysmlAst.OccurrenceDefinitionPrefix] = transformSysmlAstOccurrenceDefinitionPrefix(preR.ctx, o2.occurrenceDefPrefix)
       val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
       val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-      val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-      val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-        TPostResult(r4.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+      val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+      val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+      val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+        TPostResult(r5.ctx, Some(o2(occurrenceDefPrefix = r0.resultOpt.getOrElse(o2.occurrenceDefPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
       else
-        TPostResult(r4.ctx, None())
+        TPostResult(r5.ctx, None())
     } else if (preR.resultOpt.nonEmpty) {
       TPostResult(preR.ctx, Some(preR.resultOpt.getOrElse(o)))
     } else {
@@ -3288,12 +3224,13 @@ import Transformer._
       val r0: TPostResult[Context, SysmlAst.DefinitionPrefix] = transformSysmlAstDefinitionPrefix(preR.ctx, o2.defPrefix)
       val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
       val r2: TPostResult[Context, IS[Z, SysmlAst.Name]] = transformISZ(r1.ctx, o2.subClassifications, transformSysmlAstName _)
-      val r3: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r2.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
-      val r4: TPostResult[Context, Attr] = transformAttr(r3.ctx, o2.attr)
-      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty)
-        TPostResult(r4.ctx, Some(o2(defPrefix = r0.resultOpt.getOrElse(o2.defPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), bodyItems = r3.resultOpt.getOrElse(o2.bodyItems), attr = r4.resultOpt.getOrElse(o2.attr))))
+      val r3: TPostResult[Context, IS[Z, Type.Named]] = transformISZ(r2.ctx, o2.parents, transformTypeNamed _)
+      val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.bodyItems, transformSysmlAstBodyElement _)
+      val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
+      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
+        TPostResult(r5.ctx, Some(o2(defPrefix = r0.resultOpt.getOrElse(o2.defPrefix), identification = r1.resultOpt.getOrElse(o2.identification), subClassifications = r2.resultOpt.getOrElse(o2.subClassifications), parents = r3.resultOpt.getOrElse(o2.parents), bodyItems = r4.resultOpt.getOrElse(o2.bodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
       else
-        TPostResult(r4.ctx, None())
+        TPostResult(r5.ctx, None())
     } else if (preR.resultOpt.nonEmpty) {
       TPostResult(preR.ctx, Some(preR.resultOpt.getOrElse(o)))
     } else {
@@ -3432,33 +3369,24 @@ import Transformer._
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.ReferenceUsage =>
           val r0: TPostResult[Context, SysmlAst.RefPrefix] = transformSysmlAstRefPrefix(preR.ctx, o2.prefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
-        case o2: SysmlAst.DefaultReferenceUsage =>
-          val r0: TPostResult[Context, SysmlAst.RefPrefix] = transformSysmlAstRefPrefix(preR.ctx, o2.prefix)
-          val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
-          val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
-          val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
-          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
-          else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.ConnectionUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
@@ -3466,44 +3394,48 @@ import Transformer._
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, Option[SysmlAst.ConnectorPart]] = transformOption(r3.ctx, o2.connectorPart, transformSysmlAstConnectorPart _)
           val r5: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r4.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
-            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), connectorPart = r4.resultOpt.getOrElse(o2.connectorPart), definitionBodyItems = r5.resultOpt.getOrElse(o2.definitionBodyItems), attr = r6.resultOpt.getOrElse(o2.attr))))
+          val r6: TPostResult[Context, Option[Type]] = transformOption(r5.ctx, o2.tipeOpt, transformType _)
+          val r7: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r6.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty || r7.resultOpt.nonEmpty)
+            TPostResult(r7.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), connectorPart = r4.resultOpt.getOrElse(o2.connectorPart), definitionBodyItems = r5.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r6.resultOpt.getOrElse(o2.tipeOpt), attr = r7.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r6.ctx, None())
+            TPostResult(r7.ctx, None())
         case o2: SysmlAst.ItemUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.PartUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.PortUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
       }
       rOpt
     } else if (preR.resultOpt.nonEmpty) {
@@ -3535,33 +3467,24 @@ import Transformer._
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.ReferenceUsage =>
           val r0: TPostResult[Context, SysmlAst.RefPrefix] = transformSysmlAstRefPrefix(preR.ctx, o2.prefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
-        case o2: SysmlAst.DefaultReferenceUsage =>
-          val r0: TPostResult[Context, SysmlAst.RefPrefix] = transformSysmlAstRefPrefix(preR.ctx, o2.prefix)
-          val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
-          val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
-          val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
-          val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
-          else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
       }
       rOpt
     } else if (preR.resultOpt.nonEmpty) {
@@ -3591,11 +3514,12 @@ import Transformer._
       val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
       val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
       val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-      val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-        TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+      val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+      val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+        TPostResult(r6.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
       else
-        TPostResult(r5.ctx, None())
+        TPostResult(r6.ctx, None())
     } else if (preR.resultOpt.nonEmpty) {
       TPostResult(preR.ctx, Some(preR.resultOpt.getOrElse(o)))
     } else {
@@ -3623,11 +3547,12 @@ import Transformer._
       val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
       val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
       val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-      val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
-      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-        TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+      val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+      val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+        TPostResult(r6.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
       else
-        TPostResult(r5.ctx, None())
+        TPostResult(r6.ctx, None())
     } else if (preR.resultOpt.nonEmpty) {
       TPostResult(preR.ctx, Some(preR.resultOpt.getOrElse(o)))
     } else {
@@ -3636,38 +3561,6 @@ import Transformer._
     val hasChanged: B = r.resultOpt.nonEmpty
     val o2: SysmlAst.ReferenceUsage = r.resultOpt.getOrElse(o)
     val postR: TPostResult[Context, SysmlAst.ReferenceUsage] = pp.postSysmlAstReferenceUsage(r.ctx, o2)
-    if (postR.resultOpt.nonEmpty) {
-      return postR
-    } else if (hasChanged) {
-      return TPostResult(postR.ctx, Some(o2))
-    } else {
-      return TPostResult(postR.ctx, None())
-    }
-  }
-
-  @pure def transformSysmlAstDefaultReferenceUsage(ctx: Context, o: SysmlAst.DefaultReferenceUsage): TPostResult[Context, SysmlAst.DefaultReferenceUsage] = {
-    val preR: PreResult[Context, SysmlAst.DefaultReferenceUsage] = pp.preSysmlAstDefaultReferenceUsage(ctx, o)
-    val r: TPostResult[Context, SysmlAst.DefaultReferenceUsage] = if (preR.continu) {
-      val o2: SysmlAst.DefaultReferenceUsage = preR.resultOpt.getOrElse(o)
-      val hasChanged: B = preR.resultOpt.nonEmpty
-      val r0: TPostResult[Context, SysmlAst.RefPrefix] = transformSysmlAstRefPrefix(preR.ctx, o2.prefix)
-      val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
-      val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
-      val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
-      val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-      val r5: TPostResult[Context, Attr] = transformAttr(r4.ctx, o2.attr)
-      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-        TPostResult(r5.ctx, Some(o2(prefix = r0.resultOpt.getOrElse(o2.prefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
-      else
-        TPostResult(r5.ctx, None())
-    } else if (preR.resultOpt.nonEmpty) {
-      TPostResult(preR.ctx, Some(preR.resultOpt.getOrElse(o)))
-    } else {
-      TPostResult(preR.ctx, None())
-    }
-    val hasChanged: B = r.resultOpt.nonEmpty
-    val o2: SysmlAst.DefaultReferenceUsage = r.resultOpt.getOrElse(o)
-    val postR: TPostResult[Context, SysmlAst.DefaultReferenceUsage] = pp.postSysmlAstDefaultReferenceUsage(r.ctx, o2)
     if (postR.resultOpt.nonEmpty) {
       return postR
     } else if (hasChanged) {
@@ -3690,44 +3583,48 @@ import Transformer._
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, Option[SysmlAst.ConnectorPart]] = transformOption(r3.ctx, o2.connectorPart, transformSysmlAstConnectorPart _)
           val r5: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r4.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
-            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), connectorPart = r4.resultOpt.getOrElse(o2.connectorPart), definitionBodyItems = r5.resultOpt.getOrElse(o2.definitionBodyItems), attr = r6.resultOpt.getOrElse(o2.attr))))
+          val r6: TPostResult[Context, Option[Type]] = transformOption(r5.ctx, o2.tipeOpt, transformType _)
+          val r7: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r6.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty || r7.resultOpt.nonEmpty)
+            TPostResult(r7.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), connectorPart = r4.resultOpt.getOrElse(o2.connectorPart), definitionBodyItems = r5.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r6.resultOpt.getOrElse(o2.tipeOpt), attr = r7.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r6.ctx, None())
+            TPostResult(r7.ctx, None())
         case o2: SysmlAst.ItemUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.PartUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.PortUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
       }
       rOpt
     } else if (preR.resultOpt.nonEmpty) {
@@ -3760,44 +3657,48 @@ import Transformer._
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, Option[SysmlAst.ConnectorPart]] = transformOption(r3.ctx, o2.connectorPart, transformSysmlAstConnectorPart _)
           val r5: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r4.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
-            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), connectorPart = r4.resultOpt.getOrElse(o2.connectorPart), definitionBodyItems = r5.resultOpt.getOrElse(o2.definitionBodyItems), attr = r6.resultOpt.getOrElse(o2.attr))))
+          val r6: TPostResult[Context, Option[Type]] = transformOption(r5.ctx, o2.tipeOpt, transformType _)
+          val r7: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r6.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty || r7.resultOpt.nonEmpty)
+            TPostResult(r7.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), connectorPart = r4.resultOpt.getOrElse(o2.connectorPart), definitionBodyItems = r5.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r6.resultOpt.getOrElse(o2.tipeOpt), attr = r7.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r6.ctx, None())
+            TPostResult(r7.ctx, None())
         case o2: SysmlAst.ItemUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.PartUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
         case o2: SysmlAst.PortUsage =>
           val r0: TPostResult[Context, SysmlAst.OccurrenceUsagePrefix] = transformSysmlAstOccurrenceUsagePrefix(preR.ctx, o2.occurrenceUsagePrefix)
           val r1: TPostResult[Context, Option[SysmlAst.Identification]] = transformOption(r0.ctx, o2.identification, transformSysmlAstIdentification _)
           val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
           val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
           val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-          val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-            TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+          val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+          val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+          if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+            TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
           else
-            TPostResult(r5.ctx, None())
+            TPostResult(r6.ctx, None())
       }
       rOpt
     } else if (preR.resultOpt.nonEmpty) {
@@ -3828,11 +3729,12 @@ import Transformer._
       val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
       val r4: TPostResult[Context, Option[SysmlAst.ConnectorPart]] = transformOption(r3.ctx, o2.connectorPart, transformSysmlAstConnectorPart _)
       val r5: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r4.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-      val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
-      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
-        TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), connectorPart = r4.resultOpt.getOrElse(o2.connectorPart), definitionBodyItems = r5.resultOpt.getOrElse(o2.definitionBodyItems), attr = r6.resultOpt.getOrElse(o2.attr))))
+      val r6: TPostResult[Context, Option[Type]] = transformOption(r5.ctx, o2.tipeOpt, transformType _)
+      val r7: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r6.ctx, o2.attr)
+      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty || r7.resultOpt.nonEmpty)
+        TPostResult(r7.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), connectorPart = r4.resultOpt.getOrElse(o2.connectorPart), definitionBodyItems = r5.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r6.resultOpt.getOrElse(o2.tipeOpt), attr = r7.resultOpt.getOrElse(o2.attr))))
       else
-        TPostResult(r6.ctx, None())
+        TPostResult(r7.ctx, None())
     } else if (preR.resultOpt.nonEmpty) {
       TPostResult(preR.ctx, Some(preR.resultOpt.getOrElse(o)))
     } else {
@@ -3860,11 +3762,12 @@ import Transformer._
       val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
       val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
       val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-      val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-        TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+      val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+      val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+        TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
       else
-        TPostResult(r5.ctx, None())
+        TPostResult(r6.ctx, None())
     } else if (preR.resultOpt.nonEmpty) {
       TPostResult(preR.ctx, Some(preR.resultOpt.getOrElse(o)))
     } else {
@@ -3892,11 +3795,12 @@ import Transformer._
       val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
       val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
       val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-      val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-        TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+      val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+      val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+        TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
       else
-        TPostResult(r5.ctx, None())
+        TPostResult(r6.ctx, None())
     } else if (preR.resultOpt.nonEmpty) {
       TPostResult(preR.ctx, Some(preR.resultOpt.getOrElse(o)))
     } else {
@@ -3924,11 +3828,12 @@ import Transformer._
       val r2: TPostResult[Context, IS[Z, SysmlAst.FeatureSpecialization]] = transformISZ(r1.ctx, o2.specializations, transformSysmlAstFeatureSpecialization _)
       val r3: TPostResult[Context, Option[SysmlAst.FeatureValue]] = transformOption(r2.ctx, o2.featureValue, transformSysmlAstFeatureValue _)
       val r4: TPostResult[Context, IS[Z, SysmlAst.BodyElement]] = transformISZ(r3.ctx, o2.definitionBodyItems, transformSysmlAstBodyElement _)
-      val r5: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r4.ctx, o2.attr)
-      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty)
-        TPostResult(r5.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), attr = r5.resultOpt.getOrElse(o2.attr))))
+      val r5: TPostResult[Context, Option[Type]] = transformOption(r4.ctx, o2.tipeOpt, transformType _)
+      val r6: TPostResult[Context, ResolvedAttr] = transformResolvedAttr(r5.ctx, o2.attr)
+      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty || r2.resultOpt.nonEmpty || r3.resultOpt.nonEmpty || r4.resultOpt.nonEmpty || r5.resultOpt.nonEmpty || r6.resultOpt.nonEmpty)
+        TPostResult(r6.ctx, Some(o2(occurrenceUsagePrefix = r0.resultOpt.getOrElse(o2.occurrenceUsagePrefix), identification = r1.resultOpt.getOrElse(o2.identification), specializations = r2.resultOpt.getOrElse(o2.specializations), featureValue = r3.resultOpt.getOrElse(o2.featureValue), definitionBodyItems = r4.resultOpt.getOrElse(o2.definitionBodyItems), tipeOpt = r5.resultOpt.getOrElse(o2.tipeOpt), attr = r6.resultOpt.getOrElse(o2.attr))))
       else
-        TPostResult(r5.ctx, None())
+        TPostResult(r6.ctx, None())
     } else if (preR.resultOpt.nonEmpty) {
       TPostResult(preR.ctx, Some(preR.resultOpt.getOrElse(o)))
     } else {
@@ -4157,6 +4062,11 @@ import Transformer._
             TPostResult(preR.ctx, Some(o2))
           else
             TPostResult(preR.ctx, None())
+        case o2: ResolvedInfo.ConnectionUsage =>
+          if (hasChanged)
+            TPostResult(preR.ctx, Some(o2))
+          else
+            TPostResult(preR.ctx, None())
         case o2: ResolvedInfo.ItemUsage =>
           if (hasChanged)
             TPostResult(preR.ctx, Some(o2))
@@ -4172,7 +4082,7 @@ import Transformer._
             TPostResult(preR.ctx, Some(o2))
           else
             TPostResult(preR.ctx, None())
-        case o2: ResolvedInfo.ConnectionUsage =>
+        case o2: ResolvedInfo.ReferenceUsage =>
           if (hasChanged)
             TPostResult(preR.ctx, Some(o2))
           else
@@ -4245,6 +4155,42 @@ import Transformer._
     val hasChanged: B = r.resultOpt.nonEmpty
     val o2: TypedAttr = r.resultOpt.getOrElse(o)
     val postR: TPostResult[Context, TypedAttr] = pp.postTypedAttr(r.ctx, o2)
+    if (postR.resultOpt.nonEmpty) {
+      return postR
+    } else if (hasChanged) {
+      return TPostResult(postR.ctx, Some(o2))
+    } else {
+      return TPostResult(postR.ctx, None())
+    }
+  }
+
+  @pure def transformTypeNamed(ctx: Context, o: Type.Named): TPostResult[Context, Type.Named] = {
+    val preR: PreResult[Context, Type.Named] = pp.preTypeNamed(ctx, o) match {
+     case PreResult(preCtx, continu, Some(r: Type.Named)) => PreResult(preCtx, continu, Some[Type.Named](r))
+     case PreResult(_, _, Some(_)) => halt("Can only produce object of type Type.Named")
+     case PreResult(preCtx, continu, _) => PreResult(preCtx, continu, None[Type.Named]())
+    }
+    val r: TPostResult[Context, Type.Named] = if (preR.continu) {
+      val o2: Type.Named = preR.resultOpt.getOrElse(o)
+      val hasChanged: B = preR.resultOpt.nonEmpty
+      val r0: TPostResult[Context, SysmlAst.Name] = transformSysmlAstName(preR.ctx, o2.name)
+      val r1: TPostResult[Context, TypedAttr] = transformTypedAttr(r0.ctx, o2.attr)
+      if (hasChanged || r0.resultOpt.nonEmpty || r1.resultOpt.nonEmpty)
+        TPostResult(r1.ctx, Some(o2(name = r0.resultOpt.getOrElse(o2.name), attr = r1.resultOpt.getOrElse(o2.attr))))
+      else
+        TPostResult(r1.ctx, None())
+    } else if (preR.resultOpt.nonEmpty) {
+      TPostResult(preR.ctx, Some(preR.resultOpt.getOrElse(o)))
+    } else {
+      TPostResult(preR.ctx, None())
+    }
+    val hasChanged: B = r.resultOpt.nonEmpty
+    val o2: Type.Named = r.resultOpt.getOrElse(o)
+    val postR: TPostResult[Context, Type.Named] = pp.postTypeNamed(r.ctx, o2) match {
+     case TPostResult(postCtx, Some(result: Type.Named)) => TPostResult(postCtx, Some[Type.Named](result))
+     case TPostResult(_, Some(_)) => halt("Can only produce object of type Type.Named")
+     case TPostResult(postCtx, _) => TPostResult(postCtx, None[Type.Named]())
+    }
     if (postR.resultOpt.nonEmpty) {
       return postR
     } else if (hasChanged) {

@@ -256,7 +256,7 @@ object TypeOutliner {
     var itemUsages = info.itemUsages
     var partUsages = info.partUsages
     var portUsages = info.portUsages
-
+    var referenceUsages = info.referenceUsages
 
     def checkInherit(id: String, owner: ISZ[String], posOpt: Option[Position]): B = {
       def check(map: HashSMap[String, Info.UsageInfo]): B = {
@@ -338,6 +338,17 @@ object TypeOutliner {
         portUsages = portUsages + id ~> portUsage
       }
     }
+    def inheritReferenceUsages(referenceUsage: Info.ReferenceUsage, posOpt: Option[Position]): Unit = {
+      val owner = referenceUsage.owner
+      val id = referenceUsage.id
+      if (referenceUsage.ast.visibility != Visibility.Public) {
+        reporter.error(referenceUsage.ast.posOpt, TypeChecker.typeCheckerKind,
+          "Currently only supporting public visibilities")
+      }
+      if (checkInherit(id, owner, posOpt)) {
+        referenceUsages = referenceUsages + id ~> referenceUsage
+      }
+    }
 
     def getTypedName(a: SAST.Typed): SAST.Typed.Name = {
       a match {
@@ -379,6 +390,9 @@ object TypeOutliner {
                   for (parentPortUsage <- parentAllocDef.members.portUsages.values) {
                     inheritPortUsages(parentPortUsage, posOpt)
                   }
+                  for (parentReferenceUsage <- parentAllocDef.members.referenceUsages.values) {
+                    inheritReferenceUsages(parentReferenceUsage, posOpt)
+                  }
 
                 case Some(parentAttrDef: TypeInfo.AttributeDefinition) =>
                   ancestors = ancestors + getTypedName(parentAttrDef.tpe)
@@ -401,6 +415,9 @@ object TypeOutliner {
                   }
                   for (parentPortUsage <- parentAttrDef.members.portUsages.values) {
                     inheritPortUsages(parentPortUsage, posOpt)
+                  }
+                  for (parentReferenceUsage <- parentAttrDef.members.referenceUsages.values) {
+                    inheritReferenceUsages(parentReferenceUsage, posOpt)
                   }
 
 
@@ -425,6 +442,9 @@ object TypeOutliner {
                   }
                   for (parentPortUsage <- parentConnDef.members.portUsages.values) {
                     inheritPortUsages(parentPortUsage, posOpt)
+                  }
+                  for (parentReferenceUsage <- parentConnDef.members.referenceUsages.values) {
+                    inheritReferenceUsages(parentReferenceUsage, posOpt)
                   }
 
                 case Some(parentEnumDef: TypeInfo.EnumDefinition) =>
@@ -452,6 +472,10 @@ object TypeOutliner {
                   for (parentPortUsage <- parentPartDef.members.portUsages.values) {
                     inheritPortUsages(parentPortUsage, posOpt)
                   }
+                  for (parentReferenceUsage <- parentPartDef.members.referenceUsages.values) {
+                    inheritReferenceUsages(parentReferenceUsage, posOpt)
+                  }
+
                 case Some(parentPortDef: TypeInfo.PortDefinition) =>
                   ancestors = ancestors + getTypedName(parentPortDef.tpe)
                   val posOpt = parent.posOpt
@@ -474,6 +498,10 @@ object TypeOutliner {
                   for (parentPortUsage <- parentPortDef.members.portUsages.values) {
                     inheritPortUsages(parentPortUsage, posOpt)
                   }
+                  for (parentReferenceUsage <- parentPortDef.members.referenceUsages.values) {
+                    inheritReferenceUsages(parentReferenceUsage, posOpt)
+                  }
+
                 case _ =>
               }
             case Some(_) => halt("Infeasible: type hierarchy phase should have checked type parents who should be typed names")
@@ -489,25 +517,29 @@ object TypeOutliner {
       connectionUsages = connectionUsages,
       itemUsages = itemUsages,
       partUsages = partUsages,
-      portUsages = portUsages),
+      portUsages = portUsages,
+      referenceUsages = referenceUsages),
       ancestors.elements,
       newParents)
   }
 
   def outlineMembers(info: TypeInfo.Members, scope: Scope.Local, reporter: Reporter): TypeInfo.Members = {
     var attributeUsages = HashSMap.empty[String, Info.AttributeUsage]
+    var connectionUsages = HashSMap.empty[String, Info.ConnectionUsage]
     var itemUsages = HashSMap.empty[String, Info.ItemUsage]
     var partUsages = HashSMap.empty[String, Info.PartUsage]
     var portUsages = HashSMap.empty[String, Info.PortUsage]
-    var connectionUsages = HashSMap.empty[String, Info.ConnectionUsage]
+    var referenceUsages = HashSMap.empty[String, Info.ReferenceUsage]
+
 
     def isDeclared(id: String): B = {
       return (
         attributeUsages.contains(id) ||
-        itemUsages.contains(id) ||
-        partUsages.contains(id) ||
-        portUsages.contains(id) ||
-        connectionUsages.contains(id))
+          connectionUsages.contains(id) ||
+          itemUsages.contains(id) ||
+          partUsages.contains(id) ||
+          portUsages.contains(id) ||
+          referenceUsages.contains(id))
     }
 
     def getType(owner: String,
@@ -637,8 +669,33 @@ object TypeOutliner {
       }
     }
 
+    def checkReferenceUsage(pInfo: Info.ReferenceUsage): Unit = {
+      val pAst = pInfo.ast
+      val id = pInfo.id
+      if (isDeclared(id)) {
+        reporter.error(pAst.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
+      }
+      // NOTE: this is bit different than slang as usage like entities (e.g. vars)
+      // will have their tipeOpt field populated during AST building. For sysml
+      // the type maps are built first and then the usage's specializations are
+      // used to lookup up the usage's type (and then build the typed info) so
+      // this is when tipeOpt fields are populated
+      val tipeOpt = getType(pInfo.id, pInfo.posOpt, pAst.specializations, scope)
+      tipeOpt match {
+        case Some(tipe) =>
+          referenceUsages = referenceUsages + id ~>
+            pInfo(
+              ast = pAst(tipeOpt = Some(tipe), attr = pAst.attr(typedOpt = tipe.typedOpt)))
+        case _ =>
+      }
+    }
+
     for (p <- info.attributeUsages.values) {
       checkAttributeUsage(p)
+    }
+
+    for (p <- info.connectionUsages.values) {
+      checkConnectionUsage(p)
     }
 
     for (p <- info.itemUsages.values) {
@@ -653,16 +710,18 @@ object TypeOutliner {
       checkPortUsage(p)
     }
 
-    for (p <- info.connectionUsages.values) {
-      checkConnectionUsage(p)
+    for (p <- info.referenceUsages.values) {
+      checkReferenceUsage(p)
     }
 
     return TypeInfo.Members(
       attributeUsages = attributeUsages,
+      connectionUsages = connectionUsages,
       itemUsages = itemUsages,
       partUsages = partUsages,
       portUsages = portUsages,
-      connectionUsages = connectionUsages)
+      referenceUsages = referenceUsages
+      )
   }
 
 

@@ -252,6 +252,7 @@ object Info {
                                       val scope: Scope,
                                       val ast: SAST.SysmlAst.AttributeDefinition)
 
+
   @datatype trait UsageInfo extends Info {
     def owner: ISZ[String]
     def id: String
@@ -266,6 +267,10 @@ object Info {
     @strictpure def name: ISZ[String] = {
       return owner :+ id
     }
+
+    @pure def resOpt: Option[SAST.ResolvedInfo] = {
+      return ast.attr.resOpt
+    }
   }
 
   @datatype class ItemUsage(val owner: ISZ[String],
@@ -276,6 +281,10 @@ object Info {
 
     @strictpure def name: ISZ[String] = {
       return owner :+ id
+    }
+
+    @pure def resOpt: Option[SAST.ResolvedInfo] = {
+      return ast.attr.resOpt
     }
   }
 
@@ -288,6 +297,10 @@ object Info {
     @strictpure def name: ISZ[String] = {
       return owner :+ id
     }
+
+    @pure def resOpt: Option[SAST.ResolvedInfo] = {
+      return ast.attr.resOpt
+    }
   }
 
   @datatype class PortUsage(val owner: ISZ[String],
@@ -299,6 +312,10 @@ object Info {
     @strictpure def name: ISZ[String] = {
       return owner :+ id
     }
+
+    @pure def resOpt: Option[SAST.ResolvedInfo] = {
+      return ast.attr.resOpt
+    }
   }
 
   @datatype class ConnectionUsage(val owner: ISZ[String],
@@ -309,6 +326,25 @@ object Info {
 
     @strictpure def name: ISZ[String] = {
       return owner :+ id
+    }
+
+    @pure def resOpt: Option[SAST.ResolvedInfo] = {
+      return ast.attr.resOpt
+    }
+  }
+
+  @datatype class ReferenceUsage(val owner: ISZ[String],
+                                 val id: String,
+                                 val scope: Scope,
+                                 val ast: SAST.SysmlAst.ReferenceUsage) extends UsageInfo {
+    @strictpure def posOpt: Option[Position] = ast.attr.posOpt
+
+    @strictpure def name: ISZ[String] = {
+      return owner :+ id
+    }
+
+    @pure def resOpt: Option[SAST.ResolvedInfo] = {
+      return ast.attr.resOpt
     }
   }
 }
@@ -462,5 +498,6 @@ object TypeInfo {
                           val connectionUsages: HashSMap[String, Info.ConnectionUsage],
                           val itemUsages: HashSMap[String, Info.ItemUsage],
                           val partUsages: HashSMap[String, Info.PartUsage],
-                          val portUsages: HashSMap[String, Info.PortUsage])
+                          val portUsages: HashSMap[String, Info.PortUsage],
+                          val referenceUsages: HashSMap[String, Info.ReferenceUsage])
 }

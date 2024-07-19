@@ -255,10 +255,12 @@ object GlobalDeclarationResolver {
 
   def resolveMembers(owner: IS[Z, String], scope: Scope, items: ISZ[SysmlAst.BodyElement]): TypeInfo.Members = {
     var attributeUsages = HashSMap.empty[String, Info.AttributeUsage]
+    var connectionUsages = HashSMap.empty[String, Info.ConnectionUsage]
     var itemUsages = HashSMap.empty[String, Info.ItemUsage]
     var partUsages = HashSMap.empty[String, Info.PartUsage]
     var portUsages = HashSMap.empty[String, Info.PortUsage]
-    var connectionUsages = HashSMap.empty[String, Info.ConnectionUsage]
+    var referenceUsages = HashSMap.empty[String, Info.ReferenceUsage]
+
 
     @pure def checkId(id: String, posOpt: Option[Position]): Unit = {
       val declared: B = {
@@ -280,6 +282,16 @@ object GlobalDeclarationResolver {
                 id ~> Info.AttributeUsage(owner = owner, id = id, scope = scope,
                   ast = i(attr = i.attr(resOpt = Some(SAST.ResolvedInfo.AttributeUsage(owner = owner, name = id)))))
             case x =>
+              reporter.warn(i.posOpt, resolverKind, s"How to handle usages without identification")
+          }
+        case i: SysmlAst.ConnectionUsage =>
+          getId(i.identification, i.posOpt) match {
+            case (Some(id), posOpt) =>
+              checkId(id, posOpt)
+              connectionUsages = connectionUsages +
+                id ~> Info.ConnectionUsage(owner = owner, id = id, scope = scope,
+                  ast = i(attr = i.attr(resOpt = Some(SAST.ResolvedInfo.ConnectionUsage(owner = owner, name = id)))))
+            case _ =>
               reporter.warn(i.posOpt, resolverKind, s"How to handle usages without identification")
           }
         case i: SysmlAst.ItemUsage =>
@@ -314,13 +326,13 @@ object GlobalDeclarationResolver {
               reporter.warn(i.posOpt, resolverKind, s"How to handle usages without identification")
           }
 
-        case i: SysmlAst.ConnectionUsage =>
+        case i: SysmlAst.ReferenceUsage =>
           getId(i.identification, i.posOpt) match {
             case (Some(id), posOpt) =>
               checkId(id, posOpt)
-              connectionUsages = connectionUsages +
-                id ~> Info.ConnectionUsage(owner = owner, id = id, scope = scope,
-                  ast = i(attr = i.attr(resOpt = Some(SAST.ResolvedInfo.ConnectionUsage(owner = owner, name = id)))))
+              referenceUsages = referenceUsages +
+                id ~> Info.ReferenceUsage(owner = owner, id = id, scope = scope,
+                  ast = i(attr = i.attr(resOpt = Some(SAST.ResolvedInfo.ReferenceUsage(owner = owner, name = id)))))
             case _ =>
               reporter.warn(i.posOpt, resolverKind, s"How to handle usages without identification")
           }
@@ -331,10 +343,11 @@ object GlobalDeclarationResolver {
 
     return TypeInfo.Members(
       attributeUsages = attributeUsages,
+      connectionUsages = connectionUsages,
       itemUsages = itemUsages,
       partUsages = partUsages,
       portUsages = portUsages,
-      connectionUsages = connectionUsages
+      referenceUsages = referenceUsages
     )
   }
 

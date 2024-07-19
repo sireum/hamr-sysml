@@ -280,10 +280,11 @@ object SysmlAst {
                                  val featureValue: Option[FeatureValue],
                                  val definitionBodyItems: ISZ[BodyElement],
                                  val tipeOpt: Option[Type],
-                                 @hidden val attr: Attr) extends NonOccurrenceUsageElement {
+                                 @hidden val attr: ResolvedAttr) extends NonOccurrenceUsageElement {
     @strictpure override def posOpt: Option[Position] = attr.posOpt
   }
 
+  /*
   @datatype class DefaultReferenceUsage(val visibility: Visibility.Type,
                                         val prefix: RefPrefix,
                                         val identification: Option[Identification],
@@ -294,6 +295,8 @@ object SysmlAst {
                                         @hidden val attr: Attr) extends NonOccurrenceUsageElement {
     @strictpure override def posOpt: Option[Position] = attr.posOpt
   }
+  */
+
 
   // Occurrence Usages
 
@@ -390,6 +393,28 @@ object SysmlAst {
 
 }
 
+
+object ResolvedInfo {
+  @datatype class Package(val name: ISZ[String]) extends ResolvedInfo
+
+  @datatype class Enum(val name: ISZ[String]) extends ResolvedInfo
+
+  @datatype class EnumElement(val owner: ISZ[String], val name: String, val ordinal: Z) extends ResolvedInfo
+
+
+  @datatype class AttributeUsage(val owner: ISZ[String], val name: String) extends ResolvedInfo
+
+  @datatype class ConnectionUsage(val owner: ISZ[String], val name: String) extends ResolvedInfo
+
+  @datatype class ItemUsage(val owner: ISZ[String], val name: String) extends ResolvedInfo
+
+  @datatype class PartUsage(val owner: ISZ[String], val name: String) extends ResolvedInfo
+
+  @datatype class PortUsage(val owner: ISZ[String], val name: String) extends ResolvedInfo
+
+  @datatype class ReferenceUsage(val owner: ISZ[String], val name: String) extends ResolvedInfo
+}
+
 @datatype trait Type {
 
   @strictpure def posOpt: Option[Position]
@@ -436,21 +461,3 @@ object Type {
 }
 
 @datatype class TypedAttr(val posOpt: Option[Position], val typedOpt: Option[Typed])
-
-object ResolvedInfo {
-  @datatype class Package(val name: ISZ[String]) extends ResolvedInfo
-
-  @datatype class Enum(val name: ISZ[String]) extends ResolvedInfo
-
-  @datatype class EnumElement(val owner: ISZ[String], val name: String, val ordinal: Z) extends ResolvedInfo
-
-  @datatype class AttributeUsage(val owner: ISZ[String], val name: String) extends ResolvedInfo
-
-  @datatype class ItemUsage(val owner: ISZ[String], val name: String) extends ResolvedInfo
-
-  @datatype class PartUsage(val owner: ISZ[String], val name: String) extends ResolvedInfo
-
-  @datatype class PortUsage(val owner: ISZ[String], val name: String) extends ResolvedInfo
-
-  @datatype class ConnectionUsage(val owner: ISZ[String], val name: String) extends ResolvedInfo
-}

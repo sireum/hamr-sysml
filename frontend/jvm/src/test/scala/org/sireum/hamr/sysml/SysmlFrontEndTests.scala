@@ -10,6 +10,8 @@ import org.sireum.message.Reporter
 
 class SysmlFrontEndTests extends TestSuite {
 
+  val par: Z = 1
+
   val resourceDir: Os.Path = Os.path(implicitly[sourcecode.File].value).up.up.up.up.up.up / "resources"
   val omgDir = resourceDir / "models" / "sysmlv2-models" / "omg"
   val aadl_library = omgDir / "aadl.library"
@@ -83,7 +85,7 @@ class SysmlFrontEndTests extends TestSuite {
     var th = TypeHierarchy.build(F, TypeHierarchy(globalNameMap, globalTypeMap, Poset.empty, HashSMap.empty), reporter)
     report("Type Hierarchy", T)
 
-    th = TypeOutliner.checkOutline(0, th, reporter)
+    th = TypeOutliner.checkOutline(par, th, reporter)
     report("Type Outliner", T)
 
     for (th <- th.typeMap.values) {
@@ -94,7 +96,7 @@ class SysmlFrontEndTests extends TestSuite {
       }
     }
 
-    th = TypeChecker.checkDefinitions(0, th: TypeHierarchy, reporter)
+    th = TypeChecker.checkDefinitions(par, th: TypeHierarchy, reporter)
     report("Type Checker", T)
 
   }
