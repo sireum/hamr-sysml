@@ -242,7 +242,7 @@ object Info {
                               val typedOpt: Option[Typed],
                               val resOpt: Some[ResolvedInfo],
                               val posOpt: Option[Position]) extends Info {
-    @pure override def name: _root_.org.sireum.ISZ[String] = {
+    @pure override def name: ISZ[String] = {
       return owner :+ id
     }
   }
@@ -264,7 +264,7 @@ object Info {
                                  val ast: SAST.SysmlAst.AttributeUsage) extends UsageInfo {
     @strictpure def posOpt: Option[Position] = ast.attr.posOpt
 
-    @strictpure def name: ISZ[String] = {
+    @pure def name: ISZ[String] = {
       return owner :+ id
     }
 
@@ -279,7 +279,7 @@ object Info {
                             val ast: SAST.SysmlAst.ItemUsage) extends UsageInfo {
     @strictpure def posOpt: Option[Position] = ast.attr.posOpt
 
-    @strictpure def name: ISZ[String] = {
+    @pure def name: ISZ[String] = {
       return owner :+ id
     }
 
@@ -294,7 +294,7 @@ object Info {
                             val ast: SAST.SysmlAst.PartUsage) extends UsageInfo {
     @strictpure def posOpt: Option[Position] = ast.attr.posOpt
 
-    @strictpure def name: ISZ[String] = {
+    @pure def name: ISZ[String] = {
       return owner :+ id
     }
 
@@ -309,7 +309,7 @@ object Info {
                             val ast: SAST.SysmlAst.PortUsage) extends UsageInfo {
     @strictpure def posOpt: Option[Position] = ast.attr.posOpt
 
-    @strictpure def name: ISZ[String] = {
+    @pure def name: ISZ[String] = {
       return owner :+ id
     }
 
@@ -324,7 +324,7 @@ object Info {
                                   val ast: SAST.SysmlAst.ConnectionUsage) extends UsageInfo {
     @strictpure def posOpt: Option[Position] = ast.attr.posOpt
 
-    @strictpure def name: ISZ[String] = {
+    @pure def name: ISZ[String] = {
       return owner :+ id
     }
 
@@ -339,7 +339,7 @@ object Info {
                                  val ast: SAST.SysmlAst.ReferenceUsage) extends UsageInfo {
     @strictpure def posOpt: Option[Position] = ast.attr.posOpt
 
-    @strictpure def name: ISZ[String] = {
+    @pure def name: ISZ[String] = {
       return owner :+ id
     }
 

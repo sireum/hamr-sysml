@@ -12,7 +12,7 @@ import org.sireum.message.{Message, Position, Reporter}
 
 object TypeChecker {
 
-  val typeCheckerKind = "Type Checker"
+  val typeCheckerKind: String = "Type Checker"
 
   def checkDefinitions(par: Z, th: TypeHierarchy, reporter: Reporter): TypeHierarchy = {
     var jobs = ISZ[() => (TypeHierarchy => (TypeHierarchy, ISZ[Message]) @pure) @pure]()
@@ -45,7 +45,7 @@ object TypeChecker {
 
 @datatype class TypeChecker(val typeHierarchy: TypeHierarchy,
                             val context: QName) {
-  def checkAllocationDefinition(info: TypeInfo.AllocationDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message]) = {
+  def checkAllocationDefinition(info: TypeInfo.AllocationDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message]) @pure = {
     assert(info.outlined, st"${(info.name, "::")} is not outline".render)
     val reporter = Reporter.create
 
@@ -66,7 +66,7 @@ object TypeChecker {
     return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), messages)
   }
 
-  def checkAttributeDefinition(info: TypeInfo.AttributeDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message]) = {
+  def checkAttributeDefinition(info: TypeInfo.AttributeDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message]) @pure = {
     assert(info.outlined, st"${(info.name, "::")} is not outline".render)
     val reporter = Reporter.create
 
@@ -87,7 +87,7 @@ object TypeChecker {
     return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), messages)
   }
 
-  def checkConnectionDefinition(info: TypeInfo.ConnectionDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message]) = {
+  def checkConnectionDefinition(info: TypeInfo.ConnectionDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message]) @pure = {
     assert(info.outlined, st"${(info.name, "::")} is not outline".render)
     val reporter = Reporter.create
 
@@ -108,7 +108,7 @@ object TypeChecker {
     return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), messages)
   }
 
-  def checkPartDefinition(info: TypeInfo.PartDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message]) = {
+  def checkPartDefinition(info: TypeInfo.PartDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message]) @pure = {
     assert(info.outlined, st"${(info.name, "::")} is not outline".render)
     val reporter = Reporter.create
 
@@ -129,14 +129,14 @@ object TypeChecker {
     return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), messages)
   }
 
-  def checkPortDefinition(info: TypeInfo.PortDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message]) = {
+  def checkPortDefinition(info: TypeInfo.PortDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message]) @pure = {
     assert(info.outlined, st"${(info.name, "::")} is not outline".render)
     val reporter = Reporter.create
 
     var scope = Scope.Local.create(info.scope)
     scope = addMembersToScope(info.members, scope)
 
-    val newBodyItems = checkBodyItems(scopes = ISZ(scope), info.ast.bodyItems, reporter)
+    val newBodyItems = checkBodyItems(scopes = ISZ(scope), bodyItems = info.ast.bodyItems, reporter = reporter)
 
     val messages = reporter.messages
 
@@ -153,18 +153,18 @@ object TypeChecker {
   def addMembersToScope(members: TypeInfo.Members, scope: Scope.Local): Scope.Local = {
     var nameMap = HashMap.empty[String, Info]
 
-    def add(map: HashSMap[String, Info.UsageInfo]): Unit = {
+    def add(map: HashSMap[String, Info]): Unit = {
       for (e <- map.entries) {
         nameMap = nameMap + e
       }
     }
 
-    add(members.attributeUsages.asInstanceOf[HashSMap[String, Info.UsageInfo]])
-    add(members.connectionUsages.asInstanceOf[HashSMap[String, Info.UsageInfo]])
-    add(members.itemUsages.asInstanceOf[HashSMap[String, Info.UsageInfo]])
-    add(members.partUsages.asInstanceOf[HashSMap[String, Info.UsageInfo]])
-    add(members.portUsages.asInstanceOf[HashSMap[String, Info.UsageInfo]])
-    add(members.referenceUsages.asInstanceOf[HashSMap[String, Info.UsageInfo]])
+    add(members.attributeUsages.asInstanceOf[HashSMap[String, Info]])
+    add(members.connectionUsages.asInstanceOf[HashSMap[String, Info]])
+    add(members.itemUsages.asInstanceOf[HashSMap[String, Info]])
+    add(members.partUsages.asInstanceOf[HashSMap[String, Info]])
+    add(members.portUsages.asInstanceOf[HashSMap[String, Info]])
+    add(members.referenceUsages.asInstanceOf[HashSMap[String, Info]])
 
     return scope(nameMap = scope.nameMap ++ nameMap.entries)
   }
@@ -580,7 +580,7 @@ object TypeChecker {
         return (newExp, typedOpt)
       }
 
-      return tr
+      return (newExp, typedOpt)
     }
 
     def checkExpH(): (AST.Exp, Option[SAST.Typed]) = {

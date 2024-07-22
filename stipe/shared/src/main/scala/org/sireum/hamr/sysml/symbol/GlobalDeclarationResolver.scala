@@ -91,12 +91,12 @@ object GlobalDeclarationResolver {
 
             var i = 0
             for (e <- elements.entries) {
-              val posOpt = elementPosOpts(i)
+              val elemPosOpt = elementPosOpts(i)
               declareName(
                 entity = "enumeration element",
                 name = name :+ e._1,
-                info = Info.EnumElement(name, e._1, elementTypedOpt, Some(e._2), posOpt),
-                posOpt = posOpt
+                info = Info.EnumElement(name, e._1, elementTypedOpt, Some(e._2), elemPosOpt),
+                posOpt = elemPosOpt
               )
               i = i + 1
             }

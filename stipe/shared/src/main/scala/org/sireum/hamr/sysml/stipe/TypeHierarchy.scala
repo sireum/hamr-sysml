@@ -77,7 +77,7 @@ object TypeHierarchy {
 
             val parentsNameds: ISZ[Type.Named] = getParentTypes(info.ast.subClassifications, info.scope, info.posOpt)
             val parents: ISZ[SAST.Typed.Name] = resolveTypeNameds(info.posOpt, info.scope, parentsNameds)
-            val parentTypeNames = for(p <- parents) yield p.ids
+            val parentTypeNames: ISZ[ISZ[String]] = for(p <- parents) yield p.ids
             r = r(
               poset = r.poset.addParents(typed.ids, parentTypeNames),
               typeMap = r.typeMap + info.name ~> info(ast = info.ast(parents = parentsNameds)))
@@ -92,7 +92,7 @@ object TypeHierarchy {
 
             val parentsNameds: ISZ[Type.Named] = getParentTypes(info.ast.subClassifications, info.scope, info.posOpt)
             val parents: ISZ[SAST.Typed.Name] = resolveTypeNameds(info.posOpt, info.scope, parentsNameds)
-            val parentTypeNames = for(p <- parents) yield p.ids
+            val parentTypeNames: ISZ[ISZ[String]] = for(p <- parents) yield p.ids
             r = r(
               poset = r.poset.addParents(typed.ids, parentTypeNames),
               typeMap = r.typeMap + info.name ~> info(ast = info.ast(parents = parentsNameds)))
@@ -107,7 +107,7 @@ object TypeHierarchy {
 
             val parentsNameds: ISZ[Type.Named] = getParentTypes(info.ast.subClassifications, info.scope, info.posOpt)
             val parents: ISZ[SAST.Typed.Name] = resolveTypeNameds(info.posOpt, info.scope, parentsNameds)
-            val parentTypeNames = for(p <- parents) yield p.ids
+            val parentTypeNames: ISZ[ISZ[String]] = for(p <- parents) yield p.ids
             r = r(
               poset = r.poset.addParents(typed.ids, parentTypeNames),
               typeMap = r.typeMap + info.name ~> info(ast = info.ast(parents = parentsNameds)))
@@ -121,7 +121,7 @@ object TypeHierarchy {
 
             val parentsNameds: ISZ[Type.Named] = getParentTypes(info.ast.subClassifications, info.scope, info.posOpt)
             val parents: ISZ[SAST.Typed.Name] = resolveTypeNameds(info.posOpt, info.scope, parentsNameds)
-            val parentTypeNames = for(p <- parents) yield p.ids
+            val parentTypeNames: ISZ[ISZ[String]] = for(p <- parents) yield p.ids
             r = r(
               poset = r.poset.addParents(typed.ids, parentTypeNames),
               typeMap = r.typeMap + info.name ~> info(ast = info.ast(parents = parentsNameds)))
@@ -135,7 +135,7 @@ object TypeHierarchy {
 
             val parentsNameds: ISZ[Type.Named] = getParentTypes(info.ast.subClassifications, info.scope, info.posOpt)
             val parents: ISZ[SAST.Typed.Name] = resolveTypeNameds(info.posOpt, info.scope, parentsNameds)
-            val parentTypeNames = for(p <- parents) yield p.ids
+            val parentTypeNames: ISZ[ISZ[String]] = for(p <- parents) yield p.ids
             r = r(
               poset = r.poset.addParents(typed.ids, parentTypeNames),
               typeMap = r.typeMap + info.name ~> info(ast = info.ast(parents = parentsNameds)))

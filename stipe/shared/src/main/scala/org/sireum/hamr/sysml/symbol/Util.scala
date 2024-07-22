@@ -22,7 +22,7 @@ object Util {
             reporter.error(id.posOpt, toolKind, "Names must be provided")
         }
       case _ =>
-        if (specializations.size.nonEmpty) {
+        if (specializations.nonEmpty) {
           specializations match {
             case ISZ(SysmlAst.RedefinitionsSpecialization(names)) if names.size == 1 =>
               if (names(0).ids.size == 1) {

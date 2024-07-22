@@ -244,13 +244,13 @@ object TypeOutliner {
     return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), messages)
   }
 
-  private def outlineInheritedMembers(nameOwner: ISZ[String],
-                                      nameId: String,
-                                      name: QName,
-                                      parents: ISZ[Type.Named],
-                                      scope: Scope.Local,
-                                      info: TypeInfo.Members,
-                                      reporter: Reporter): (TypeInfo.Members, ISZ[SAST.Typed.Name], ISZ[SAST.Type.Named]) = {
+  def outlineInheritedMembers(nameOwner: ISZ[String],
+                              nameId: String,
+                              name: QName,
+                              parents: ISZ[Type.Named],
+                              scope: Scope.Local,
+                              info: TypeInfo.Members,
+                              reporter: Reporter): (TypeInfo.Members, ISZ[SAST.Typed.Name], ISZ[SAST.Type.Named]) = {
     var attributeUsages = info.attributeUsages
     var connectionUsages = info.connectionUsages
     var itemUsages = info.itemUsages
