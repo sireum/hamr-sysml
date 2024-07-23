@@ -271,6 +271,15 @@ object SysMLGrammar_Ext {
       val grammar = ops.StringOps(outFile.name).replaceAllLiterally(s".${outFile.ext}", "")
       st"""grammar $grammar;
           |
+          |@parser::members {
+          |  public static boolean isKeyword(int tokenType) {
+          |    switch (tokenType) {
+          |      case ${(for (k <- keywords.elements) yield st"${grammar}Lexer.K_${k.value.toUpperCase}", " |\n")}: return true;
+          |      default: return false;
+          |    }
+          |  }
+          |}
+          |
           |${(prules, "\n\n")}
           |
           |${(for (k <- keywords.elements) yield st"K_${k.value.toUpperCase}: '$k';", "\n")}
@@ -278,16 +287,6 @@ object SysMLGrammar_Ext {
           |${(for (p <- parens.elements) yield getParenTokenDef(p), "\n")}
           |
           |${(for (op <- operators.elements) yield getOpTokenDef(op), "\n")}
-          |
-          |/*
-          |def isKeyword(tokenType: Int): Boolean = {
-          |  import ${grammar}Lexer._
-          |  tokenType match {
-          |    case ${(for (k <- keywords.elements) yield st"K_${k.value.toUpperCase}", " |\n")} => true
-          |    case _ => false
-          |  }
-          |}
-          |*/
           |
           |${(lrules, "\n\n")}"""
     }
