@@ -28,6 +28,7 @@ package TempControlAadl {
              // or you can use the fully qualified method names
              (tempy.degrees >= TempSensor::gminTempDegrees()) and (tempy.degrees <= TempSensor::gmaxTempDegrees());
         }*/
+
 	part def TempControlSystem :> System {
 		// subcomponents
 		part tcp : TempControlProcess;
