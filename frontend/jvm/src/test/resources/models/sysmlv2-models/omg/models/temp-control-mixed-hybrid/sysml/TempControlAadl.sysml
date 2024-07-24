@@ -7,26 +7,8 @@ package TempControlAadl {
 	language "GUMBO" /*{
 	  library
         functions
-          // defs may include constants (these might also be defined in an Alisa file)
-          // Types on defs may include base types as well as user-defined types
-
-          // paramless version (i.e. no parens) is not currently supported as it requires modifications
-          // to codegen/sym-resolving
-
-          def gminTempDegrees(): Base_Types::Float_32 := f32(-50.0);
-
-          // only strictpure methods are currently supported so the annotation is optional
-          def gmaxTempDegrees(): Base_Types::Float_32 := f32(150.0);
-
-          def gdefaultTempDegrees(): Base_Types::Float_32 := f32(72.0);
-
-          // defs may include predicates (strict pure boolean functions) (these might also be defined in an Alisa file)
-          def gTempSensorRange(tempy: Temperature): Base_Types::Boolean :=
-             // can use simple name of any method defined in this lib annex
-             (tempy.degrees >= gminTempDegrees()) and (tempy.degrees <= gmaxTempDegrees()) and
-
-             // or you can use the fully qualified method names
-             (tempy.degrees >= TempSensor::gminTempDegrees()) and (tempy.degrees <= TempSensor::gmaxTempDegrees());
+          def inRange(temp: Temperature): AADL_Base_Types::Boolean :=
+            temp.degrees >= f32(-50.0) and temp.degrees <= f32(150.0);
         }*/
 
 	part def TempControlSystem :> System {
@@ -54,6 +36,8 @@ package TempControlAadl {
 	part def TempSensor :> Thread {
 		// features
 		out port currentTemp : DataPort { out :> type : Temperature; }
+
+		// FIXME: EventPort does not have an item usage with visiblity rules.
 		out port tempChanged : EventPort;
 	
 		attribute :>> Dispatch_Protocol = Periodic;
@@ -67,11 +51,11 @@ package TempControlAadl {
 		language "GUMBO" /*{
           functions
 
-            def defaultTempDegrees(): Base_Types::Float_32 := f32(72.0);
+            def defaultTempDegrees(): AADL_Base_Types::Float_32 := f32(72.0);
 
           integration
             guarantee Sensor_Temperature_Range:
-                TempSensor::inRange(currentTemp);
+                inRange(currentTemp);
 
           initialize
             guarantee initializes:
@@ -81,15 +65,14 @@ package TempControlAadl {
 
 	part def TempControl :> Thread {
 		// features
-		in port <tc> currentTemp : DataPort { in :> type : Temperature; }
+		in port currentTemp : DataPort { in :> type : Temperature; }
 		
-		// EventPort does not have an item usage with visiblity rules.
-		in port <'this is a short name'> tempChanged : EventPort;
-		
-		out port <'just short'> fanCmd : EventDataPort { out :> type : FanCmd; }
+		// FIXME: EventPort does not have an item usage with visiblity rules.
+		in port tempChanged : EventPort;
 		in port fanAck : EventDataPort { in :> type : FanAck; }
 		in port setPoint : EventDataPort { in :> type : SetPoint; }
-		
+		out port fanCmd : EventDataPort { out :> type : FanCmd; }
+
 		attribute :>> Dispatch_Protocol = Sporadic;
 		attribute :>> Period = 1000 [ms];
 		
@@ -100,8 +83,8 @@ package TempControlAadl {
 		language "GUMBO" /*{
           state
             currentSetPoint: SetPoint;
-            currentFanState: CoolingFan::FanCmd;
-            latestTemp: TempSensor::Temperature;
+            currentFanState: FanCmd;
+            latestTemp: Temperature;
 
           integration
             assume currentTempRange:
@@ -166,7 +149,7 @@ package TempControlAadl {
                 //->: (currentFanState == In(currentFanState));
                 // FIXME: KerML only has a short-circuit implies so this isn't a correct translation. Could
                 //        perhaps do simplies(lhs, rhs)
-                (latestTemp.degrees <= currentSetPoint.high.degrees))
+              (latestTemp.degrees <= currentSetPoint.high.degrees))
                 // if we are still in set point range, don't change the fan state
                 implies (currentFanState == In(currentFanState));
 
