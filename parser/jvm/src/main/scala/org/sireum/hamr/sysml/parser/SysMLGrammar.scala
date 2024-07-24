@@ -30,6 +30,6 @@ import org.sireum.hamr.ir.Aadl
 
 @ext object SysMLGrammar {
 
-  def translate(url: String, version: String, outDir: Os.Path): Z = $
+  def translate(content: String, inputUri: Option[String], customKeywords: ISZ[String], outDir: Os.Path): Z = $
 
 }

@@ -42,9 +42,15 @@ object cli {
       Opt(name = "version", longKey = "version", shortKey = Some('v'),
         tpe = Type.Str(sep = None(), default = Some("2024-05")),
         description = "SysML v2 grammar version"),
+      Opt(name = "grammar", longKey = "grammar", shortKey = Some('g'),
+        tpe = Type.Str(sep = None(), default = None()),
+        description = "File containing an ANTLR v3 grammar"),
       Opt(name = "url", longKey = "url", shortKey = Some('u'),
-        tpe = Type.Str(sep = None(), default = Some("https://raw.githubusercontent.com/Systems-Modeling/SysML-v2-Pilot-Implementation/%version/org.omg.sysml.xtext/src-gen/org/omg/sysml/xtext/parser/antlr/internal/InternalSysML.g")),
-        description = "SysML v2 ANTLR v3 grammar URL (%version is replaced with --version option, if any)")
+        tpe = Type.Str(sep = None(), default = None()),
+        description = "URL of an ANTLR v3 grammar (%version is replaced with --version option, if any)"),
+      Opt(name = "keywords", longKey = "keywords", shortKey = Some('k'),
+        tpe = Type.Str(sep = Some(','), default = None()),
+        description = "Strings that should be treated as keywords rather than operators")
     ),
     groups = ISZ()
   )

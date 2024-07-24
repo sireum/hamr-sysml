@@ -32,15 +32,18 @@ import org.sireum.parser.ANTLRv3Parser._
 
 object SysMLGrammar_Ext {
 
-  private val ERROR_URL = -1
-  private val PARSING_FAILED = -2
+  private val PARSING_FAILED = -3
   private val hiddenIds: HashSet[String] = HashSet ++ ISZ[String]("RULE_ML_NOTE", "RULE_SL_NOTE", "RULE_WS")
 
-  def translate(url: String, version: String, outFile: Os.Path): Z = {
+  def translate(content: String, inputUri: Option[String], customKeywords: ISZ[String], outFile: Os.Path): Z = {
     var keywords = HashSSet.empty[String]
     var operators = HashSSet.empty[String]
     var parens = HashSSet.empty[C]
     var isParser = F
+    def sanitize(str: String): String = {
+      val cis: ISZ[C] = for(c <- conversions.String.toCis(str)) yield if (c.native.isLetter) c else '_'
+      return conversions.String.fromCis(cis)
+    }
     def addLit(text: Predef.String): Unit = {
       if (!isParser) {
         return
@@ -49,7 +52,7 @@ object SysMLGrammar_Ext {
       str match {
         case "<" | ">" | "[" | "]" | "{" | "}" | "(" | ")" => parens = parens + str.charAt(0)
         case _ =>
-          if (str.charAt(0).isLetter) {
+          if (str.charAt(0).isLetter || ops.ISZOps(customKeywords).contains(str)) {
             if (str == "L") {
               println("Here")
             }
@@ -194,11 +197,9 @@ object SysMLGrammar_Ext {
         isParser = !id.forall(c => c.isUpper || c == '_')
         val hiddenOpt = if (hiddenIds.contains(id)) Some(st" -> channel(HIDDEN)") else None()
         (isParser,
-          if (id == "RULE_SL_NOTE") st"$id: '//' ~'*' (~('\\n' | '\\r') ~('\\n' | '\\r')*)? ('\\r'? '\\n')?$hiddenOpt;"
-          else if (alts.size == 1) st"$id: ${alts(0)}$hiddenOpt;"
+          if (alts.size == 1) st"$id: ${alts(0)}$hiddenOpt;"
           else {
-            //alts = for (i <- 1 to alts.size) yield st"${alts(i - 1)} #$id$i"
-            alts = for (i <- 1 to alts.size) yield st"${alts(i - 1)} ${if (isParser) s"#$id$i" else "" }"
+            alts = for (i <- 1 to alts.size) yield st"${alts(i - 1)} #$id$i"
             st"""$id:
                 |  ${(alts, "\n| ")}$hiddenOpt;"""
           })
@@ -260,8 +261,8 @@ object SysMLGrammar_Ext {
         case '}' => "RBRACE"
         case '?' => "QMARK"
         case x =>
-          //halt(s"Infeasible: $c")
-        s"____${x}____"
+          halt(s"Infeasible: $c")
+
       }
 
       def getParenTokenDef(c: C): ST = st"${getSymbolName(c)}: '$c';"
@@ -274,7 +275,7 @@ object SysMLGrammar_Ext {
           |@parser::members {
           |  public static boolean isKeyword(int tokenType) {
           |    switch (tokenType) {
-          |      case ${(for (k <- keywords.elements) yield st"${grammar}Lexer.K_${k.value.toUpperCase}", " |\n")}: return true;
+          |      case ${(for (k <- keywords.elements) yield st"${grammar}Lexer.K_${sanitize(k).value.toUpperCase}", " |\n")}: return true;
           |      default: return false;
           |    }
           |  }
@@ -282,7 +283,7 @@ object SysMLGrammar_Ext {
           |
           |${(prules, "\n\n")}
           |
-          |${(for (k <- keywords.elements) yield st"K_${k.value.toUpperCase}: '$k';", "\n")}
+          |${(for (k <- keywords.elements) yield st"K_${sanitize(k).value.toUpperCase}: '$k';", "\n")}
           |
           |${(for (p <- parens.elements) yield getParenTokenDef(p), "\n")}
           |
@@ -319,19 +320,9 @@ object SysMLGrammar_Ext {
     }
 
     outFile.up.mkdirAll()
-    val input = Os.tempFix(outFile.name, ".g")
-    input.removeAll()
-    val u = ops.StringOps(url).replaceAllLiterally("%version", version)
-    input.downloadFrom(u)
-    input.removeOnExit()
-    if (!input.exists) {
-      eprintln(s"Could not download from $u")
-      return ERROR_URL
-    }
-    println(input)
-    val content = input.read
+
     val reporter = message.Reporter.create
-    val tree = parseGrammar(Some(input.toUri), content, reporter)
+    val tree = parseGrammar(inputUri, content, reporter)
     if (reporter.hasIssue) {
       reporter.printMessages()
       return PARSING_FAILED
@@ -339,7 +330,7 @@ object SysMLGrammar_Ext {
     val treeST = printGrammar(tree)
 
     outFile.writeOver(
-      st"""// Auto-generated from $u
+      st"""// Auto-generated from $inputUri
           |$treeST""".render
     )
     println(s"Generated $outFile")

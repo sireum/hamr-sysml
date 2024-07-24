@@ -7,7 +7,7 @@ package TempControlAadl {
 	language "GUMBO" /*{
 	  library
         functions
-          def inRange(temp: TempSensor::Temperature.i): Base_Types::Boolean :=
+          def inRange(temp: TempSensor::Temperature): Base_Types::Boolean :=
             temp.degrees >= f32(-50.0) and temp.degrees <= f32(150.0);
         }*/
 
@@ -40,7 +40,7 @@ package TempControlAadl {
 		attribute :>> Dispatch_Protocol = Periodic;
 		attribute :>> Period = 1000 [ms];
 
-		lanaguage "GUMBO" /*{
+		language "GUMBO" /*{
           integration
             guarantee Sensor_Temperature_Range:
               inRange(currentTemp);
@@ -48,7 +48,7 @@ package TempControlAadl {
             initialize
               guarantee initializes:
                 currentTemp.degrees == f32(72.0);
-		*}
+		}*/
 	}
 
 	part def TempControl :> Thread {

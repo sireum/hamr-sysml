@@ -2,7 +2,7 @@ package org.sireum.hamr.sysml
 
 import org.sireum._
 import org.sireum.hamr.sysml.ast.SysmlAst._
-import org.sireum.hamr.sysml.parser.{SysMLv2_GUMBOParser => Sysml}
+import org.sireum.hamr.sysml.parser.{SysMLv2Parser => Sysml}
 import org.sireum.hamr.sysml.{ast => SAST}
 import org.sireum.lang.ast.Exp
 import org.sireum.lang.{ast => AST}

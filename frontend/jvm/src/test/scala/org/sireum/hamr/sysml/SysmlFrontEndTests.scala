@@ -42,7 +42,7 @@ class SysmlFrontEndTests extends TestSuite {
   }
 
   "temp-control" in {
-    val input = omg_models / "temp-control" / "sysml" / "TempControlAadl.sysml"
+    val input = omg_models / "temp-control-mixed-hybrid" / "sysml" / "TempControlAadl.sysml"
     println(s"Resolving: ${input.toUri}")
     val inputs: ISZ[Input] = sysLibDefs ++ omgDefs :+ toInput(input)
     test(inputs)
