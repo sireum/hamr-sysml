@@ -90,17 +90,29 @@ package TempControlAadl {
 
               guarantee altCurrentTempLTSetPoint "If current temperature is less than
                                                  |the current low set point, then the fan state shall be Off" :
+                //(currentTemp.degrees < setPoint.low.degrees) ->:
+                //   ((latestFanCmd == CoolingFan::FanCmd.Off) and (fanCmd == CoolingFan::FanCmd.Off));
+                // FIXME: KerML only has a short-circuit implies so this isn't a correct translation. Could
+                //        perhaps do simplies(lhs, rhs)
                 (currentTemp.degrees < setPoint.low.degrees) implies
                    ((latestFanCmd == CoolingFan::FanCmd.Off) and (fanCmd == CoolingFan::FanCmd.Off));
 
               guarantee altCurrentTempGTSetPoint "If current temperature is greater than
                                                  |the current high set point, then the fan state shall be On":
+                 //(currentTemp.degrees > setPoint.high.degrees) ->:
+                 //  ((latestFanCmd == CoolingFan::FanCmd.On) & (fanCmd == CoolingFan::FanCmd.On));
+                 // FIXME: KerML only has a short-circuit implies so this isn't a correct translation. Could
+                 //        perhaps do simplies(lhs, rhs)
                  (currentTemp.degrees > setPoint.high.degrees) implies
                    ((latestFanCmd == CoolingFan::FanCmd.On) & (fanCmd == CoolingFan::FanCmd.On));
 
               guarantee altCurrentTempInRange "If current temperature is greater than or equal to the
                                               |current low set point and less than or equal to the current high set point,
                                               |then the current fan state is maintained." :
+                //((currentTemp.degrees >= setPoint.low.degrees) & (currentTemp.degrees <= setPoint.high.degrees)) ->:
+                //  ((latestFanCmd == In(latestFanCmd)) & (fanCmd == latestFanCmd));
+                 // FIXME: KerML only has a short-circuit implies so this isn't a correct translation. Could
+                 //        perhaps do simplies(lhs, rhs)
                 ((currentTemp.degrees >= setPoint.low.degrees) & (currentTemp.degrees <= setPoint.high.degrees)) implies
                   ((latestFanCmd == In(latestFanCmd)) & (fanCmd == latestFanCmd));
 

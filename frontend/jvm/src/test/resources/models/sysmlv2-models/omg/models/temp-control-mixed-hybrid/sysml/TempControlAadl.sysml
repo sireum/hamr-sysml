@@ -66,47 +66,16 @@ package TempControlAadl {
 
 		language "GUMBO" /*{
           functions
-            def minTempDegrees(): Base_Types::Float_32 := f32(-50.0);
 
             def defaultTempDegrees(): Base_Types::Float_32 := f32(72.0);
 
           integration
             guarantee Sensor_Temperature_Range:
-                (currentTemp.degrees >= f32(-50.0)) and (currentTemp.degrees <= f32(150.0)) and
-
-                // subclause spec defs can only be referred to via their simple name
-                (currentTemp.degrees >= minTempDegrees()) and
-
-                // can refer to library spec defs defined in the same package using the simple name
-                (currentTemp.degrees >= gminTempDegrees()) and
-
-                // or you can use the fully qualified name
-                (currentTemp.degrees >= TempSensor::gminTempDegrees()) and
-
-                // currently must use the fully qualified name for spec defs defined in remote package
-                // but maybe we should relax that to match how OSATE handles imported symbols
-                (GUMBO_Definitions::inRange(currentTemp));
+                TempSensor::inRange(currentTemp);
 
           initialize
             guarantee initializes:
-              (currentTemp.degrees == f32(72.0)) and
-
-              (currentTemp.degrees == defaultTempDegrees()) and
-
-              // FIXME: see commented out method in functions section
-              //(currentTemp == createTemperature(f32"72.0"));
-
-              // but you can construct the type directly
-              (currentTemp == Temperature.i(defaultTempDegrees())) and
-
-              // or you can use the fully qualified name of the type
-              (currentTemp == TempSensor::Temperature.i(defaultTempDegrees()));
-
-            guarantee g1 "Testing MustSend with event port, initializes so no event expected":
-              not MustSend(tempChanged);
-
-            guarantee g2 "Testing NoSend with event port, initializes so no event expected":
-              NoSend(tempChanged);
+              currentTemp.degrees == defaultTempDegrees();
 		}*/
 	}
 
@@ -129,8 +98,6 @@ package TempControlAadl {
 		//	Period = 1000;
 		//}
 		language "GUMBO" /*{
-          // state variables are not needed in periodic version since we will base all control logic
-          //  directly off of data port values
           state
             currentSetPoint: SetPoint;
             currentFanState: CoolingFan::FanCmd;
@@ -138,14 +105,17 @@ package TempControlAadl {
 
           integration
             assume currentTempRange:
-              (currentTemp.degrees >= f32(-70.0)) & (currentTemp.degrees <= f32(180.0));
+              (currentTemp.degrees >= f32(-128.6)) & (currentTemp.degrees <= f32(134.0));
 
           initialize
             modifies currentSetPoint, currentFanState, latestTemp;
-            guarantee defautSetPoint:
+
+            guarantee defaultSetPoint:
               (currentSetPoint.low.degrees == f32(70.0)) and (currentSetPoint.high.degrees == f32(80.0));
+
             guarantee defaultFanStates:
               currentFanState == CoolingFan::FanCmd.Off;
+
             guarantee defaultLatestTemp:
               latestTemp.degrees == f32(72.0);
 
@@ -155,18 +125,18 @@ package TempControlAadl {
             assume
                 a1 "If the previously received currentTemp was less than the previously
                    |received setPoint then the last fan command must have been Off":
+                  //((latestTemp.degrees < currentSetPoint.low.degrees) ->: (currentFanState == CoolingFan::FanCmd.Off));
+                  // FIXME: KerML only has a short-circuit implies so this isn't a correct translation. Could
+                  //        perhaps do simplies(lhs, rhs)
                   ((latestTemp.degrees < currentSetPoint.low.degrees) implies (currentFanState == CoolingFan::FanCmd.Off));
 
             assume
                 a2 "If the previously received currentTemp was more than the previously
                    |received setPoint then the last fan command must have been On":
+                  //((latestTemp.degrees > currentSetPoint.high.degrees) ->: (currentFanState == CoolingFan::FanCmd.On));
+                  // FIXME: KerML only has a short-circuit implies so this isn't a correct translation. Could
+                  //        perhaps do simplies(lhs, rhs)
                   ((latestTemp.degrees > currentSetPoint.high.degrees) implies (currentFanState == CoolingFan::FanCmd.On));
-
-            assume Test "Just testing assume+guarantee along with handlers":
-              (3 + 2) == 5;
-
-            assume Refer_to_state_var_in_sporadic_general_assume:
-              currentSetPoint.low.degrees <= currentSetPoint.high.degrees;
 
             //    ---------------------------
             //     Compute Entry Point General Clauses
@@ -175,31 +145,36 @@ package TempControlAadl {
             //       as independent (not associated with a handler) guarantee clauses.
             //    ---------------------------
             guarantee  TC_Req_01 "If the current temperature is less than the set point, then the fan state shall be Off.":
+              //(latestTemp.degrees < currentSetPoint.low.degrees) ->: (currentFanState == CoolingFan::FanCmd.Off);
+              // FIXME: KerML only has a short-circuit implies so this isn't a correct translation. Could
+              //        perhaps do simplies(lhs, rhs)
               (latestTemp.degrees < currentSetPoint.low.degrees) implies (currentFanState == CoolingFan::FanCmd.Off);
 
             guarantee TC_Req_02 "If the current temperature is greater than the set point,
                                 |then the fan state shall be On.":
+              //(latestTemp.degrees > currentSetPoint.high.degrees) ->: (currentFanState == CoolingFan::FanCmd.On);
+              // FIXME: KerML only has a short-circuit implies so this isn't a correct translation. Could
+              //        perhaps do simplies(lhs, rhs)
               (latestTemp.degrees > currentSetPoint.high.degrees) implies (currentFanState == CoolingFan::FanCmd.On);
 
             guarantee TC_Req_03 "If the current temperature is greater than or equal to the
                                 |current low set point and less than or equal to the current high set point,
                                 |then the current fan state is maintained.":
               ((latestTemp.degrees >= currentSetPoint.low.degrees) &
+                //(latestTemp.degrees <= currentSetPoint.high.degrees))
+                //-- if we are still in set point range, don't change the fan state
+                //->: (currentFanState == In(currentFanState));
+                // FIXME: KerML only has a short-circuit implies so this isn't a correct translation. Could
+                //        perhaps do simplies(lhs, rhs)
                 (latestTemp.degrees <= currentSetPoint.high.degrees))
                 // if we are still in set point range, don't change the fan state
                 implies (currentFanState == In(currentFanState));
 
             guarantee mustSendFanCmd "If the local record of the fan state was updated,
                                      |then send a fan command event with this updated value.":
-              ((In(currentFanState) != currentFanState) implies MustSend(fanCmd,currentFanState)) and // alternate: fanCmd!!currentFanState
+              (In(currentFanState) != currentFanState) implies MustSend(fanCmd, currentFanState) and
 
-              // belt: TODO discuss addition of NoSend
-              ((currentFanState == In(currentFanState)) implies NoSend(fanCmd)) and
-
-              // belt: testing MustSend with EventDataPort where we just care that an event was sent
-              ((In(currentFanState) != currentFanState) implies MustSend(fanCmd));
-
-            // TODO: discussion, is MustSend supported for outgoing data ports
+              (currentFanState == In(currentFanState)) implies NoSend(fanCmd);
 
             //    ---------------------------
             //     Compute Entry Point Handler Contracts
@@ -219,8 +194,6 @@ package TempControlAadl {
             //       In the future, such frame conditions may be automatically generated.
             //    ---------------------------
 
-            // TODO: it would be nice if we supported task markers (ie. this would show up in the Tasks view)
-
             handle setPoint:
               modifies (currentSetPoint);
 
@@ -229,6 +202,7 @@ package TempControlAadl {
 
               guarantee latestTempNotModified:
                 (latestTemp == In(latestTemp));
+
 
             handle tempChanged:
               modifies (latestTemp);
@@ -239,8 +213,8 @@ package TempControlAadl {
               guarantee setPointNotModified:
                 currentSetPoint == In(currentSetPoint);
 
-            handle fanAck:
 
+            handle fanAck:
               guarantee setPointNotModified:
                 currentSetPoint == In(currentSetPoint);
 
@@ -248,7 +222,6 @@ package TempControlAadl {
                 latestTemp == In(latestTemp);
 
               guarantee currentFanState:
-                // currentFanState == fanCmd; // belt: according to Figure 38, but fanCmd should be empty
                 currentFanState == In(currentFanState);
 
               guarantee noEventsSent:
@@ -301,7 +274,7 @@ package TempControlAadl {
           //                  and must be proved whenever a value of the data type is constructed
           invariants
             inv AbsZero:
-              degrees >= f32(-459.67);
+              GUMBO_Definitions::aboveAbsoluteZero(degrees);
 		}*/
 	}
 	
