@@ -275,7 +275,8 @@ object SysMLGrammar_Ext {
           |@parser::members {
           |  public static boolean isKeyword(int tokenType) {
           |    switch (tokenType) {
-          |      case ${(for (k <- keywords.elements) yield st"${grammar}Lexer.K_${sanitize(k).value.toUpperCase}", " |\n")}: return true;
+          |      ${(for (k <- keywords.elements) yield st"case ${grammar}Lexer.K_${sanitize(k).value.toUpperCase}:", "\n")}
+          |        return true;
           |      default: return false;
           |    }
           |  }
