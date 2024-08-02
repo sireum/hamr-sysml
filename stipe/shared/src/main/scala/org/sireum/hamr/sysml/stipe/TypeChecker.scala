@@ -3,7 +3,6 @@ package org.sireum.hamr.sysml.stipe
 
 import org.sireum._
 import org.sireum.hamr.sysml.ast.{ResolvedInfo, SysmlAst, Typed}
-import org.sireum.hamr.sysml.stipe.TypeChecker.typeCheckerKind
 import org.sireum.hamr.sysml.{ast => SAST}
 import org.sireum.hamr.sysml.symbol.Resolver.QName
 import org.sireum.hamr.sysml.symbol.{Info, Scope, TypeInfo, Util}
@@ -169,7 +168,7 @@ object TypeChecker {
     return scope(nameMap = scope.nameMap ++ nameMap.entries)
   }
 
-  def updateMembers(newBodyItems: ISZ[SAST.SysmlAst.BodyElement], origMembers: TypeInfo.Members, reporter: Reporter): TypeInfo.Members = {
+  def updateMembers(newBodyItems: ISZ[SAST.SysmlAst.DefinitionBodyItem], origMembers: TypeInfo.Members, reporter: Reporter): TypeInfo.Members = {
 
     var attributeUsages: HashSMap[String, Info.AttributeUsage] = origMembers.attributeUsages
     var connectionUsages: HashSMap[String, Info.ConnectionUsage] = origMembers.connectionUsages
@@ -222,10 +221,10 @@ object TypeChecker {
       referenceUsages = referenceUsages)
   }
 
-  def checkBodyItems(scopes: ISZ[Scope.Local], bodyItems: ISZ[SAST.SysmlAst.BodyElement], reporter: Reporter): ISZ[SAST.SysmlAst.BodyElement] = {
-    var newBodyItems = ISZ[SAST.SysmlAst.BodyElement]()
+  def checkBodyItems(scopes: ISZ[Scope.Local], bodyItems: ISZ[SAST.SysmlAst.DefinitionBodyItem], reporter: Reporter): ISZ[SAST.SysmlAst.DefinitionBodyItem] = {
+    var newBodyItems = ISZ[SAST.SysmlAst.DefinitionBodyItem]()
 
-    def checkBodyItemH(i: Z): SAST.SysmlAst.BodyElement = {
+    def checkBodyItemH(i: Z): SAST.SysmlAst.DefinitionBodyItem = {
       val scope: Scope.Local = if (scopes.size == 1) scopes(0) else scopes(i)
       return checkBodyItem(scope, bodyItems(i), reporter)
     }
@@ -246,7 +245,7 @@ object TypeChecker {
     return newBodyItems
   }
 
-  def checkBodyItem(scope: Scope.Local, item: SysmlAst.BodyElement, reporter: Reporter): SysmlAst.BodyElement = {
+  def checkBodyItem(scope: Scope.Local, item: SysmlAst.DefinitionBodyItem, reporter: Reporter): SysmlAst.DefinitionBodyItem = {
 
     item match {
       case item: SysmlAst.AttributeUsage => {

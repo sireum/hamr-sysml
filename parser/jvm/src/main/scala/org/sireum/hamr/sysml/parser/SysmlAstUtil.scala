@@ -28,7 +28,8 @@ object SysmlAstUtil {
 
     def emptyDefinitionElement: DefinitionElement = {
       return Comment(
-        id = None(),
+        visibility = Visibility.Public,
+        identification = None(),
         abouts = ISZ(),
         locale = None(),
         comment = "PLACEHOLDER",
@@ -142,6 +143,42 @@ object SysmlAstUtil {
       val posOpt = SysmlAstUtil.mergePos(lhs.posOpt, rhs._2.posOpt)
       val ret = AST.Exp.Binary(left = lhs, op = rhs._1, right = rhs._2, attr = Placeholders.emptyResolvedAttr(posOpt), opPosOpt = posOpt)
       return ret
+    }
+  }
+  def toRA(posOpt: Option[Position]): AST.ResolvedAttr = {
+    return AST.ResolvedAttr(posOpt, None(), None())
+  }
+  def toSelect(root: AST.Exp, ids: ISZ[AST.Id]): AST.Exp = {
+
+
+    if (ids.size > 0) {
+      val o = ops.ISZOps(ids)
+      var select = AST.Exp.Select(
+        receiverOpt = Some(root),
+        id = ids(0),
+        targs = ISZ(),
+        attr = toRA(mergePos(root.posOpt, ids(0).attr.posOpt)))
+
+      for (i <- 1 until ids.size) {
+        select = AST.Exp.Select(
+          receiverOpt = Some(select),
+          id = ids(i),
+          targs = ISZ(),
+          attr = toRA(mergePos(select.posOpt, ids(i).attr.posOpt)))
+      }
+      return select
+    } else {
+      return root
+    }
+  }
+
+  def toSelectH(ids: ISZ[AST.Id]): AST.Exp = {
+    assert (ids.nonEmpty)
+    val root = AST.Exp.Ident(id = ids(0), attr = toRA(ids(0).attr.posOpt))
+    if (ids.size > 1) {
+      toSelect(root, ops.ISZOps(ids).tail)
+    } else {
+      return root
     }
   }
 }

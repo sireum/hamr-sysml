@@ -28,7 +28,7 @@ object GlobalDeclarationResolver {
       case i: SysmlAst.Import =>
         currentImports = currentImports :+ i
 
-      case a: SysmlAst.Alias =>
+      case a: SysmlAst.AliasMember =>
         reporter.warn(a.posOpt, resolverKind, "Not currently resolving aliases")
 
       case p: SysmlAst.Package =>
@@ -253,7 +253,7 @@ object GlobalDeclarationResolver {
     }
   }
 
-  def resolveMembers(owner: IS[Z, String], scope: Scope, items: ISZ[SysmlAst.BodyElement]): TypeInfo.Members = {
+  def resolveMembers(owner: IS[Z, String], scope: Scope, items: ISZ[SysmlAst.DefinitionBodyItem]): TypeInfo.Members = {
     var attributeUsages = HashSMap.empty[String, Info.AttributeUsage]
     var connectionUsages = HashSMap.empty[String, Info.ConnectionUsage]
     var itemUsages = HashSMap.empty[String, Info.ItemUsage]
