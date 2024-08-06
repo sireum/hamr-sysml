@@ -1,20 +1,45 @@
 package org.sireum.hamr.sysml
 
 import org.sireum._
-import org.sireum.hamr.sysml.ast.SysmlAst._
+import org.sireum.hamr.ir.SysmlAst
+import org.sireum.hamr.ir.SysmlAst._
 import org.sireum.hamr.sysml.parser.{SysMLv2Parser => Sysml}
-import org.sireum.hamr.sysml.{ast => SAST}
+import org.sireum.hamr.{ir => SAST}
 import org.sireum.lang.ast.Exp
 import org.sireum.lang.{ast => AST}
 import org.sireum.message.{FlatPos, Position}
 
 object SysmlAstUtil {
 
+  def ids2string(ids: ISZ[SysmlAst.Id]): ISZ[String] = {
+    return (for(id <- ids) yield id.value)
+  }
+
+  def buildSlangTypedNamed(name: AST.Name): AST.Type.Named = {
+    val typedName = AST.Typed.Name(
+      ids = for(id <- name.ids) yield id.value,
+      args = ISZ())
+    // TODO: probably need to populate typedOpt after sym res in order to get the fqn
+    val typedAttr = AST.TypedAttr(posOpt = name.attr.posOpt, typedOpt = Some(typedName))
+    return AST.Type.Named(
+      name = name,
+      typeArgs = ISZ(),
+      attr = typedAttr)
+  }
+
   def isRegularComment(context: Sysml.RuleAnnotatingElementContext): B = {
+    // ruleAnnotatingElement:
+    //   ruleComment #ruleAnnotatingElement1
+    //   | ruleDocumentation #ruleAnnotatingElement2
+    //   | ruleTextualRepresentation #ruleAnnotatingElement3
+    //   | ruleMetadataUsage #ruleAnnotatingElement4;
+    //
+    // ruleComment:
+    //   ('comment' ruleIdentification? ('about' ruleAnnotation (',' ruleAnnotation)*)?)? ('locale' RULE_STRING_VALUE)?
+    //   RULE_REGULAR_COMMENT;
     context match {
       case i: Sysml.RuleAnnotatingElement1Context =>
-        val c = i.ruleComment()
-        return c.K_COMMENT() == null && c.K_ABOUT() == null && c.K_LOCALE() == null
+        return i.ruleComment().K_COMMENT() == null && i.ruleComment().K_ABOUT() == null && i.ruleComment().K_LOCALE() == null
       case _ => F
     }
   }
@@ -59,14 +84,16 @@ object SysmlAstUtil {
 
     def NonOccurrenceUsageElementPlaceholder: NonOccurrenceUsageElement = {
       return AttributeUsage(
-        visibility = Visibility.Public,
         prefix = emptyUsagePrefix,
-        identification = None(),
-        specializations = ISZ(),
-        featureValue = None(),
-        definitionBodyItems = ISZ(),
-        tipeOpt = None(),
-        attr = SAST.ResolvedAttr(None(), None(), None()))
+
+        commonUsageElements = CommonUsageElements(
+          visibility = Visibility.Public,
+          identification = None(),
+          specializations = ISZ(),
+          featureValue = None(),
+          definitionBodyItems = ISZ(),
+          tipeOpt = None(),
+          attr = SAST.ResolvedAttr(None(), None(), None())))
     }
 
     def emptyOccurrenceUsagePrefix: OccurrenceUsagePrefix = {
@@ -82,14 +109,16 @@ object SysmlAstUtil {
 
     def OccurrenceUsageElementPlaceholder: OccurrenceUsageElement = {
       return ItemUsage(
-        visibility = Visibility.Public,
         occurrenceUsagePrefix = emptyOccurrenceUsagePrefix,
-        identification = None(),
-        specializations = ISZ(),
-        featureValue = None(),
-        definitionBodyItems = ISZ(),
-        tipeOpt = None(),
-        attr = SAST.ResolvedAttr(None(), None(), None()))
+
+        commonUsageElements = CommonUsageElements(
+          visibility = Visibility.Public,
+          identification = None(),
+          specializations = ISZ(),
+          featureValue = None(),
+          definitionBodyItems = ISZ(),
+          tipeOpt = None(),
+          attr = SAST.ResolvedAttr(None(), None(), None())))
     }
   }
 

@@ -31,6 +31,24 @@ import org.sireum.cli.CliOpt._
 
 object cli {
 
+  val sysmlTipe: Tool = Tool(
+    name = "sysmlTipe",
+    command = "tipe",
+    description = "SysML v2 Type Checker",
+    header = "Sireum HAMR SysML v2 Type Checker",
+    usage = "<option>* [<sysmlv2-file]",
+    usageDescOpt = None(),
+    opts = ISZ(
+      Opt(name = "exclude", longKey = "exclude", shortKey = Some('x'),
+        tpe = Type.Str(Some(','), None()),
+        description = "Sourcepath exclusion as URI segment"),
+      Opt(name = "sourcepath", longKey = "sourcepath", shortKey = Some('s'),
+        tpe = Type.Path(multiple = T, default = None()),
+        description = "Sourcepath of SysML v2 .sysml files")
+    ),
+    groups = ISZ()
+  )
+
   val sysmlTranslator: Tool = Tool(
     name = "translator",
     command = "translator",
@@ -40,7 +58,7 @@ object cli {
     usageDescOpt = None(),
     opts = ISZ(
       Opt(name = "version", longKey = "version", shortKey = Some('v'),
-        tpe = Type.Str(sep = None(), default = Some("2024-05")),
+        tpe = Type.Str(sep = None(), default = Some("2024-07")),
         description = "SysML v2 grammar version"),
       Opt(name = "grammar", longKey = "grammar", shortKey = Some('g'),
         tpe = Type.Str(sep = None(), default = None()),
@@ -60,6 +78,6 @@ object cli {
     description = "SysML v2 Tools",
     header = "Sireum HAMR SysML v2 Tools",
     unlisted = F,
-    subs = ISZ(sysmlTranslator)
+    subs = ISZ(sysmlTipe, sysmlTranslator)
   )
 }

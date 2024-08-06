@@ -2,13 +2,98 @@
 package org.sireum.hamr.sysml
 
 import org.sireum._
-import org.sireum.hamr.sysml.ast.SysmlAst.TopUnit
-import org.sireum.hamr.sysml.symbol.{GlobalDeclarationResolver, Info, Resolver}
+import org.sireum.hamr.codegen.common.util.{CodeGenConfig, CodeGenIpcMechanism, CodeGenPlatform, ModelUtil}
+import org.sireum.hamr.ir.Aadl
+import org.sireum.hamr.ir.SysmlAst.TopUnit
+import org.sireum.hamr.ir.instantiation.ConnectionInstantiator
+import org.sireum.hamr.sysml.instantiation.Instantiate
+import org.sireum.hamr.sysml.stipe.{TypeChecker, TypeHierarchy, TypeOutliner}
+import org.sireum.hamr.sysml.symbol.{DelineableTypeInfo, GlobalDeclarationResolver, Info, Resolver}
 import org.sireum.hamr.sysml.symbol.Resolver.{NameMap, TypeMap, resolverKind}
-import org.sireum.lang.ast.Transformer
 import org.sireum.message.{Message, Reporter}
 
 object FrontEnd {
+
+  def typeCheck(par: Z, inputs: ISZ[Input], reporter: Reporter): (Option[TypeHierarchy], ISZ[ModelUtil.ModelElements]) = {
+    var initNameMap: NameMap = HashSMap.empty
+    var initTypeMap: TypeMap = HashSMap.empty
+
+    // TODO: pass in reporter
+    val (reporter_, topUnits, globalNameMap, globalTypeMap) = parseAndGloballyResolve(par, inputs, initNameMap, initTypeMap)
+    reporter.reports(reporter_.messages)
+
+    if (reporter.hasError) {
+      return (None(), ISZ())
+    }
+
+    var th = TypeHierarchy.build(F, TypeHierarchy(globalNameMap, globalTypeMap, Poset.empty, HashSMap.empty), reporter)
+
+    if (reporter.hasError) {
+      return (Some(th), ISZ())
+    }
+
+    th = TypeOutliner.checkOutline(par, th, reporter)
+
+    if (reporter.hasError) {
+      return (Some(th), ISZ())
+    }
+
+    th = TypeChecker.checkDefinitions(par, th, reporter)
+
+    if (reporter.hasError) {
+      return (Some(th), ISZ())
+    }
+
+    val iopts = Instantiate.instantiate(topUnits, th, reporter)
+
+    if (reporter.hasError) {
+      return (Some(th), ISZ())
+    }
+
+    iopts match {
+      case Some((th, models)) =>
+        var imodels: ISZ[ModelUtil.ModelElements] = ISZ()
+        for (model <- models) {
+          ModelUtil.resolve(model, "model", baseOptions, reporter) match {
+            case Some(modelElements) =>
+              imodels = imodels :+ modelElements(model = ConnectionInstantiator.instantiateConnections(modelElements.model, reporter))
+            case _ =>
+          }
+        }
+        return (Some(th), imodels)
+      case _ =>
+        return (Some(th), ISZ())
+    }
+  }
+
+  // TODO: remove instantiator's dependence on codegen's options
+  val baseOptions: CodeGenConfig =
+    CodeGenConfig(
+      writeOutResources = T,
+      ipc = CodeGenIpcMechanism.SharedMemory,
+
+      runtimeMonitoring = F,
+      verbose = F,
+      platform = CodeGenPlatform.JVM,
+      slangOutputDir = None(),
+      packageName = None(),
+      noProyekIve = T,
+      noEmbedArt = F,
+      devicesAsThreads = T,
+      genSbtMill = T,
+      slangAuxCodeDirs = ISZ(),
+      slangOutputCDir = None(),
+      excludeComponentImpl = F,
+      bitWidth = 64,
+      maxStringSize = 256,
+      maxArraySize = 1,
+      runTranspiler = F,
+      camkesOutputDir = None(),
+      camkesAuxCodeDirs = ISZ(),
+      aadlRootDir = None(),
+      experimentalOptions = ISZ()
+    )
+
 
   @datatype class Input(val content: String,
                         val fileUri: Option[String]) {

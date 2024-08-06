@@ -2,9 +2,9 @@
 package org.sireum.hamr.sysml.stipe
 
 import org.sireum._
-import org.sireum.hamr.sysml.ast.SysmlAst.{TypingsSpecialization, Visibility}
-import org.sireum.hamr.sysml.{ast => SAST}
-import org.sireum.hamr.sysml.ast.{Type, TypedAttr}
+import org.sireum.hamr.ir.SysmlAst.{TypingsSpecialization, Visibility}
+import org.sireum.hamr.{ir => SAST}
+import org.sireum.hamr.ir.{Type, TypedAttr}
 import org.sireum.hamr.sysml.symbol.Resolver.{QName, TypeMap, addBuiltIns}
 import org.sireum.hamr.sysml.symbol.{Info, Scope, TypeInfo, Util}
 import org.sireum.message.{Message, Position, Reporter}
@@ -15,6 +15,7 @@ object TypeOutliner {
     def parentsOutlined(name: QName, typeMap: TypeMap): B = {
       def isOutlined(ids: QName): B = {
         typeMap.get(ids).get match {
+          case ti: TypeInfo.Package => return ti.outlined
           case ti: TypeInfo.AllocationDefinition => return ti.outlined
           case ti: TypeInfo.AttributeDefinition => return ti.outlined
           case ti: TypeInfo.ConnectionDefinition => return ti.outlined
@@ -38,7 +39,6 @@ object TypeOutliner {
 
     def outlineDefinitions(): Unit = {
       var workList = typeHierarchy.poset.rootNodes
-
       var jobs = ISZ[() => (TypeHierarchy => (TypeHierarchy, ISZ[Message])@pure)@pure]()
 
       def addJob(name: QName, acc: ISZ[QName]): ISZ[QName] = {
@@ -47,6 +47,16 @@ object TypeOutliner {
         var ok: B = F
         val to = TypeOutliner(th)
         ti match {
+          case ti: TypeInfo.Package =>
+            if (!ti.outlined) {
+              val po = parentsOutlined(ti.name, th.typeMap)
+              if (po) {
+                jobs = jobs :+ (() => to.outlinePackage(ti))
+                ok = T
+              }
+            } else {
+              ok = T
+            }
           case ti: TypeInfo.AllocationDefinition =>
             if (!ti.outlined) {
               val po = parentsOutlined(ti.name, th.typeMap)
@@ -133,6 +143,29 @@ object TypeOutliner {
 }
 
 @datatype class TypeOutliner(val typeHierarchy: TypeHierarchy) {
+
+  @pure def outlinePackage(info: TypeInfo.Package): TypeHierarchy => (TypeHierarchy, ISZ[Message])@pure = {
+    val reporter = Reporter.create
+    val scope = Scope.Local.create(info.scope)
+    val members = outlineMembers(info.members, scope, reporter)
+    val (
+      newMembers,
+      ancestors, newParents) =
+      outlineInheritedMembers(ops.ISZOps(info.id).dropRight(1), info.id(info.id.lastIndex), info.name, ISZ(), scope, members, reporter)
+
+    assert(ancestors.isEmpty)
+    assert(newParents.isEmpty)
+
+    val newInfo: TypeInfo.Package =
+      info(
+        outlined = T,
+        members = newMembers,
+        ast = info.ast
+      )
+
+    val messages = reporter.messages
+    return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), messages)
+  }
 
   @pure def outlineAllocationDefinition(info: TypeInfo.AllocationDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message])@pure = {
     val reporter = Reporter.create
@@ -264,7 +297,7 @@ object TypeOutliner {
           case Some(otherInfo) =>
             if (name != owner) {
               reporter.error(posOpt, TypeChecker.typeCheckerKind,
-                st"Cannot inherit $id becuase i hs been previously inherited from ${(otherInfo.owner, "::")}.".render)
+                st"Cannot inherit $id because it has been previously inherited from ${(otherInfo.owner, "::")}.".render)
             } else {
               reporter.error(posOpt, TypeChecker.typeCheckerKind,
                 s"Cannot inherit $id because it has been previously declared")
@@ -286,7 +319,7 @@ object TypeOutliner {
     def inheritAttributeUsages(attributeUsage: Info.AttributeUsage, posOpt: Option[Position]): Unit = {
       val owner = attributeUsage.owner
       val id = attributeUsage.id
-      if (attributeUsage.ast.visibility != Visibility.Public) {
+      if (attributeUsage.ast.commonUsageElements.visibility != Visibility.Public) {
         reporter.error(attributeUsage.ast.posOpt, TypeChecker.typeCheckerKind,
           "Currently only supporting public visibilities")
       }
@@ -297,7 +330,7 @@ object TypeOutliner {
     def inheritConnectionUsages(connectionUsage: Info.ConnectionUsage, posOpt: Option[Position]): Unit = {
       val owner = connectionUsage.owner
       val id = connectionUsage.id
-      if (connectionUsage.ast.visibility != Visibility.Public) {
+      if (connectionUsage.ast.commonUsageElements.visibility != Visibility.Public) {
         reporter.error(connectionUsage.ast.posOpt, TypeChecker.typeCheckerKind,
           "Currently only supporting public visibilities")
       }
@@ -308,7 +341,7 @@ object TypeOutliner {
     def inheritItemUsages(itemUsage: Info.ItemUsage, posOpt: Option[Position]): Unit = {
       val owner = itemUsage.owner
       val id = itemUsage.id
-      if (itemUsage.ast.visibility != Visibility.Public) {
+      if (itemUsage.ast.commonUsageElements.visibility != Visibility.Public) {
         reporter.error(itemUsage.ast.posOpt, TypeChecker.typeCheckerKind,
           "Currently only supporting public visibilities")
       }
@@ -319,7 +352,7 @@ object TypeOutliner {
     def inheritPartUsages(partUsage: Info.PartUsage, posOpt: Option[Position]): Unit = {
       val owner = partUsage.owner
       val id = partUsage.id
-      if (partUsage.ast.visibility != Visibility.Public) {
+      if (partUsage.ast.commonUsageElements.visibility != Visibility.Public) {
         reporter.error(partUsage.ast.posOpt, TypeChecker.typeCheckerKind,
           "Currently only supporting public visibilities")
       }
@@ -330,7 +363,7 @@ object TypeOutliner {
     def inheritPortUsages(portUsage: Info.PortUsage, posOpt: Option[Position]): Unit = {
       val owner = portUsage.owner
       val id = portUsage.id
-      if (portUsage.ast.visibility != Visibility.Public) {
+      if (portUsage.ast.commonUsageElements.visibility != Visibility.Public) {
         reporter.error(portUsage.ast.posOpt, TypeChecker.typeCheckerKind,
           "Currently only supporting public visibilities")
       }
@@ -341,7 +374,7 @@ object TypeOutliner {
     def inheritReferenceUsages(referenceUsage: Info.ReferenceUsage, posOpt: Option[Position]): Unit = {
       val owner = referenceUsage.owner
       val id = referenceUsage.id
-      if (referenceUsage.ast.visibility != Visibility.Public) {
+      if (referenceUsage.ast.commonUsageElements.visibility != Visibility.Public) {
         reporter.error(referenceUsage.ast.posOpt, TypeChecker.typeCheckerKind,
           "Currently only supporting public visibilities")
       }
@@ -448,7 +481,11 @@ object TypeOutliner {
                   }
 
                 case Some(parentEnumDef: TypeInfo.EnumDefinition) =>
-                  // TODO will we allow enum specializations?
+                  ancestors = ancestors + getTypedName(parentEnumDef.tpe)
+                  val posOpt = parent.posOpt
+                  for (parentConnDefAncestor <- parentEnumDef.ancestors) {
+                    ancestors = ancestors + parentConnDefAncestor
+                  }
 
                 case Some(parentPartDef: TypeInfo.PartDefinition) =>
                   ancestors = ancestors + getTypedName(parentPartDef.tpe)
@@ -564,128 +601,132 @@ object TypeOutliner {
       }
     }
 
+    def update(elements: SAST.SysmlAst.CommonUsageElements, tipeOpt: Type, tipedOpt: Option[SAST.Typed]): SAST.SysmlAst.CommonUsageElements = {
+      return elements(tipeOpt = Some(tipeOpt), attr = elements.attr(typedOpt = tipedOpt))
+    }
+
     def checkAttributeUsage(aInfo: Info.AttributeUsage): Unit = {
-      val aAst = aInfo.ast
+      val ast = aInfo.ast
       val id = aInfo.id
       if (isDeclared(id)) {
-        reporter.error(aAst.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
+        reporter.error(ast.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
       }
       // NOTE: this is bit different than slang as usage like entities (e.g. vars)
       // will have their tipeOpt field populated during AST building. For sysml
       // the type maps are built first and then the usage's specializations are
       // used to lookup up the usage's type (and then build the typed info) so
       // this is when tipeOpt fields are populated
-      val tipeOpt = getType(aInfo.id, aInfo.posOpt, aAst.specializations, scope)
+      val tipeOpt = getType(aInfo.id, aInfo.posOpt, ast.commonUsageElements.specializations, scope)
       tipeOpt match {
         case Some(tipe) =>
           attributeUsages = attributeUsages + id ~>
             aInfo(
-              ast = aAst(tipeOpt = Some(tipe), attr = aAst.attr(typedOpt = tipe.typedOpt)))
+              ast = ast(commonUsageElements = update(ast.commonUsageElements, tipe, tipe.typedOpt)))
         case _ =>
       }
     }
 
     def checkConnectionUsage(cInfo: Info.ConnectionUsage): Unit = {
-      val cAst = cInfo.ast
+      val ast = cInfo.ast
       val id = cInfo.id
       if (isDeclared(id)) {
-        reporter.error(cAst.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
+        reporter.error(ast.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
       }
       // NOTE: this is bit different than slang as usage like entities (e.g. vars)
       // will have their tipeOpt field populated during AST building. For sysml
       // the type maps are built first and then the usage's specializations are
       // used to lookup up the usage's type (and then build the typed info) so
       // this is when tipeOpt fields are populated
-      val tipeOpt = getType(cInfo.id, cInfo.posOpt, cAst.specializations, scope)
+      val tipeOpt = getType(cInfo.id, cInfo.posOpt, ast.commonUsageElements.specializations, scope)
       tipeOpt match {
         case Some(tipe) =>
           connectionUsages = connectionUsages + id ~>
             cInfo(
-              ast = cAst(tipeOpt = Some(tipe), attr = cAst.attr(typedOpt = tipe.typedOpt)))
+              ast = ast(commonUsageElements = update(ast.commonUsageElements, tipe, tipe.typedOpt)))
         case _ =>
       }
     }
 
     def checkItemUsage(iInfo: Info.ItemUsage): Unit = {
-      val iAst = iInfo.ast
+      val ast = iInfo.ast
       val id = iInfo.id
       if (isDeclared(id)) {
-        reporter.error(iAst.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
+        reporter.error(ast.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
       }
       // NOTE: this is bit different than slang as usage like entities (e.g. vars)
       // will have their tipeOpt field populated during AST building. For sysml
       // the type maps are built first and then the usage's specializations are
       // used to lookup up the usage's type (and then build the typed info) so
       // this is when tipeOpt fields are populated
-      val tipeOpt = getType(iInfo.id, iInfo.posOpt, iAst.specializations, scope)
+      val tipeOpt = getType(iInfo.id, iInfo.posOpt, ast.commonUsageElements.specializations, scope)
       tipeOpt match {
         case Some(tipe) =>
           itemUsages = itemUsages + id ~>
             iInfo(
-              ast = iAst(tipeOpt = Some(tipe), attr = iAst.attr(typedOpt = tipe.typedOpt)))
+              ast = ast(commonUsageElements = update(ast.commonUsageElements, tipe, tipe.typedOpt)))
         case _ =>
       }
     }
 
     def checkPartUsage(pInfo: Info.PartUsage): Unit = {
-      val pAst = pInfo.ast
+      val ast = pInfo.ast
       val id = pInfo.id
       if (isDeclared(id)) {
-        reporter.error(pAst.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
+        reporter.error(ast.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
       }
       // NOTE: this is bit different than slang as usage like entities (e.g. vars)
       // will have their tipeOpt field populated during AST building. For sysml
       // the type maps are built first and then the usage's specializations are
       // used to lookup up the usage's type (and then build the typed info) so
       // this is when tipeOpt fields are populated
-      val tipeOpt = getType(pInfo.id, pInfo.posOpt, pAst.specializations, scope)
+      val tipeOpt = getType(pInfo.id, pInfo.posOpt, ast.commonUsageElements.specializations, scope)
       tipeOpt match {
         case Some(tipe) =>
           partUsages = partUsages + id ~>
             pInfo(
-              ast = pAst(tipeOpt = Some(tipe), attr = pAst.attr(typedOpt = tipe.typedOpt)))
+              ast = ast(commonUsageElements = update(ast.commonUsageElements, tipe, tipe.typedOpt)))
         case _ =>
       }
     }
 
     def checkPortUsage(pInfo: Info.PortUsage): Unit = {
-      val pAst = pInfo.ast
+      val ast = pInfo.ast
       val id = pInfo.id
       if (isDeclared(id)) {
-        reporter.error(pAst.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
+        reporter.error(ast.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
       }
       // NOTE: this is bit different than slang as usage like entities (e.g. vars)
       // will have their tipeOpt field populated during AST building. For sysml
       // the type maps are built first and then the usage's specializations are
       // used to lookup up the usage's type (and then build the typed info) so
       // this is when tipeOpt fields are populated
-      val tipeOpt = getType(pInfo.id, pInfo.posOpt, pAst.specializations, scope)
+      val tipeOpt = getType(pInfo.id, pInfo.posOpt, ast.commonUsageElements.specializations, scope)
       tipeOpt match {
         case Some(tipe) =>
           portUsages = portUsages + id ~>
             pInfo(
-              ast = pAst(tipeOpt = Some(tipe), attr = pAst.attr(typedOpt = tipe.typedOpt)))
+              ast = ast(commonUsageElements = update(ast.commonUsageElements, tipe, tipe.typedOpt)))
         case _ =>
       }
     }
 
     def checkReferenceUsage(pInfo: Info.ReferenceUsage): Unit = {
-      val pAst = pInfo.ast
+      val ast = pInfo.ast
       val id = pInfo.id
       if (isDeclared(id)) {
-        reporter.error(pAst.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
+        reporter.error(ast.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
       }
       // NOTE: this is bit different than slang as usage like entities (e.g. vars)
       // will have their tipeOpt field populated during AST building. For sysml
       // the type maps are built first and then the usage's specializations are
       // used to lookup up the usage's type (and then build the typed info) so
       // this is when tipeOpt fields are populated
-      val tipeOpt = getType(pInfo.id, pInfo.posOpt, pAst.specializations, scope)
+      val tipeOpt = getType(pInfo.id, pInfo.posOpt, ast.commonUsageElements.specializations, scope)
       tipeOpt match {
         case Some(tipe) =>
           referenceUsages = referenceUsages + id ~>
             pInfo(
-              ast = pAst(tipeOpt = Some(tipe), attr = pAst.attr(typedOpt = tipe.typedOpt)))
+              ast = ast(commonUsageElements = update(ast.commonUsageElements, tipe, tipe.typedOpt)))
         case _ =>
       }
     }

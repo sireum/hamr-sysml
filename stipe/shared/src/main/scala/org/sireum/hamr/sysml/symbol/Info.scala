@@ -2,9 +2,9 @@
 package org.sireum.hamr.sysml.symbol
 
 import org.sireum._
-import org.sireum.hamr.sysml.ast.{ResolvedInfo, Type, Typed}
+import org.sireum.hamr.ir.{ResolvedInfo, Type, Typed}
 import org.sireum.hamr.sysml.symbol.Resolver.{NameMap, TypeMap}
-import org.sireum.hamr.sysml.{ast => SAST}
+import org.sireum.hamr.{ir => SAST}
 import org.sireum.message.Position
 
 @datatype trait Scope {
@@ -20,19 +20,20 @@ import org.sireum.message.Position
 
   //@pure def returnOpt: Option[SAST.Typed]
 
-  //@pure def thisOpt: Option[SAST.Typed]
+  @pure def thisOpt: Option[SAST.Typed]
 }
 
 object Scope {
 
   object Local {
     @pure def create(outer: Scope): Local = {
-      return Local(HashMap.empty, HashMap.empty, Some(outer))
+      return Local(HashMap.empty, HashMap.empty, None(), Some(outer))
     }
   }
 
   @datatype class Local(val nameMap: HashMap[String, Info],
                         val typeMap: HashMap[String, TypeInfo],
+                        val localThisOpt: Option[SAST.Typed],
                         val outerOpt: Option[Scope]) extends Scope {
 
     @pure override def packageName: ISZ[String] = {
@@ -42,8 +43,22 @@ object Scope {
       }
     }
 
+    @pure override def thisOpt: Option[SAST.Typed] = {
+      localThisOpt match {
+        case r@Some(_) => return r
+        case _ =>
+          outerOpt match {
+            case Some(outer) => return outer.thisOpt
+            case _ => return None()
+          }
+      }
+    }
+
     @pure override def resolveName(globalNameMap: Resolver.NameMap,
                                    name: ISZ[String]): Option[Info] = {
+      if (ops.ISZOps(name).contains("Dispatch_Protocol")) {
+        assert(T)
+      }
       if (name.size == 1) {
         val infoOpt = nameMap.get(name(0))
         if (infoOpt.nonEmpty) {
@@ -74,6 +89,10 @@ object Scope {
     extends Scope {
 
     override def outerOpt: Option[Scope] = {
+      return None()
+    }
+
+    @pure override def thisOpt: Option[SAST.Typed] = {
       return None()
     }
 
@@ -109,7 +128,7 @@ object Scope {
       for (i <- imports.size - 1 to 0 by -1) {
         val impor: SAST.SysmlAst.Import = imports(i)
 
-        val contextName = SAST.Util.ids2string(impor.name.ids)
+        val contextName = Util.ids2string(impor.name.ids)
 
         if (impor.all) {
           halt("'all' imports are not currently supported")
@@ -175,7 +194,7 @@ object Scope {
     @pure def resolveImportedType(globalTypeMap: TypeMap, name: ISZ[String]): Option[TypeInfo] = {
       for (i <- imports.size - 1 to 0 by -1) {
         val impor = imports(i)
-        val contextName = SAST.Util.ids2string(impor.name.ids)
+        val contextName = Util.ids2string(impor.name.ids)
 
         if (impor.all) {
           halt("'all' imports are not currently supported")
@@ -217,10 +236,16 @@ object Scope {
   @pure def name: ISZ[String]
 
   @pure def posOpt: Option[Position]
+
+  def typedOpt: Option[SAST.Typed]
+
+  def resOpt: Option[SAST.ResolvedInfo]
 }
 
 object Info {
-  @datatype class Package (val name: ISZ[String], val typeOpt: Option[SAST.Typed], val resOpt: Option[SAST.ResolvedInfo]) extends Info {
+  @datatype class Package (val name: ISZ[String],
+                           val typedOpt: Option[SAST.Typed],
+                           val resOpt: Option[SAST.ResolvedInfo]) extends Info {
     @pure override def posOpt: Option[Position]= {
       return None()
     }
@@ -248,28 +273,41 @@ object Info {
   }
 
   @datatype class AttributeDefinition(val owner: ISZ[String],
+                                      val name: ISZ[String],
                                       val isInPackage: B,
+                                      val typedOpt: Option[SAST.Typed],
+                                      val resOpt: Option[SAST.ResolvedInfo],
                                       val scope: Scope,
-                                      val ast: SAST.SysmlAst.AttributeDefinition)
+                                      val ast: SAST.SysmlAst.AttributeDefinition) extends Info {
+
+    @strictpure override def posOpt: Option[Position] = ast.posOpt
+
+  }
 
 
   @datatype trait UsageInfo extends Info {
     def owner: ISZ[String]
     def id: String
+    def ast: SAST.SysmlAst.UsageElement
+
+    @pure override def typedOpt: Option[Typed] = {
+      return ast.commonUsageElements.attr.typedOpt
+    }
+
+    @pure def resOpt: Option[SAST.ResolvedInfo] = {
+      return ast.commonUsageElements.attr.resOpt
+    }
   }
 
   @datatype class AttributeUsage(val owner: ISZ[String],
                                  val id: String,
                                  val scope: Scope,
                                  val ast: SAST.SysmlAst.AttributeUsage) extends UsageInfo {
-    @strictpure def posOpt: Option[Position] = ast.attr.posOpt
+
+    @strictpure def posOpt: Option[Position] = ast.commonUsageElements.attr.posOpt
 
     @pure def name: ISZ[String] = {
       return owner :+ id
-    }
-
-    @pure def resOpt: Option[SAST.ResolvedInfo] = {
-      return ast.attr.resOpt
     }
   }
 
@@ -277,75 +315,80 @@ object Info {
                             val id: String,
                             val scope: Scope,
                             val ast: SAST.SysmlAst.ItemUsage) extends UsageInfo {
-    @strictpure def posOpt: Option[Position] = ast.attr.posOpt
+    @strictpure override def typedOpt: Option[Typed] = ast.commonUsageElements.attr.typedOpt
+
+    @strictpure def posOpt: Option[Position] = ast.commonUsageElements.attr.posOpt
 
     @pure def name: ISZ[String] = {
       return owner :+ id
     }
 
-    @pure def resOpt: Option[SAST.ResolvedInfo] = {
-      return ast.attr.resOpt
-    }
+    //@pure def resOpt: Option[SAST.ResolvedInfo] = {
+    //  return ast.commonUsageElements.attr.resOpt
+    //}
   }
 
   @datatype class PartUsage(val owner: ISZ[String],
                             val id: String,
                             val scope: Scope,
                             val ast: SAST.SysmlAst.PartUsage) extends UsageInfo {
-    @strictpure def posOpt: Option[Position] = ast.attr.posOpt
+    @strictpure def posOpt: Option[Position] = ast.commonUsageElements.attr.posOpt
 
     @pure def name: ISZ[String] = {
       return owner :+ id
     }
 
-    @pure def resOpt: Option[SAST.ResolvedInfo] = {
-      return ast.attr.resOpt
-    }
+    //@pure def resOpt: Option[SAST.ResolvedInfo] = {
+    //  return ast.commonUsageElements.attr.resOpt
+    //}
   }
 
   @datatype class PortUsage(val owner: ISZ[String],
                             val id: String,
                             val scope: Scope,
                             val ast: SAST.SysmlAst.PortUsage) extends UsageInfo {
-    @strictpure def posOpt: Option[Position] = ast.attr.posOpt
+    @strictpure def posOpt: Option[Position] = ast.commonUsageElements.attr.posOpt
 
     @pure def name: ISZ[String] = {
       return owner :+ id
     }
 
-    @pure def resOpt: Option[SAST.ResolvedInfo] = {
-      return ast.attr.resOpt
-    }
+    //@pure def resOpt: Option[SAST.ResolvedInfo] = {
+    //  return ast.commonUsageElements.attr.resOpt
+    //}
   }
 
   @datatype class ConnectionUsage(val owner: ISZ[String],
                                   val id: String,
                                   val scope: Scope,
-                                  val ast: SAST.SysmlAst.ConnectionUsage) extends UsageInfo {
-    @strictpure def posOpt: Option[Position] = ast.attr.posOpt
+                                  val ast: SAST.SysmlAst.ConnectionUsage,
+
+                                  val srcAst: Option[SAST.SysmlAst.PortUsage],
+                                  val dstAst: Option[SAST.SysmlAst.PortUsage]) extends UsageInfo {
+    @strictpure def posOpt: Option[Position] = ast.commonUsageElements.attr.posOpt
 
     @pure def name: ISZ[String] = {
       return owner :+ id
     }
 
-    @pure def resOpt: Option[SAST.ResolvedInfo] = {
-      return ast.attr.resOpt
-    }
+    //@pure def resOpt: Option[SAST.ResolvedInfo] = {
+    //  return ast.commonUsageElements.attr.resOpt
+    //}
   }
 
   @datatype class ReferenceUsage(val owner: ISZ[String],
                                  val id: String,
                                  val scope: Scope,
                                  val ast: SAST.SysmlAst.ReferenceUsage) extends UsageInfo {
-    @strictpure def posOpt: Option[Position] = ast.attr.posOpt
+    @strictpure def posOpt: Option[Position] = ast.commonUsageElements.attr.posOpt
 
     @pure def name: ISZ[String] = {
       return owner :+ id
     }
 
-    @pure def resOpt: Option[SAST.ResolvedInfo] = {
-      return ast.attr.resOpt
-    }
+    //@pure def resOpt: Option[SAST.ResolvedInfo] = {
+    //  return ast.commonUsageElements.attr.resOpt
+    //}
   }
 }
 
@@ -363,7 +406,16 @@ object Info {
 }
 
 object TypeInfo {
+
+  @sig trait DefinitionTypeInfo extends DelineableTypeInfo {
+    def members: TypeInfo.Members
+
+    def typedOpt: Option[SAST.Typed]
+  }
+
   @datatype class EnumDefinition(val owner: ISZ[String],
+                                 val outlined: B,
+                                 val ancestors: ISZ[SAST.Typed.Name],
                                  val elements: Map[String, SAST.ResolvedInfo],
                                  val posOpt: Option[Position]) extends TypeInfo {
 
@@ -376,6 +428,27 @@ object TypeInfo {
     @strictpure override def tpe: SAST.Typed = typedOpt.get
   }
 
+  @datatype class Package(val id: ISZ[String],
+                          val outlined: B,
+                          val typeChecked: B,
+                          val members: TypeInfo.Members,
+                          val scope: Scope.Global,
+                          val ast: SAST.SysmlAst.Package
+                         ) extends DefinitionTypeInfo {
+
+    val typedOpt: Option[SAST.Typed] = Some(SAST.Typed.Name(name))
+
+    @strictpure override def tpe: Typed = typedOpt.get
+
+    @pure override def name: ISZ[String] = {
+      return id
+    }
+
+    @pure override def posOpt: Option[Position] = {
+      return ast.attr.posOpt
+    }
+  }
+
   @datatype class PartDefinition(val owner: ISZ[String],
                                  val id: String,
                                  val outlined: B,
@@ -383,7 +456,7 @@ object TypeInfo {
                                  val ancestors: ISZ[SAST.Typed.Name],
                                  val members: TypeInfo.Members,
                                  val scope: Scope.Global,
-                                 val ast: SAST.SysmlAst.PartDefinition) extends DelineableTypeInfo {
+                                 val ast: SAST.SysmlAst.PartDefinition) extends DefinitionTypeInfo {
 
     val typedOpt: Option[SAST.Typed] = Some(SAST.Typed.Name(name))
 
@@ -400,7 +473,7 @@ object TypeInfo {
     @memoize def parents: ISZ[SAST.Typed.Name] = {
       var r = ISZ[SAST.Typed.Name]()
       for (p <- ast.parents) {
-        r = r :+ SAST.Typed.Name(ids = SAST.Util.ids2string(p.name.ids))
+        r = r :+ SAST.Typed.Name(ids = Util.ids2string(p.name.ids))
       }
       return r
     }
@@ -413,7 +486,7 @@ object TypeInfo {
                                  val ancestors: ISZ[SAST.Typed.Name],
                                  val members: TypeInfo.Members,
                                  val scope: Scope.Global,
-                                 val ast: SAST.SysmlAst.PortDefinition) extends DelineableTypeInfo {
+                                 val ast: SAST.SysmlAst.PortDefinition) extends DefinitionTypeInfo {
 
     val typedOpt: Option[SAST.Typed] = Some(SAST.Typed.Name(name))
 
@@ -435,7 +508,7 @@ object TypeInfo {
                                        val ancestors: ISZ[SAST.Typed.Name],
                                        val members: TypeInfo.Members,
                                        val scope: Scope.Global,
-                                       val ast: SAST.SysmlAst.ConnectionDefinition) extends DelineableTypeInfo {
+                                       val ast: SAST.SysmlAst.ConnectionDefinition) extends DefinitionTypeInfo {
 
     val typedOpt: Option[SAST.Typed] = Some(SAST.Typed.Name(name))
 
@@ -457,7 +530,7 @@ object TypeInfo {
                                       val ancestors: ISZ[SAST.Typed.Name],
                                       val members: TypeInfo.Members,
                                       val scope: Scope.Global,
-                                      val ast: SAST.SysmlAst.AttributeDefinition) extends DelineableTypeInfo {
+                                      val ast: SAST.SysmlAst.AttributeDefinition) extends DefinitionTypeInfo {
 
     val typedOpt: Option[SAST.Typed] = Some(SAST.Typed.Name(name))
 
@@ -479,7 +552,7 @@ object TypeInfo {
                                        val ancestors: ISZ[SAST.Typed.Name],
                                        val members: TypeInfo.Members,
                                        val scope: Scope.Global,
-                                       val ast: SAST.SysmlAst.AllocationDefinition) extends DelineableTypeInfo {
+                                       val ast: SAST.SysmlAst.AllocationDefinition) extends DefinitionTypeInfo {
 
     val typedOpt: Option[SAST.Typed] = Some(SAST.Typed.Name(name))
 
@@ -494,10 +567,24 @@ object TypeInfo {
     @strictpure override def tpe: Typed = typedOpt.get
   }
 
+  object Members {
+    @strictpure def empty: Members = Members(HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty)
+  }
+
   @datatype class Members(val attributeUsages: HashSMap[String, Info.AttributeUsage],
                           val connectionUsages: HashSMap[String, Info.ConnectionUsage],
                           val itemUsages: HashSMap[String, Info.ItemUsage],
                           val partUsages: HashSMap[String, Info.PartUsage],
                           val portUsages: HashSMap[String, Info.PortUsage],
-                          val referenceUsages: HashSMap[String, Info.ReferenceUsage])
+                          val referenceUsages: HashSMap[String, Info.ReferenceUsage]) {
+    @strictpure def isEmpty: B =
+      attributeUsages.isEmpty &&
+        connectionUsages.isEmpty &&
+        itemUsages.isEmpty &&
+        partUsages.isEmpty &&
+        portUsages.isEmpty &&
+        referenceUsages.isEmpty
+
+    @strictpure def nonEmpty: B = !isEmpty
+  }
 }

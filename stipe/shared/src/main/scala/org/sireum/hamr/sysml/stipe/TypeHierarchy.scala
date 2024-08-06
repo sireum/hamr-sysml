@@ -2,10 +2,10 @@
 package org.sireum.hamr.sysml.stipe
 
 import org.sireum._
-import org.sireum.hamr.sysml.ast.{Type, Typed}
+import org.sireum.hamr.ir.{Type, Typed}
 import org.sireum.hamr.sysml.symbol.Resolver.{NameMap, QName, TypeMap}
-import org.sireum.hamr.sysml.symbol.{Scope, TypeInfo}
-import org.sireum.hamr.sysml.{ast => SAST}
+import org.sireum.hamr.sysml.symbol.{Scope, TypeInfo, Util}
+import org.sireum.hamr.{ir => SAST}
 import org.sireum.message.{Message, Position, Reporter}
 
 object TypeHierarchy {
@@ -17,7 +17,7 @@ object TypeHierarchy {
     def resolveType(scope: Scope, t: SAST.Type): SAST.Typed = {
       t match {
         case t: SAST.Type.Named =>
-          var name = SAST.Util.ids2string(t.name.ids)
+          var name = Util.ids2string(t.name.ids)
           scope.resolveType(typeMap, name) match {
             case Some(ti) => name = ti.name
             case _ =>
@@ -44,7 +44,7 @@ object TypeHierarchy {
     def getParentTypes(parentNames: ISZ[SAST.SysmlAst.Name], scope: Scope, posOpt: Option[Position]): ISZ[SAST.Type.Named] = {
       var ret: ISZ[Type.Named] = ISZ()
       for (parentName <- parentNames) {
-        val pName = SAST.Util.ids2string(parentName.ids)
+        val pName = Util.ids2string(parentName.ids)
         scope.resolveType(r.typeMap, pName) match {
           case Some(parentType) =>
             val typed = SAST.Typed.Name(parentType.name)
@@ -62,7 +62,9 @@ object TypeHierarchy {
       infox._2 match {
         case info: TypeInfo.EnumDefinition =>
           val typed = typedInfo(info)
-          r = r(poset = r.poset.addNode(typed.ids))
+          // TODO: possibly do this as a rewrite
+          r = r(poset = r.poset.addParents(typed.ids, ISZ(ISZ("AADL", "Data"))))
+
         case info: TypeInfo.PartDefinition =>
           if (!info.outlined || force) {
             val typed = typedInfo(info)
@@ -140,6 +142,11 @@ object TypeHierarchy {
               poset = r.poset.addParents(typed.ids, parentTypeNames),
               typeMap = r.typeMap + info.name ~> info(ast = info.ast(parents = parentsNameds)))
           }
+        case info: TypeInfo.Package =>
+          if (!info.outlined || force) {
+            val typed = typedInfo(info)
+            r = r(poset = r.poset.addNode(typed.ids))
+          }
         case x =>
           reporter.warn(x.posOpt, resolverKind, s"Need to handle $x")
       }
@@ -156,6 +163,7 @@ object TypeHierarchy {
 
   @pure def typedInfo(info: TypeInfo): SAST.Typed.Name = {
     info match {
+      case info: TypeInfo.Package => return SAST.Typed.Name(info.name)
       case info: TypeInfo.AllocationDefinition => return SAST.Typed.Name(info.name)
       case info: TypeInfo.AttributeDefinition => return SAST.Typed.Name(info.name)
       case info: TypeInfo.ConnectionDefinition => return SAST.Typed.Name(info.name)
@@ -179,7 +187,8 @@ object TypeHierarchy {
                               val poset: Poset[QName],
                               val aliases: HashSMap[QName, SAST.Typed]) {
   def checkCyclic(reporter: Reporter): Unit = {
-    reporter.warn(None(), TypeHierarchy.resolverKind, "Need to implement checkCyclic")
+    // TODO
+    //reporter.warn(None(), TypeHierarchy.resolverKind, "Need to implement checkCyclic")
   }
 
   def checkTyped(posOpt: Option[Position], t: SAST.Typed, reporter: Reporter): Unit = {
@@ -192,7 +201,7 @@ object TypeHierarchy {
       tipe match {
         case tipe: SAST.Type.Named =>
 
-          val name = SAST.Util.ids2string(tipe.name.ids)
+          val name = Util.ids2string(tipe.name.ids)
           scope.resolveType(typeMap, name) match {
             case Some(ti) =>
               val typed = SAST.Typed.Name(ti.name)
@@ -224,6 +233,7 @@ object TypeHierarchy {
             //case Some(info: TypeInfo.AllocationDefinition) => (info.outlined, info.ancestors)
             case Some(info: TypeInfo.AttributeDefinition) => (info.outlined, info.ancestors)
             case Some(info: TypeInfo.ConnectionDefinition) => (info.outlined, info.ancestors)
+            case Some(info: TypeInfo.EnumDefinition) => (info.outlined, info.ancestors)
             case Some(info: TypeInfo.PartDefinition) => (info.outlined, info.ancestors)
             case Some(info: TypeInfo.PortDefinition) => (info.outlined, info.ancestors)
             case _ => return F
@@ -240,4 +250,17 @@ object TypeHierarchy {
     }
   }
 
+  def mimicSysml(t1: Typed, t2: Typed): B = {
+    if (t1 == t2) {
+      return T
+    }
+    (t1, t2) match {
+      case (t1: SAST.Typed.Name, t2: SAST.Typed.Name) =>
+        if (t1.ids == ISZ("Timing_Properties", "Period") && t2.ids == ISZ("SI", "DurationUnit")) {
+          return T
+        }
+      case _ =>
+    }
+    return F
+  }
 }

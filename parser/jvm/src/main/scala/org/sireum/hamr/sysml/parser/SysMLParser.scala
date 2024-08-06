@@ -2,7 +2,7 @@
 package org.sireum.hamr.sysml
 
 import org.sireum._
-import org.sireum.hamr.sysml.ast.SysmlAst.TopUnit
+import org.sireum.hamr.ir.SysmlAst.TopUnit
 
 @ext object SysMLParser {
 

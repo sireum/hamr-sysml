@@ -2,8 +2,8 @@
 package org.sireum.hamr.sysml.symbol
 
 import org.sireum._
-import org.sireum.hamr.sysml.{ast => SAST}
-import org.sireum.hamr.sysml.ast.SysmlAst
+import org.sireum.hamr.{ir => SAST}
+import org.sireum.hamr.ir.{GclLib, GclSubclause, SysmlAst}
 import org.sireum.hamr.sysml.symbol.Resolver._
 import org.sireum.message.{Position, Reporter}
 
@@ -29,26 +29,50 @@ object GlobalDeclarationResolver {
         currentImports = currentImports :+ i
 
       case a: SysmlAst.AliasMember =>
-        reporter.warn(a.posOpt, resolverKind, "Not currently resolving aliases")
+        // TODO
+        //reporter.warn(a.posOpt, resolverKind, "Not currently resolving aliases")
 
       case p: SysmlAst.Package =>
-        declarePackageName(p) match {
+        declarePackageName(p, packageName) match {
           case Some(info) =>
-            packageName = info.name
+            packageName = info.name()
             currentName = packageName
           case _ =>
-
         }
+
         for (elem <- p.packageElements) {
           resolveElement(elem)
         }
 
+        val name = currentName
+        val sc = scope(packageName, currentImports, name)
+        val packageUsageItems: ISZ[SysmlAst.DefinitionBodyItem] =
+          for(e <- p.packageElements.filter(e => e.isInstanceOf[SysmlAst.UsageElement])) yield e.asInstanceOf[SysmlAst.DefinitionBodyItem]
+        val members: TypeInfo.Members = resolveMembers(name, sc, packageUsageItems)
+
+        if(members.nonEmpty) {
+          declareTypeH(
+            isEnumOrPackage = T,
+            entity = "package",
+            name = name,
+            info = TypeInfo.Package(
+              id = name,
+              outlined = F,
+              typeChecked = F,
+              members = members,
+              scope = sc,
+              ast = p
+            ),
+            posOpt = p.posOpt)
+        }
+
       case e: SysmlAst.EnumerationDefinition =>
+
         getId(e.identification, e.posOpt) match {
           case (Some(id), posOpt) =>
             val name = currentName :+ id
             var elements = Map.empty[String, SAST.ResolvedInfo]
-            val elementsTypeName = name // :+ Info.EnumDefinition.elementTypeSuffix
+            val elementsTypeName = name
             val elementTypedOpt: Option[SAST.Typed] = Some(SAST.Typed.Name(elementsTypeName))
             var elementPosOpts: ISZ[Option[Position]] = ISZ()
             var ordinal = 0
@@ -68,7 +92,6 @@ object GlobalDeclarationResolver {
               ordinal = ordinal + 1
             }
 
-            /*
             declareName(
               entity = "enumeration",
               name = name,
@@ -81,12 +104,17 @@ object GlobalDeclarationResolver {
                 posOpt = e.posOpt),
               posOpt = posOpt
             )
-            */
 
-            declareType(
+            declareTypeH(
+              isEnumOrPackage = T,
               entity = "enumeration",
               name = elementsTypeName,
-              info = TypeInfo.EnumDefinition(owner = name, elements = elements, posOpt = posOpt),
+              info = TypeInfo.EnumDefinition(
+                owner = name,
+                outlined = F,
+                ancestors = ISZ(),
+                elements = elements,
+                posOpt = posOpt),
               posOpt = posOpt)
 
             var i = 0
@@ -165,6 +193,7 @@ object GlobalDeclarationResolver {
         }
 
       case e: SysmlAst.ConnectionDefinition =>
+
         getId(e.identification, e.posOpt) match {
           case (Some(id), posOpt) =>
             val name = currentName :+ id
@@ -190,6 +219,7 @@ object GlobalDeclarationResolver {
         }
 
       case e: SysmlAst.AttributeDefinition =>
+
         getId(e.identification, e.posOpt) match {
           case (Some(id), posOpt) =>
             val name = currentName :+ id
@@ -213,7 +243,9 @@ object GlobalDeclarationResolver {
             )
           case _ =>
         }
+
       case e: SysmlAst.AllocationDefinition =>
+
         getId(e.identification, e.posOpt) match {
           case (Some(id), posOpt) =>
             val name = currentName :+ id
@@ -239,13 +271,45 @@ object GlobalDeclarationResolver {
         }
 
       case e: SysmlAst.AttributeUsage =>
-        reporter.warn(e.posOpt, resolverKind, "Need to handle attribute usages")
 
+        getId(e.commonUsageElements.identification, e.posOpt) match {
+          case (Some(id), posOpt) =>
+            val name = currentName :+ id
+            val sc = scope(packageName, currentImports, name)
+
+            val members: TypeInfo.Members = resolveMembers(name, sc, e.commonUsageElements.definitionBodyItems)
+
+            declareName(
+              entity = "attribute usage",
+              name = name,
+              info = Info.AttributeUsage(
+                owner = packageName,
+                id = id,
+                scope = sc,
+                ast = e(commonUsageElements =
+                  e.commonUsageElements(attr = e.commonUsageElements.attr(
+                    resOpt = Some(SAST.ResolvedInfo.AttributeUsage(owner = packageName, name = id)))))
+              ),
+              posOpt = e.posOpt
+            )
+          case _ =>
+        }
       case e: SysmlAst.AnnotatingElement =>
         e match {
           case c: SysmlAst.Comment if (c.abouts.nonEmpty) =>
             reporter.warn(e.posOpt, resolverKind, "Need to resolve comment 'abouts'")
+
+          case g @ SysmlAst.GumboAnnotation(lib: GclLib) =>
+
+            // for now rely on instantiating the systems and then letting the AIR
+            // resolver type check the gumbo contracts
+
+          // reporter.warn(e.posOpt, resolverKind, "Need to resolve gumbo libraries")
+
+          case SysmlAst.GumboAnnotation(lib: GclSubclause) =>
+            halt(s"Not expecting a GUMBO subclause declared at the package level: ${lib.posOpt}")
           case _ =>
+
         }
 
       case x =>
@@ -261,7 +325,6 @@ object GlobalDeclarationResolver {
     var portUsages = HashSMap.empty[String, Info.PortUsage]
     var referenceUsages = HashSMap.empty[String, Info.ReferenceUsage]
 
-
     @pure def checkId(id: String, posOpt: Option[Position]): Unit = {
       val declared: B = {
         if (attributeUsages.contains(id)) T
@@ -272,70 +335,76 @@ object GlobalDeclarationResolver {
       }
     }
 
+    def update(ast: SysmlAst.CommonUsageElements, id: String): SAST.SysmlAst.CommonUsageElements = {
+      return ast(attr = ast.attr(resOpt = Some(SAST.ResolvedInfo.AttributeUsage(owner = owner, name = id))))
+    }
+
     for (item <- items) {
       item match {
-        case i: SysmlAst.AttributeUsage =>
-          getId(i.identification, i.posOpt) match {
+        case ast: SysmlAst.AttributeUsage =>
+          getId(ast.commonUsageElements.identification, ast.posOpt) match {
             case (Some(id), posOpt) =>
               checkId(id, posOpt)
               attributeUsages = attributeUsages +
                 id ~> Info.AttributeUsage(owner = owner, id = id, scope = scope,
-                  ast = i(attr = i.attr(resOpt = Some(SAST.ResolvedInfo.AttributeUsage(owner = owner, name = id)))))
+                  ast = ast(commonUsageElements = update(ast.commonUsageElements, id)))
             case x =>
-              reporter.warn(i.posOpt, resolverKind, s"How to handle usages without identification")
+              //reporter.warn(ast.posOpt, resolverKind, s"How to handle usages without identification")
           }
-        case i: SysmlAst.ConnectionUsage =>
-          getId(i.identification, i.posOpt) match {
+        case ast: SysmlAst.ConnectionUsage =>
+          getId(ast.commonUsageElements.identification, ast.posOpt) match {
             case (Some(id), posOpt) =>
               checkId(id, posOpt)
               connectionUsages = connectionUsages +
                 id ~> Info.ConnectionUsage(owner = owner, id = id, scope = scope,
-                  ast = i(attr = i.attr(resOpt = Some(SAST.ResolvedInfo.ConnectionUsage(owner = owner, name = id)))))
+                  ast = ast(commonUsageElements = update(ast.commonUsageElements, id)),
+                  srcAst = None(), dstAst = None())
             case _ =>
-              reporter.warn(i.posOpt, resolverKind, s"How to handle usages without identification")
+              //reporter.warn(ast.posOpt, resolverKind, s"How to handle usages without identification")
           }
-        case i: SysmlAst.ItemUsage =>
-          getId(i.identification, i.posOpt) match {
+        case ast: SysmlAst.ItemUsage =>
+          getId(ast.commonUsageElements.identification, ast.posOpt) match {
             case (Some(id), posOpt) =>
               checkId(id, posOpt)
               itemUsages = itemUsages +
                 id ~> Info.ItemUsage(owner = owner, id = id, scope = scope,
-                  ast = i(attr = i.attr(resOpt = Some(SAST.ResolvedInfo.ItemUsage(owner = owner, name = id)))))
+                  ast = ast(commonUsageElements = update(ast.commonUsageElements, id)))
             case _ =>
-              reporter.warn(i.posOpt, resolverKind, s"How to handle usages without identification")
+              //reporter.warn(ast.posOpt, resolverKind, s"How to handle usages without identification")
           }
-        case i: SysmlAst.PartUsage =>
-          getId(i.identification, i.posOpt) match {
+        case ast: SysmlAst.PartUsage =>
+          getId(ast.commonUsageElements.identification, ast.posOpt) match {
             case (Some(id), posOpt) =>
               checkId(id, posOpt)
               partUsages = partUsages +
                 id ~> Info.PartUsage(owner = owner, id = id, scope = scope,
-                  ast = i(attr = i.attr(resOpt = Some(SAST.ResolvedInfo.PartUsage(owner = owner, name = id)))))
+                  ast = ast(commonUsageElements = update(ast.commonUsageElements, id)))
             case _ =>
-              reporter.warn(i.posOpt, resolverKind, s"How to handle usages without identification")
+              //reporter.warn(ast.posOpt, resolverKind, s"How to handle usages without identification")
           }
 
-        case i: SysmlAst.PortUsage =>
-          getId(i.identification, i.posOpt) match {
+        case ast: SysmlAst.PortUsage =>
+          getId(ast.commonUsageElements.identification, ast.posOpt) match {
             case (Some(id), posOpt) =>
               checkId(id, posOpt)
               portUsages = portUsages +
                 id ~> Info.PortUsage(owner = owner, id = id, scope = scope,
-                  ast = i(attr = i.attr(resOpt = Some(SAST.ResolvedInfo.PortUsage(owner = owner, name = id)))))
+                  ast = ast(commonUsageElements = update(ast.commonUsageElements, id)))
             case _ =>
-              reporter.warn(i.posOpt, resolverKind, s"How to handle usages without identification")
+              //reporter.warn(ast.posOpt, resolverKind, s"How to handle usages without identification")
           }
 
-        case i: SysmlAst.ReferenceUsage =>
-          getId(i.identification, i.posOpt) match {
+        case ast: SysmlAst.ReferenceUsage =>
+          getId(ast.commonUsageElements.identification, ast.posOpt) match {
             case (Some(id), posOpt) =>
               checkId(id, posOpt)
               referenceUsages = referenceUsages +
                 id ~> Info.ReferenceUsage(owner = owner, id = id, scope = scope,
-                  ast = i(attr = i.attr(resOpt = Some(SAST.ResolvedInfo.ReferenceUsage(owner = owner, name = id)))))
+                  ast = ast(commonUsageElements = update(ast.commonUsageElements, id)))
             case _ =>
-              reporter.warn(i.posOpt, resolverKind, s"How to handle usages without identification")
+              //reporter.warn(ast.posOpt, resolverKind, s"How to handle usages without identification")
           }
+        case ast: SysmlAst.AnnotatingElement => // do nothing
         case i =>
           reporter.warn(i.posOpt, resolverKind, s"Need to handle member: ${i}")
       }
@@ -352,13 +421,18 @@ object GlobalDeclarationResolver {
   }
 
   def declareType(entity: String, name: ISZ[String], info: TypeInfo, posOpt: Option[Position]): Unit = {
+    declareTypeH(F, entity, name, info, posOpt)
+  }
+
+  def declareTypeH(isEnumOrPackage: B, entity: String, name: ISZ[String], info: TypeInfo, posOpt: Option[Position]): Unit = {
     assert(name == info.name)
 
     globalNameMap.get(name) match {
-      case Some(_) =>
+      case Some(_) if !isEnumOrPackage =>
         reporter.error(posOpt, resolverKind, s"Cannot declare $entity type $name because the name has already been declared previously as a name")
       case _ =>
     }
+
     globalTypeMap.get(name) match {
       case Some(_) =>
         reporter.error(posOpt, resolverKind, s"Cannot declare $entity type $name because the name has already been declared previously as a type")
@@ -382,7 +456,7 @@ object GlobalDeclarationResolver {
 
   def declarePackage(name: ISZ[String], posOpt: Option[Position]): Unit = {
     globalNameMap.get(name) match {
-      case Some(_: Info.Package) => reporter.warn(posOpt, resolverKind, "Is this possible in SysMLv2?")
+      case Some(_: Info.Package) => reporter.error(posOpt, resolverKind, "Cannot declare package because it has been previously declared")
       case Some(_) => reporter.error(posOpt, resolverKind, "Cannot declare package because the has has already been used for a non-package entity")
       case _ =>
         globalNameMap = globalNameMap + name ~> Info.Package(
@@ -390,16 +464,15 @@ object GlobalDeclarationResolver {
     }
   }
 
-  def declarePackageName(p: SysmlAst.Package): Option[Info.Package] = {
+  def declarePackageName(p: SysmlAst.Package, parentPackages: ISZ[String]): Option[Info.Package] = {
 
     val (name, posOpt) = getId(p.identification, p.posOpt)
 
     if (name.isEmpty) {
       reporter.error(posOpt, resolverKind, "Packages must have full names")
     } else {
-      // TODO nested packages??
 
-      val currName = ISZ(name.get)
+      val currName = parentPackages :+ name.get
 
       declarePackage(currName, posOpt)
 
@@ -415,7 +488,8 @@ object GlobalDeclarationResolver {
     id match {
       case Some(id) =>
         if (id.shortName.nonEmpty) {
-          reporter.warn(id.shortName.get.posOpt, resolverKind, "Short names are not currently supported")
+          // TODO
+          //reporter.warn(id.shortName.get.posOpt, resolverKind, "Short names are not currently supported")
         }
         id.name match {
           case Some(id) =>
