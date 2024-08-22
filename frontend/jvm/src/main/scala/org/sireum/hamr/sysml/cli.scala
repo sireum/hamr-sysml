@@ -49,6 +49,24 @@ object cli {
     groups = ISZ()
   )
 
+  val sysmlLogika: Tool = Tool(
+    name = "sysmlLogika",
+    command = "logika",
+    description = "SysML v2 Verifier",
+    header = "Sireum HAMR SysML v2 Logika Verifier",
+    usage = "<option>* [<sysmlv2-file]",
+    usageDescOpt = None(),
+    opts = ISZ(
+      Opt(name = "exclude", longKey = "exclude", shortKey = Some('x'),
+        tpe = Type.Str(Some(','), None()),
+        description = "Sourcepath exclusion as URI segment"),
+      Opt(name = "sourcepath", longKey = "sourcepath", shortKey = Some('s'),
+        tpe = Type.Path(multiple = T, default = None()),
+        description = "Sourcepath of SysML v2 .sysml files")
+    ),
+    groups = ISZ()
+  )
+
   val sysmlTranslator: Tool = Tool(
     name = "translator",
     command = "translator",
@@ -78,6 +96,6 @@ object cli {
     description = "SysML v2 Tools",
     header = "Sireum HAMR SysML v2 Tools",
     unlisted = F,
-    subs = ISZ(sysmlTipe, sysmlTranslator)
+    subs = ISZ(sysmlLogika, sysmlTipe, sysmlTranslator)
   )
 }
