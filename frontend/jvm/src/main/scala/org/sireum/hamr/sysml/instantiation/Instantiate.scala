@@ -593,8 +593,10 @@ object Instantiate {
     def isInProject(projRoot: Os.Path, cand: Option[Os.Path]): B = {
       cand match {
         case Some(p) =>
-          val pr = ops.StringOps(projRoot.toUri).split(c => c == '/')
-          val c = ops.StringOps(p.toUri).split(c => c == '/')
+          // NOTE: p.toUri on Windows causes "java.io.IOException: The filename, directory name, or volume label syntax is incorrect"
+          val pathSep: C = if (Os.isWin) '\\' else '/'
+          val pr = ops.StringOps(projRoot.string).split(c => c == pathSep)
+          val c = ops.StringOps(p.string).split(c => c == pathSep)
           if (c.size >= pr.size) {
             for (i <- 0 until pr.size) {
               if (pr(i) != c(i)) {
