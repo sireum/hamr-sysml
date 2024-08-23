@@ -57,13 +57,9 @@ package TempControlAadl {
 		in port setPoint : DataPort { in :> type : SetPoint; }
 		out port fanCmd : DataPort { out :> type : FanCmd; }
 
-		attribute :>> Dispatch_Protocol = Supported_Dispatch_Protocols::Sporadic;
+		attribute :>> Dispatch_Protocol = Supported_Dispatch_Protocols::Periodic;
 		attribute :>> Period = 1000 [millisecond];
-		
-		//@Properties {
-		//	Dispatch_Protocol = Sporadic;
-		//	Period = 1000;
-		//}
+
 		language "GUMBO" /*{
 
           state
@@ -132,7 +128,7 @@ package TempControlAadl {
 		in port fanCmd : EventDataPort { in :> type : FanCmd; }
 		out port fanAck : EventDataPort { out :> type : FanAck; }
 		
-		attribute :>> Dispatch_Protocol = Supported_Dispatch_Protocols::Sporadic;
+		attribute :>> Dispatch_Protocol = Supported_Dispatch_Protocols::Periodic;
 		attribute :>> Period = 1000 [millisecond];
 		
 		//@Properties {

@@ -179,6 +179,7 @@ object TypeChecker {
 
     val newMembers: TypeInfo.Members = updateMembers(newBodyItems, info.members, reporter)
 
+    // resolve the connection ends
     val connectionsUsages: HashSMap[String, Info.ConnectionUsage] = {
       var cus = newMembers.connectionUsages
       for (e <-newMembers.connectionUsages.entries) {
@@ -186,13 +187,13 @@ object TypeChecker {
         cu.ast.connectorPart match {
           case Some(b @ SysmlAst.BinaryConnectorPart(src, dst)) =>
 
-            def resolvePort(s: SysmlAst.ConnectorEnd): Info.PortUsage = {
-              assert(src.reference.size >= 1)
-              val srcPortId = src.reference(src.reference.lastIndex)
+            def resolvePort(connEnd: SysmlAst.ConnectorEnd): Info.PortUsage = {
+              assert(connEnd.reference.size >= 1)
+              val srcPortId = connEnd.reference(connEnd.reference.lastIndex)
 
               val ports: HashSMap[String, Info.PortUsage] =
-                if (src.reference.size == 2) {
-                  val receiver = src.reference(0)
+                if (connEnd.reference.size == 2) {
+                  val receiver = connEnd.reference(0)
                   assert(receiver.ids.size == 1)
                   scope.resolveName(typeHierarchy.nameMap, Util.ids2string(receiver.ids)) match {
                     case Some(ipu: Info.PartUsage) =>
@@ -206,7 +207,7 @@ object TypeChecker {
                     case x =>
                       halt("Infeasible")
                   }
-                } else if (src.reference.size == 1) {
+                } else if (connEnd.reference.size == 1) {
                   newMembers.portUsages
                 } else {
                   halt("Unexpected")
@@ -216,8 +217,8 @@ object TypeChecker {
               return ports.get(portId).get
             }
 
-            val srcInfo = resolvePort(src)
-            val dstInfo = resolvePort(dst)
+            val srcInfo: Info.PortUsage = resolvePort(src)
+            val dstInfo: Info.PortUsage = resolvePort(dst)
 
             cus = cus + e._1 ~> cu(
               srcAst = Some(srcInfo.ast),
@@ -576,6 +577,10 @@ object TypeChecker {
         item.commonUsageElements.attr.resOpt match {
           case Some(_: SAST.ResolvedInfo.PortUsage) => return item
           case _ =>
+        }
+        if (item.occurrenceUsagePrefix.refPrefix.direction.isEmpty) {
+          reporter.error(item.posOpt, TypeChecker.typeCheckerKind,
+            "Port direction must be supplied at the port usage level")
         }
         return item(commonUsageElements = update(item.commonUsageElements))
 

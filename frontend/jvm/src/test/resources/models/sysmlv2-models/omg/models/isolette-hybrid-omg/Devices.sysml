@@ -88,7 +88,7 @@ package Devices {
 		//}
 		
 		in port air : DataPort { in :> type : Isolette_Data_Model::PhysicalTemp; }
-		out port current_tempWstatus : DataPort {in :> type : Isolette_Data_Model::TempWstatus; }
+		out port current_tempWstatus : DataPort { out :> type : Isolette_Data_Model::TempWstatus; }
 		
 		attribute :>> Dispatch_Protocol = Supported_Dispatch_Protocols::Periodic;
 		attribute :>> Period = 1000 [millisecond];

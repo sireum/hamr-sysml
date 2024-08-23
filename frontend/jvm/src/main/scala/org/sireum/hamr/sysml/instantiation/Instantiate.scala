@@ -264,7 +264,7 @@ object Instantiate {
         }
       }
 
-      def getPayloadType(portName: String, definitionBodyItems: ISZ[SysmlAst.DefinitionBodyItem]): Option[ir.Classifier] = {
+      def getPayloadType(portName: String, definitionBodyItems: ISZ[SysmlAst.DefinitionBodyItem]): (Option[ir.Classifier], Option[SysmlAst.FeatureDirection.Type]) = {
         assert (definitionBodyItems.size <= 1, "Currently expecting a single body item for data ports that refines 'type'")
         for(b <- definitionBodyItems) {
           b match {
@@ -272,17 +272,17 @@ object Instantiate {
               r.commonUsageElements.attr.typedOpt match {
                 case Some(n: Typed.Name) =>
                   processDatatype(n.ids, ISZ(portName))
-                  return Some(ir.Classifier(st"${(n.ids, "::")}".render))
+                  return (Some(ir.Classifier(st"${(n.ids, "::")}".render)), r.prefix.direction)
                 case _ =>
                   reporter.warn(r.posOpt, Instantiate.instantiatorKey,
                     s"The payload type for ${componentName}'s $portName data port was not resolved")
-                  return None()
+                  return (None(), None())
               }
             case x =>
               halt(s"Unexpected $x")
           }
         }
-        return None()
+        return (None(), None())
       }
 
       var features: HashSMap[ISZ[String], ir.FeatureEnd] = HashSMap.empty
@@ -292,19 +292,29 @@ object Instantiate {
           case Some(t: Typed.Name) =>
             t.ids match {
               case ISZ("AADL", "DataPort") =>
+                val usageDir = getDirection(portUsage._2.ast.occurrenceUsagePrefix.refPrefix.direction)
+                val (pType, refDir) = getPayloadType(portUsage._1, portUsage._2.ast.commonUsageElements.definitionBodyItems)
+                if (refDir.nonEmpty && usageDir != getDirection(refDir)) {
+                  reporter.error(portUsage._2.posOpt, Instantiate.instantiatorKey, "Port usage direction and the direction of the body reference usage must be the same")
+                }
                 features = features + portName ~> ir.FeatureEnd(
                   identifier = ir.Name(portName, portUsage._2.posOpt),
-                  direction = getDirection(portUsage._2.ast.occurrenceUsagePrefix.refPrefix.direction),
+                  direction = usageDir,
                   category = ir.FeatureCategory.DataPort,
-                  classifier = getPayloadType(portUsage._1, portUsage._2.ast.commonUsageElements.definitionBodyItems),
+                  classifier = pType,
                   properties = ISZ(),
                   uriFrag = "")
               case ISZ("AADL", "EventDataPort") =>
+                val usageDir = getDirection(portUsage._2.ast.occurrenceUsagePrefix.refPrefix.direction)
+                val (pType, refDir) = getPayloadType(portUsage._1, portUsage._2.ast.commonUsageElements.definitionBodyItems)
+                if (refDir.nonEmpty && usageDir != getDirection(refDir)) {
+                  reporter.error(portUsage._2.posOpt, Instantiate.instantiatorKey, "Port usage direction and the direction of the body reference usage must be the same")
+                }
                 features = features + portName ~> ir.FeatureEnd(
                   identifier = ir.Name(portName, portUsage._2.posOpt),
-                  direction = getDirection(portUsage._2.ast.occurrenceUsagePrefix.refPrefix.direction),
+                  direction = usageDir,
                   category = ir.FeatureCategory.EventDataPort,
-                  classifier = getPayloadType(portUsage._1, portUsage._2.ast.commonUsageElements.definitionBodyItems),
+                  classifier = pType,
                   properties = ISZ(),
                   uriFrag = "")
               case ISZ("AADL", "EventPort") =>
@@ -316,10 +326,10 @@ object Instantiate {
                   properties = ISZ(),
                   uriFrag = "")
               case x =>
-                halt(s"Unexpected port type $x p")
+                reporter.error(portUsage._2.posOpt, Instantiate.instantiatorKey, s"Unexpected port type $x p")
             }
           case x =>
-            halt(s"Unexpected port $x $portUsage")
+            reporter.error(portUsage._2.posOpt, Instantiate.instantiatorKey,  s"Port usages should have been resolved to Typed.Name but found $x")
         }
       }
 
@@ -401,12 +411,20 @@ object Instantiate {
                             }
                           case f: AST.Exp.Invoke =>
                             val value = f.ident.id.value
-                            if (value == "millisecond" || value == "ms") {
-                              val v = R(f.args(0).string).get * R("1.0E-9").get
-                              ISZ(ir.UnitProp(value = v.string, unit = Some("ms")))
-                            } else  {
-                              halt(s"Unxpected uif: $value")
-                            }
+                            val inPs: R =
+                              if (value == "picosecond" || value == "ps") {
+                                R(f.args(0).string).get
+                              } else if(value == "nanosecond" || value == "ns") {
+                                R(f.args(0).string).get * R("1.0E3").get
+                              } else if(value == "microsecond" || value == "us") {
+                                R(f.args(0).string).get * R("1.0E6").get
+                              } else if(value == "millisecond" || value == "ms") {
+                                R(f.args(0).string).get * R("1.0E9").get
+                              } else  {
+                                halt(s"Unexpected uif: $value")
+                              }
+
+                            ISZ(ir.UnitProp(value = inPs.string, unit = Some("ps")))
                           case x =>
                             halt ("Unexpected expresion: $x")
                         }
@@ -454,6 +472,9 @@ object Instantiate {
             dstComponentName = dstComponentName ++ Util.ids2string(n.ids)
           }
           val dstFeatureName = dstComponentName ++ Util.ids2string(b.dst.reference(b.dst.reference.lastIndex).ids)
+          if (dstFeatureName == ISZ("root", "thermostat", "current_tempWstatus")) {
+            assert(T)
+          }
           val dstDirection = getDirection(c.dstAst.get.occurrenceUsagePrefix.refPrefix.direction)
           val dst_ = ir.EndPoint(
             component = ir.Name(name = dstComponentName, pos = b.dst.reference(0).posOpt),

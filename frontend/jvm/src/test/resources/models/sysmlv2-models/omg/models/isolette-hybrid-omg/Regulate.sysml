@@ -346,7 +346,7 @@ package Regulate {
     
 		// ======== OUTPUTS =======
 		// command to turn heater on/off (actuation command)
-  		in port heat_control : DataPort { out :> type : Isolette_Data_Model::On_Off; }
+  		out port heat_control : DataPort { out :> type : Isolette_Data_Model::On_Off; }
   		
 		language "GUMBO" /*{
 			// indicate that the component maintains an internal state (variables) that influence its behavior
