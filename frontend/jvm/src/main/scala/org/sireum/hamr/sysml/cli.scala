@@ -44,7 +44,10 @@ object cli {
         description = "Sourcepath exclusion as URI segment"),
       Opt(name = "sourcepath", longKey = "sourcepath", shortKey = Some('s'),
         tpe = Type.Path(multiple = T, default = None()),
-        description = "Sourcepath of SysML v2 .sysml files")
+        description = "Sourcepath of SysML v2 .sysml files"),
+      Opt(name = "parseableMessages", longKey = "parseable-messages", shortKey = None(),
+        tpe = Type.Flag(F),
+        description = "Print parseable file messages")
     ),
     groups = ISZ()
   )
@@ -62,7 +65,10 @@ object cli {
         description = "Sourcepath exclusion as URI segment"),
       Opt(name = "sourcepath", longKey = "sourcepath", shortKey = Some('s'),
         tpe = Type.Path(multiple = T, default = None()),
-        description = "Sourcepath of SysML v2 .sysml files")
+        description = "Sourcepath of SysML v2 .sysml files"),
+      Opt(name = "parseableMessages", longKey = "parseable-messages", shortKey = None(),
+        tpe = Type.Flag(F),
+        description = "Print parseable file messages")
     ),
     groups = ISZ()
   )
