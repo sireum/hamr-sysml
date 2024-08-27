@@ -4,9 +4,10 @@ package org.sireum.hamr.sysml.instantiation
 import org.sireum._
 import org.sireum.hamr.ir
 import org.sireum.hamr.ir.SysmlAst.GumboAnnotation
-import org.sireum.hamr.ir.{Aadl, Component, GclLib, SysmlAst, Type, Typed}
-import org.sireum.hamr.sysml.stipe.TypeHierarchy
-import org.sireum.hamr.sysml.symbol.{Info, TypeInfo, Util}
+import org.sireum.hamr.ir.util.AadlUtil
+import org.sireum.hamr.ir.{Aadl, GclLib, GclMethod, SysmlAst, Typed}
+import org.sireum.hamr.sysml.stipe.{TypeChecker, TypeHierarchy}
+import org.sireum.hamr.sysml.symbol.{Info, Scope, TypeInfo, Util}
 import org.sireum.hamr.sysml.symbol.TypeInfo.PartDefinition
 import org.sireum.message.{Position, Reporter}
 import org.sireum.lang.{ast => AST}
@@ -170,7 +171,17 @@ object Instantiate {
                   Util.getId(id = p.identification, specializations = ISZ(),
                     posOpt = p.posOpt, toolKind = Instantiate.instantiatorKey, reporter = reporter) match {
                     case (Some(id), posOpt) =>
-                      gumboLibraries = gumboLibraries :+ lib (containingPackage = ir.Name (ISZ (id), posOpt))
+
+                      // FIXME: package level gumbo libraries should be resolved during type checking
+                      var methods: ISZ[GclMethod] = ISZ()
+                      for (m <- lib.methods) {
+                        val scope = Scope.Global(ISZ(id), ISZ(), ISZ(id))
+                        methods = methods :+ TypeChecker.resolveMethod(m, scope, typeHierarchy, reporter)
+                      }
+
+                      gumboLibraries = gumboLibraries :+ lib (
+                        containingPackage = ir.Name (ISZ (id), posOpt),
+                        methods = methods)
                     case _ =>
                       reporter.error(p.posOpt, Instantiate.instantiatorKey, "Could not resolve package name")
                   }
@@ -260,26 +271,36 @@ object Instantiate {
 
         } else {
           reporter.error(member.posOpt, Instantiate.instantiatorKey,
-            st"Not expecting the following component for $componentName: $member".render)
+            st"Part usages of $category must be a descendant of one of the following: ${(AadlUtil.validSubcomponents.get(category).get, ", ")}".render)
         }
       }
 
-      def getPayloadType(portName: String, definitionBodyItems: ISZ[SysmlAst.DefinitionBodyItem]): (Option[ir.Classifier], Option[SysmlAst.FeatureDirection.Type]) = {
-        assert (definitionBodyItems.size <= 1, "Currently expecting a single body item for data ports that refines 'type'")
+      def getPayloadType(portName: String, optPosOpt: Option[Position], definitionBodyItems: ISZ[SysmlAst.DefinitionBodyItem]): (Option[ir.Classifier], Option[SysmlAst.FeatureDirection.Type]) = {
+        if (definitionBodyItems.size != 1) {
+          reporter.error(optPosOpt , Instantiate.instantiatorKey, "Currently expecting a single body item for data ports that refines 'type'")
+          return (None(), None())
+        }
+
         for(b <- definitionBodyItems) {
           b match {
             case r: SysmlAst.ReferenceUsage =>
               r.commonUsageElements.attr.typedOpt match {
                 case Some(n: Typed.Name) =>
-                  processDatatype(n.ids, ISZ(portName))
-                  return (Some(ir.Classifier(st"${(n.ids, "::")}".render)), r.prefix.direction)
+
+                  if (isValidDatatype(n.ids)) {
+                    processDatatype(n.ids, ISZ(portName))
+                    return (Some(ir.Classifier(st"${(n.ids, "::")}".render)), r.prefix.direction)
+                  } else {
+                    reporter.error(posOpt = optPosOpt, kind = Instantiate.instantiatorKey, message =
+                    st"Data port type must be an enum or a descendant of ${(InstantiateUtil.AadlDataName, "::")}".render)
+                  }
                 case _ =>
                   reporter.warn(r.posOpt, Instantiate.instantiatorKey,
                     s"The payload type for ${componentName}'s $portName data port was not resolved")
                   return (None(), None())
               }
             case x =>
-              halt(s"Unexpected $x")
+              reporter.error(posOpt, Instantiate.instantiatorKey, s"Currently only expecting reference usages in port bodies")
           }
         }
         return (None(), None())
@@ -293,7 +314,7 @@ object Instantiate {
             t.ids match {
               case ISZ("AADL", "DataPort") =>
                 val usageDir = getDirection(portUsage._2.ast.occurrenceUsagePrefix.refPrefix.direction)
-                val (pType, refDir) = getPayloadType(portUsage._1, portUsage._2.ast.commonUsageElements.definitionBodyItems)
+                val (pType, refDir) = getPayloadType(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
                 if (refDir.nonEmpty && usageDir != getDirection(refDir)) {
                   reporter.error(portUsage._2.posOpt, Instantiate.instantiatorKey, "Port usage direction and the direction of the body reference usage must be the same")
                 }
@@ -306,7 +327,7 @@ object Instantiate {
                   uriFrag = "")
               case ISZ("AADL", "EventDataPort") =>
                 val usageDir = getDirection(portUsage._2.ast.occurrenceUsagePrefix.refPrefix.direction)
-                val (pType, refDir) = getPayloadType(portUsage._1, portUsage._2.ast.commonUsageElements.definitionBodyItems)
+                val (pType, refDir) = getPayloadType(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
                 if (refDir.nonEmpty && usageDir != getDirection(refDir)) {
                   reporter.error(portUsage._2.posOpt, Instantiate.instantiatorKey, "Port usage direction and the direction of the body reference usage must be the same")
                 }
@@ -472,9 +493,7 @@ object Instantiate {
             dstComponentName = dstComponentName ++ Util.ids2string(n.ids)
           }
           val dstFeatureName = dstComponentName ++ Util.ids2string(b.dst.reference(b.dst.reference.lastIndex).ids)
-          if (dstFeatureName == ISZ("root", "thermostat", "current_tempWstatus")) {
-            assert(T)
-          }
+
           val dstDirection = getDirection(c.dstAst.get.occurrenceUsagePrefix.refPrefix.direction)
           val dst_ = ir.EndPoint(
             component = ir.Name(name = dstComponentName, pos = b.dst.reference(0).posOpt),
@@ -495,6 +514,10 @@ object Instantiate {
         connectionInstances = ISZ(),
         properties = ISZ(),
         uriFrag = "")
+    }
+
+    def isValidDatatype(typeName: ISZ[String]): B = {
+      return isDatatypeH(typeName) && typeName != InstantiateUtil.AadlDataName
     }
 
     def isDatatype(t: Typed): B = {

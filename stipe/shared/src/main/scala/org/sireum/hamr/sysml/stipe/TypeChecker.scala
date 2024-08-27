@@ -2,8 +2,8 @@
 package org.sireum.hamr.sysml.stipe
 
 import org.sireum._
-import org.sireum.hamr.ir.SysmlAst.{BinaryConnectorPart, RedefinitionsSpecialization, SubsettingsSpecialization, TypingsSpecialization}
-import org.sireum.hamr.ir.{ResolvedInfo, SysmlAst, Typed}
+import org.sireum.hamr.ir.SysmlAst.{BinaryConnectorPart, GumboAnnotation, RedefinitionsSpecialization, SubsettingsSpecialization, TypingsSpecialization}
+import org.sireum.hamr.ir.{GclLib, GclMethod, GclStateVar, GclSubclause, ResolvedInfo, SysmlAst, Typed}
 import org.sireum.hamr.{ir => SAST}
 import org.sireum.hamr.sysml.symbol.Resolver.NameMap
 import org.sireum.hamr.sysml.symbol.Resolver.QName
@@ -11,6 +11,7 @@ import org.sireum.hamr.sysml.symbol.{Info, Scope, TypeInfo, Util}
 import org.sireum.lang.ast.Exp
 import org.sireum.lang.{ast => AST}
 import org.sireum.message.{Message, Position, Reporter}
+import TypeChecker._
 
 object TypeChecker {
 
@@ -58,6 +59,63 @@ object TypeChecker {
     reporter.reports(p._2)
     return r
   }
+
+  def resolveMethod(m: GclMethod, scope: Scope, typeHierarchy: TypeHierarchy, reporter: Reporter): GclMethod = {
+    var params: ISZ[AST.Param] = ISZ()
+
+    def resolveType(t: AST.Type): Option[AST.Type] = {
+      t match {
+        case t: AST.Type.Named =>
+          scope.resolveType(typeHierarchy.typeMap, Util.slangIds2string(t.name.ids)) match {
+            case Some(t: TypeInfo.PartDefinition) =>
+              val name = AST.Name(
+                ids = for (id <- t.name) yield AST.Id(id, AST.Attr(t.posOpt)),
+                attr = AST.Attr(t.posOpt)
+              )
+              val typedName = AST.Typed.Name(t.name, ISZ())
+              val typedAttr = AST.TypedAttr(t.posOpt, Some(typedName))
+              val named = AST.Type.Named(name, ISZ(), typedAttr)
+
+              return Some(named)
+
+            case Some(e: TypeInfo.EnumDefinition) =>
+              val name = AST.Name(
+                ids = for (id <- e.name) yield AST.Id(id, AST.Attr(e.posOpt)),
+                attr = AST.Attr(e.posOpt)
+              )
+              val typedName = AST.Typed.Name(e.name, ISZ())
+              val typedAttr = AST.TypedAttr(t.posOpt, Some(typedName))
+              val named = AST.Type.Named(name, ISZ(), typedAttr)
+
+              return Some(named)
+            case _ =>
+              reporter.error(t.posOpt, TypeChecker.typeCheckerKind, "Only expecting type to resolve to a part or enumeration definitions")
+              return None()
+          }
+        case _ =>
+          return None()
+      }
+    }
+
+    for(p <- m.method.sig.params) {
+      resolveType(p.tipe) match {
+        case Some(t) => params = params :+ p(tipe = t)
+        case _ =>
+          reporter.error(p.id.attr.posOpt, TypeChecker.typeCheckerKind, "Could not resolve the parameter type")
+          params = params :+ p
+      }
+    }
+
+    val returnType: AST.Type = resolveType(m.method.sig.returnType) match {
+      case Some(rt) => rt
+      case _ =>
+        reporter.error(m.method.sig.returnType.posOpt, TypeChecker.typeCheckerKind, "Could not resolve methods return type")
+        m.method.sig.returnType
+    }
+
+    return m(method = m.method(sig = m.method.sig(params = params, returnType = returnType)))
+  }
+
 }
 
 @datatype class TypeChecker(val typeHierarchy: TypeHierarchy,
@@ -75,8 +133,6 @@ object TypeChecker {
     assert(usages.nonEmpty)
 
     val newBodyItems = checkBodyItems(ISZ(scope), usages, reporter)
-
-    val messages = reporter.messages
 
     val newMembers = updateMembers(newBodyItems, info.members, reporter)
 
@@ -99,7 +155,7 @@ object TypeChecker {
       }
     }
 
-    return (th: TypeHierarchy) => (th(nameMap = nameMap, typeMap = th.typeMap + info.name ~> newInfo), messages)
+    return (th: TypeHierarchy) => (th(nameMap = nameMap, typeMap = th.typeMap + info.name ~> newInfo), reporter.messages)
   }
 
   def checkAllocationDefinition(info: TypeInfo.AllocationDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message]) @pure = {
@@ -111,8 +167,6 @@ object TypeChecker {
 
     val newBodyItems = checkBodyItems(ISZ(scope), info.ast.bodyItems, reporter)
 
-    val messages = reporter.messages
-
     val newMembers = updateMembers(newBodyItems, info.members, reporter)
 
     val newInfo = info(
@@ -120,7 +174,7 @@ object TypeChecker {
       ast = info.ast(bodyItems = newBodyItems),
       members = newMembers
     )
-    return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), messages)
+    return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), reporter.messages)
   }
 
   def checkAttributeDefinition(info: TypeInfo.AttributeDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message]) @pure = {
@@ -132,8 +186,6 @@ object TypeChecker {
 
     val newBodyItems = checkBodyItems(ISZ(scope), info.ast.bodyItems, reporter)
 
-    val messages = reporter.messages
-
     val newMembers = updateMembers(newBodyItems, info.members, reporter)
 
     val newInfo = info(
@@ -142,7 +194,7 @@ object TypeChecker {
       members = newMembers
     )
 
-    return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), messages)
+    return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), reporter.messages)
   }
 
   def checkConnectionDefinition(info: TypeInfo.ConnectionDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message]) @pure = {
@@ -154,8 +206,6 @@ object TypeChecker {
 
     val newBodyItems = checkBodyItems(ISZ(scope), info.ast.bodyItems, reporter)
 
-    val messages = reporter.messages
-
     val newMembers = updateMembers(newBodyItems, info.members, reporter)
 
     val newInfo = info(
@@ -163,7 +213,7 @@ object TypeChecker {
       ast = info.ast(bodyItems = newBodyItems),
       members = newMembers
     )
-    return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), messages)
+    return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), reporter.messages)
   }
 
   def checkPartDefinition(info: TypeInfo.PartDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message]) @pure = {
@@ -175,8 +225,6 @@ object TypeChecker {
 
     val newBodyItems = checkBodyItems(ISZ(scope), info.ast.bodyItems, reporter)
 
-    val messages = reporter.messages
-
     val newMembers: TypeInfo.Members = updateMembers(newBodyItems, info.members, reporter)
 
     // resolve the connection ends
@@ -187,7 +235,7 @@ object TypeChecker {
         cu.ast.connectorPart match {
           case Some(b @ SysmlAst.BinaryConnectorPart(src, dst)) =>
 
-            def resolvePort(connEnd: SysmlAst.ConnectorEnd): Info.PortUsage = {
+            def resolvePort(connEnd: SysmlAst.ConnectorEnd): Option[Info.PortUsage] = {
               assert(connEnd.reference.size >= 1)
               val srcPortId = connEnd.reference(connEnd.reference.lastIndex)
 
@@ -205,7 +253,7 @@ object TypeChecker {
                           halt("Infeasible")
                       }
                     case x =>
-                      halt("Infeasible")
+                      halt(s"Infeasible $x")
                   }
                 } else if (connEnd.reference.size == 1) {
                   newMembers.portUsages
@@ -214,15 +262,23 @@ object TypeChecker {
                 }
 
               val portId = srcPortId.ids(srcPortId.ids.lastIndex).value
-              return ports.get(portId).get
+              ports.get(portId) match {
+                case Some(p) => return Some(p)
+                case _ =>
+                  reporter.error(connEnd.resOpt.posOpt, TypeChecker.typeCheckerKind, s"'$portId' is not a valid port usage")
+                  return None()
+              }
             }
 
-            val srcInfo: Info.PortUsage = resolvePort(src)
-            val dstInfo: Info.PortUsage = resolvePort(dst)
+            (resolvePort(src), resolvePort(dst)) match {
+              case (Some(srcInfo), Some(dstInfo)) =>
+                cus = cus + e._1 ~> cu(
+                  srcAst = Some(srcInfo.ast),
+                  dstAst = Some(dstInfo.ast))
+              case _ =>
+            }
 
-            cus = cus + e._1 ~> cu(
-              srcAst = Some(srcInfo.ast),
-              dstAst = Some(dstInfo.ast))
+
           case _ =>
         }
       }
@@ -235,7 +291,7 @@ object TypeChecker {
       ast = info.ast(bodyItems = newBodyItems),
       members = xm
     )
-    return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), messages)
+    return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), reporter.messages)
   }
 
   def checkPortDefinition(info: TypeInfo.PortDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message]) @pure = {
@@ -247,8 +303,6 @@ object TypeChecker {
 
     val newBodyItems = checkBodyItems(scopes = ISZ(scope), bodyItems = info.ast.bodyItems, reporter = reporter)
 
-    val messages = reporter.messages
-
     val newMembers = updateMembers(newBodyItems, info.members, reporter)
 
     val newInfo = info(
@@ -256,7 +310,7 @@ object TypeChecker {
       ast = info.ast(bodyItems = newBodyItems),
       members = newMembers
     )
-    return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), messages)
+    return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), reporter.messages)
   }
 
   def addMembersToScope(members: TypeInfo.Members, scope: Scope.Local): Scope.Local = {
@@ -402,11 +456,11 @@ object TypeChecker {
                                       halt("Infeasible: parent usages must have been typed by now")
                                   }
                                 case _ =>
-                                  reporter.error(redefinedTypeName.posOpt, TypeChecker.typeCheckerKind, s"Could not resolve type '$redefinedTypeName''")
+                                  reporter.error(redefinedTypeName.posOpt, TypeChecker.typeCheckerKind, st"Could not resolve type ${(Util.ids2string(redefinedTypeName.ids), "::")}".render)
                                   None()
                               }
                             case _ =>
-                              reporter.error(redefinedTypeName.posOpt, TypeChecker.typeCheckerKind, s"Could not resolve redefined name '$redefinedTypeName'")
+                              reporter.error(redefinedTypeName.posOpt, TypeChecker.typeCheckerKind, st"Could not resolve redefined name ${(Util.ids2string(redefinedTypeName.ids), "::")}".render)
                               None()
                           }
                         case _ =>
@@ -584,7 +638,26 @@ object TypeChecker {
         }
         return item(commonUsageElements = update(item.commonUsageElements))
 
-      case item: SysmlAst.GumboAnnotation => return item
+      case item @ SysmlAst.GumboAnnotation(sc: GclSubclause) =>
+        var state = ISZ[GclStateVar]()
+        for (s <- sc.state) {
+          val classifier = ops.StringOps(ops.StringOps(s.classifier).replaceAllLiterally("::", "%")).split(c => c == '%')
+          scope.resolveType(typeHierarchy.typeMap, classifier) match {
+            case Some(t: TypeInfo.PartDefinition) => state = state :+ s (classifier = st"${(t.name, "::")}".render)
+            case Some(e: TypeInfo.EnumDefinition) => state = state :+ s(classifier = st"${(e.name, "::")}".render)
+            case _ =>
+              reporter.error(s.posOpt, TypeChecker.typeCheckerKind, "Only expecting part or enumeration definition for state var type")
+              state = state :+ s
+          }
+        }
+
+        val methods: ISZ[GclMethod] = for (m <- sc.methods) yield resolveMethod(m, scope, typeHierarchy, reporter)
+
+        return item (sc(state = state, methods = methods))
+
+      case item @ SysmlAst.GumboAnnotation(l: GclLib) =>
+
+        halt("Infeasible: gumbo libraries can only appear at the package level")
 
       case x =>
         reporter.error(item.posOpt, TypeChecker.typeCheckerKind,
@@ -775,6 +848,13 @@ object TypeChecker {
         case exp: AST.Exp.Select => return checkSelect(exp)
         case exp: AST.Exp.Ident => return checkIdent(exp)
         case exp: AST.Exp.Invoke => return checkInvoke(exp)
+        case exp: AST.Exp.LitB => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
+        case exp: AST.Exp.LitC => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
+        case exp: AST.Exp.LitF32 => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
+        case exp: AST.Exp.LitF64 => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
+        case exp: AST.Exp.LitR => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
+        case exp: AST.Exp.LitString => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
+        case exp: AST.Exp.LitZ => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
         case _ =>
           //halt(s"TODO $exp")
           reporter.error(exp.posOpt, TypeChecker.typeCheckerKind, s"checkExpH $exp")
@@ -794,7 +874,7 @@ object TypeChecker {
               !typeHierarchy.isSubType(expected, t)) {
 
               if (!typeHierarchy.mimicSysml(expected, t)) {
-                reporter.error(exp.posOpt, TypeChecker.typeCheckerKind, s"Expecting type '$expected' but '$t' found.")
+                reporter.error(exp.posOpt, TypeChecker.typeCheckerKind, s"Expecting type '${Util.printTyped(expected)}' but '${Util.printTyped(t)}' found.")
               }
             }
           case _ =>

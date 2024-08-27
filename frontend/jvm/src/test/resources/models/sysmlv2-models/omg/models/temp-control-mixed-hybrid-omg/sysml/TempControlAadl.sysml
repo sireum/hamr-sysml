@@ -9,11 +9,14 @@ package TempControlAadl {
         functions
           def inRange(temp: Temperature): Base_Types::Boolean :=
             temp.degrees >= f32(-50.0) and temp.degrees <= f32(150.0);
+
+          def enumTest(e: FanCmd): FanCmd := e;
+
         }*/
 
 	part def TempControlSystem :> System {
 		// subcomponents
-		part tcp : TempControlProcess;
+		part tcp: TempControlProcess;
 	}
 	
 	part def TempControlProcess :> Process {
@@ -24,14 +27,15 @@ package TempControlAadl {
 		part opInterface : OperatorInterface;
 		
 		// connections
-		connection ctTStoTC : PortConnection connect tempSensor.currentTemp to tempControl.currentTemp;
+		connection ctTStoTC : PortConnection connect tempSensor.currentTemp to tempSensor.currentTemp;
+		//connection ctTStoTC : PortConnection connect tempControl.currentTemp to  tempSensor.currentTemp;
 		connection ctTStoOI : PortConnection connect tempSensor.currentTemp to opInterface.currentTemp;
 		connection tcTStoTC : PortConnection connect tempSensor.tempChanged to tempControl.tempChanged;
 		connection fcTCtoF : PortConnection connect tempControl.fanCmd to fan.fanCmd;
 		connection faFtoTC : PortConnection connect fan.fanAck to tempControl.fanAck;
 		connection spOItoTC : PortConnection connect opInterface.setPoint to tempControl.setPoint;
 	}
-	
+
 	// TempSensor Thread
 	part def TempSensor :> Thread {
 		// features

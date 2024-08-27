@@ -4,11 +4,15 @@ package org.sireum.hamr.sysml.symbol
 import org.sireum._
 import org.sireum.hamr.{ir => SAST}
 import org.sireum.lang.{ast => AST}
-import org.sireum.hamr.ir.SysmlAst
+import org.sireum.hamr.ir.{SysmlAst, Typed}
 import org.sireum.message.{Position, Reporter}
 
 object Util {
   def ids2string(ids: ISZ[SysmlAst.Id]): ISZ[String] = {
+    return (for(id <- ids) yield id.value)
+  }
+
+  def slangIds2string(ids: ISZ[AST.Id]): ISZ[String] = {
     return (for(id <- ids) yield id.value)
   }
 
@@ -77,14 +81,28 @@ object Util {
   }
 
   def toSlangTypedOpt(t: Option[SAST.Typed]): Option[AST.Typed] = {
-    if (t.isEmpty) {
-      return None()
-    }
-    t.get match {
-      case SAST.Typed.Package(name) => halt("")
-      case SAST.Typed.Name(ids) =>
+    t match {
+      case Some(SAST.Typed.Package(name)) => halt("")
+      case Some(SAST.Typed.Name(ids)) =>
         return Some(AST.Typed.Name(ids = ids, args = ISZ()))
-      case SAST.Typed.Enum(name) => halt("")
+      case Some(SAST.Typed.Enum(name)) => halt("")
+      case x => halt("")
+    }
+  }
+
+  def toSysmlTypedOpt(t: Option[AST.Typed]): Option[SAST.Typed] = {
+    val ret: Option[SAST.Typed] =
+      t match {
+        case Some(t: AST.Typed.Name) => return Some(SAST.Typed.Name(t.ids))
+        case _ => None()
+      }
+    return ret
+  }
+
+  def printTyped(t: Typed): String = {
+    t match {
+      case t: Typed.Name => return st"${(t.ids, "::")}".render
+      case _ => return t.string
     }
   }
 }

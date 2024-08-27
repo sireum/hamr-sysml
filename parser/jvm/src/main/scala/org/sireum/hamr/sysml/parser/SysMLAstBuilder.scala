@@ -597,7 +597,8 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
   private def visitUsage(ruleUsage: RuleUsageContext): UsageHolder = {
     val (identification, specializations): (Option[Identification], ISZ[FeatureSpecialization]) =
-      if (isEmpty(ruleUsage.ruleUsageCompletion())) {
+      if (isEmpty(ruleUsage.ruleUsageDeclaration())) {
+        reportError(ruleUsage, "Must provide a usage declaration")
         (None(), ISZ())
       } else {
         visitFeatureDeclaration(ruleUsage.ruleUsageDeclaration().ruleFeatureDeclaration())
@@ -1858,19 +1859,19 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
   def handleUif(receiver: Option[Exp], ident: Exp.Ident, args: ISZ[Exp], attr: AST.ResolvedAttr): AST.Exp = {
 
-    def handleNumeric: String = {
+    def handleNumeric: Option[String] = {
       if (args.size != 1) {
         reportError(ident.posOpt, s"${ident.id.value} requires exactly one argument")
-        return "0"
+        return None()
       }
       args(0) match {
-        case u @ AST.Exp.Unary(_, l:AST.Exp.LitR) => return s"${u.opString}${l.value.string}"
-        case u @ AST.Exp.Unary(_, l:AST.Exp.LitZ) => return s"${u.opString}${l.value.string}"
-        case l: AST.Exp.LitR => return l.value.string
-        case l: AST.Exp.LitZ => return l.value.string
+        case u @ AST.Exp.Unary(_, l:AST.Exp.LitR) => return Some(s"${u.opString}${l.value.string}")
+        case u @ AST.Exp.Unary(_, l:AST.Exp.LitZ) => return Some(s"${u.opString}${l.value.string}")
+        case l: AST.Exp.LitR => return Some(l.value.string)
+        case l: AST.Exp.LitZ => return Some(l.value.string)
         case x =>
-          reportError(ident.posOpt, s"Wasn't expecting $x")
-          return "0"
+          reportError(ident.posOpt, s"'${ident.id.value} requires a numeric argument")
+          return None()
       }
     }
     val dummy = AST.Exp.LitString(value = "???", attr = AST.Attr(ident.posOpt))
@@ -1882,50 +1883,62 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     if (ops.ISZOps(interpolates).contains(uif)) {
       uif match {
         case string"c" =>
-          halt("")
+          halt("TODO")
         case string"string" =>
-          halt("")
+          halt("TODO")
         case string"f32" =>
-          val str = handleNumeric
-          F32(str) match {
-            case Some(f32) =>
-              return AST.Exp.LitF32(f32, AST.Attr(args(0).posOpt))
-            case _ =>
-              reportError(ident.posOpt, s"'$str' is not a valid F32")
-              return dummy
+          handleNumeric match {
+            case Some(str) =>
+              F32(str) match {
+                case Some(f32) => return AST.Exp.LitF32(f32, AST.Attr(args(0).posOpt))
+                case _ =>
+                  reportError(ident.posOpt, s"'$str' is not a valid F32")
+                  return dummy
+              }
+            case _ => return dummy
           }
-        case string"f64" =>
-          val str = handleNumeric
-          F64(str) match {
-            case Some(f64) =>
-              return AST.Exp.LitF64(f64, AST.Attr(args(0).posOpt))
-            case _ =>
-              reportError(ident.posOpt, s"'$str' is not a valid F64")
-              return dummy
-          }
-        case string"r" =>
-          val str = handleNumeric
-          R(str) match {
-            case Some(r) =>
-              return AST.Exp.LitR(r, AST.Attr(args(0).posOpt))
-            case _ =>
-              reportError(ident.posOpt, s"'$str' is not a valid R")
-              return dummy
-          }
-        case string"z" =>
-          val str = handleNumeric
-          Z(str) match {
-            case Some(z) =>
-              return AST.Exp.LitZ(z, AST.Attr(args(0).posOpt))
-            case _ =>
-              reportError(ident.posOpt, s"'$str' is not a valid Z'")
-          }
-          halt("")
-        case _ =>
-          halt("")
 
+        case string"f64" =>
+          handleNumeric match {
+            case Some(str) =>
+              F64(str) match {
+                case Some(f64) => return AST.Exp.LitF64(f64, AST.Attr(args(0).posOpt))
+                case _ =>
+                  reportError(ident.posOpt, s"'$str' is not a valid F64")
+                  return dummy
+              }
+            case _ => return dummy
+          }
+
+        case string"r" =>
+          handleNumeric match {
+            case Some(str) =>
+              R(str) match {
+                case Some(r) => return AST.Exp.LitR(r, AST.Attr(args(0).posOpt))
+                case _ =>
+                  reportError(ident.posOpt, s"'$str' is not a valid R")
+                  return dummy
+              }
+            case _ => return dummy
+          }
+
+        case string"z" =>
+          handleNumeric match {
+            case Some(str) =>
+              Z(str) match {
+                case Some(z) => return AST.Exp.LitZ(z, AST.Attr(args(0).posOpt))
+                case _ =>
+                  reportError(ident.posOpt, s"'$str' is not a valid Z'")
+                  return dummy
+              }
+            case _ => return dummy
+          }
+
+        case _ =>
+          reportError(ident.posOpt, s"Unexpected UIF $uif'")
+          return dummy
       }
-      halt("")
+
     } else if (ops.ISZOps(portUifs).contains(uif)) {
       def toInvoke(subName: String): AST.Exp.Invoke = {
         return AST.Exp.Invoke(receiver, ident(id = ident.id(value = subName)), ISZ(), args, attr)

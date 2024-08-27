@@ -589,9 +589,13 @@ object TypeOutliner {
             // TODO should the name be linked to the specialization name or to the actual
             // SysmlAST.Name of the the thing being specialized?
             Some(SAST.Type.Named(name = name, attr = TypedAttr(name.posOpt, None())))
-          case _ =>
+          case ISZ() =>
             reporter.error(ownerPos, TypeChecker.typeCheckerKind,
-              s"Usage members must have exactly one type but $ownerPos has ${specializations.size}")
+              s"Usage members must be typed by a usage definition")
+            None()
+          case x =>
+            reporter.error(ownerPos, TypeChecker.typeCheckerKind,
+              s"Usage members currently can only have a single typing specialization but ${x.size} found")
             None()
         }
       }
