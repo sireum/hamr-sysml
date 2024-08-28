@@ -627,7 +627,9 @@ object Instantiate {
       posOpt match {
         case Some(p) =>
           p.uriOpt match {
-            case Some(p) => return Some(Os.Path.fromUri(p))
+            case Some(p) if ops.StringOps(p).startsWith("file://") =>
+              // non mock library file
+              return Some(Os.Path.fromUri(p))
             case _ => return None()
           }
         case _ => return None()

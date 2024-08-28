@@ -7,6 +7,7 @@ import org.sireum.hamr.ir.Aadl
 import org.sireum.hamr.ir.SysmlAst.TopUnit
 import org.sireum.hamr.ir.instantiation.ConnectionInstantiator
 import org.sireum.hamr.sysml.instantiation.Instantiate
+import org.sireum.hamr.sysml.library.Sysmlv2Library
 import org.sireum.hamr.sysml.stipe.{TypeChecker, TypeHierarchy, TypeOutliner}
 import org.sireum.hamr.sysml.symbol.{DelineableTypeInfo, GlobalDeclarationResolver, Info, Resolver}
 import org.sireum.hamr.sysml.symbol.Resolver.{NameMap, TypeMap, resolverKind}
@@ -15,18 +16,23 @@ import org.sireum.message.{Message, Reporter}
 object FrontEnd {
 
   def typeCheck(par: Z, inputs: ISZ[Input], reporter: Reporter): (Option[TypeHierarchy], ISZ[ModelUtil.ModelElements]) = {
-    var initNameMap: NameMap = HashSMap.empty
-    var initTypeMap: TypeMap = HashSMap.empty
+
+    val (thl, rep) = libraryReporter
+
+    if (rep.hasError) {
+      rep.printMessages()
+      return (None(), ISZ())
+    }
 
     // TODO: pass in reporter
-    val (reporter_, topUnits, globalNameMap, globalTypeMap) = parseAndGloballyResolve(par, inputs, initNameMap, initTypeMap)
+    val (reporter_, topUnits, globalNameMap, globalTypeMap) = parseAndGloballyResolve(par, inputs, thl.typeHierarchy.nameMap, thl.typeHierarchy.typeMap)
     reporter.reports(reporter_.messages)
 
     if (reporter.hasError) {
       return (None(), ISZ())
     }
 
-    var th = TypeHierarchy.build(F, TypeHierarchy(globalNameMap, globalTypeMap, Poset.empty, HashSMap.empty), reporter)
+    var th = TypeHierarchy.build(F, TypeHierarchy(globalNameMap, globalTypeMap, thl.typeHierarchy.poset, HashSMap.empty), reporter)
 
     if (reporter.hasError) {
       return (Some(th), ISZ())
@@ -64,6 +70,20 @@ object FrontEnd {
       case _ =>
         return (Some(th), ISZ())
     }
+  }
+
+  def libraryReporter: (TypeChecker, Reporter) = {
+    val initNameMap: NameMap = HashSMap.empty
+    val initTypeMap: TypeMap = HashSMap.empty
+
+    val (reporter, _, nameMap, typeMap) =
+      parseAndGloballyResolve(0, for (f <- Sysmlv2Library.files) yield Input(f._2, f._1), initNameMap, initTypeMap)
+    val th =
+      TypeHierarchy.build(F, TypeHierarchy(nameMap, typeMap, Poset.empty, HashSMap.empty), reporter)
+    val thOutlined = TypeOutliner.checkOutline(0, th, reporter)
+    val tc = TypeChecker(thOutlined, ISZ())
+    val r = (tc, reporter)
+    return r
   }
 
   // TODO: remove instantiator's dependence on codegen's options
