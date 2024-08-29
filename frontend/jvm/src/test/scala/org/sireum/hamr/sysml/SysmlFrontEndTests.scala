@@ -11,6 +11,7 @@ import org.sireum.hamr.sysml.symbol.Resolver._
 import org.sireum.message.Reporter
 import SysmlFrontEndTests._
 import org.sireum.hamr.ir.instantiation.ConnectionInstantiator
+import sysml.TestUtil
 
 class SysmlFrontEndTests extends TestSuite {
 
@@ -72,7 +73,51 @@ class SysmlFrontEndTests extends TestSuite {
   def test(inputs: ISZ[Input]): Unit = {
 
     val reporter = Reporter.create
-    val (th, modelElements) = FrontEnd.typeCheck(par = par, inputs = inputs, reporter = reporter)
+    val (sysmlTh, modelElements) = FrontEnd.typeCheck(par = par, inputs = inputs, reporter = reporter)
+
+    if (!reporter.hasError) {
+
+      val integerationConstraints = FrontEnd.getIntegerationConstraints(modelElements, reporter)
+
+      if (!TestUtil.isCI) {
+        for (i <- integerationConstraints) {
+          var conns: ISZ[ST] = ISZ()
+          for (c <- i.connections) {
+            val refs: ISZ[ST] = for (r <- c.connectionReferences.entries) yield st"[${(r._1, ".")}, ${r._2}]"
+
+            val connCon: Option[ST] = (c.srcConstraint, c.dstConstraint) match {
+              case (Some(s), Some(d)) =>
+                Some(
+                  st"""
+                      | $s ->:
+                      |   $d""")
+              case (None(), Some(d)) =>
+                Some(
+                  st"""
+                      | <nil> ->:
+                      |   $d""")
+              case (Some(s), None()) =>
+                Some(
+                  st"""
+                      | $s ->:
+                      |   <nil>""")
+              case _ => None()
+            }
+
+            conns = conns :+
+              st"""Connection Instance: ${(c.srcPort.path, ".")} -> ${(c.dstPort.path, ".")}
+                  |
+                  |  Connection References: ${(refs, " -> ")}
+                  |  $connCon
+                  |"""
+          }
+          println(
+            st"""System Root: ${(i.systemRootName, "::")} [${i.systemRootPos}]
+                |
+                |${(conns, "\n")}""".render)
+        }
+      }
+    }
 
     if (reporter.hasError) {
       reporter.printMessages()

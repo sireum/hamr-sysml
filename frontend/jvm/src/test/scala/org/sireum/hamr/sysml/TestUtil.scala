@@ -5,6 +5,9 @@ import org.sireum.hamr.sysml.cli
 import org.sireum.cli.CliOpt.Type
 
 object TestUtil {
+
+  val isCI: B = Os.env("GITLAB_CI").nonEmpty || Os.env("GITHUB_ACTIONS").nonEmpty || Os.env("BUILD_ID").nonEmpty
+
   def fetchSysmlLibrary(resourceDir: Os.Path): Unit = {
     val version = ops.StringOps(cli.sysmlTranslator.opts(0).tpe.asInstanceOf[Type.Str].default.get)
     val destDir = resourceDir / "models" / s"sysml.library"

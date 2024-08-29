@@ -27,8 +27,7 @@ package TempControlAadl {
 		part opInterface : OperatorInterface;
 		
 		// connections
-		connection ctTStoTC : PortConnection connect tempSensor.currentTemp to tempSensor.currentTemp;
-		//connection ctTStoTC : PortConnection connect tempControl.currentTemp to  tempSensor.currentTemp;
+		connection ctTStoTC : PortConnection connect tempSensor.currentTemp to tempControl.currentTemp;
 		connection ctTStoOI : PortConnection connect tempSensor.currentTemp to opInterface.currentTemp;
 		connection tcTStoTC : PortConnection connect tempSensor.tempChanged to tempControl.tempChanged;
 		connection fcTCtoF : PortConnection connect tempControl.fanCmd to fan.fanCmd;

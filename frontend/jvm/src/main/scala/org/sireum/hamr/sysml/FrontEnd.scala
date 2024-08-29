@@ -2,8 +2,10 @@
 package org.sireum.hamr.sysml
 
 import org.sireum._
+import org.sireum.hamr.codegen.common.symbols.{AadlPort, AadlThread, GclAnnexClauseInfo}
 import org.sireum.hamr.codegen.common.util.{CodeGenConfig, CodeGenIpcMechanism, CodeGenPlatform, ModelUtil}
-import org.sireum.hamr.ir.Aadl
+import org.sireum.hamr.ir
+import org.sireum.hamr.ir.{Aadl, ConnectionInstance, GclSpec, GclSubclause, GclGuarantee, GclAssume}
 import org.sireum.hamr.ir.SysmlAst.TopUnit
 import org.sireum.hamr.ir.instantiation.ConnectionInstantiator
 import org.sireum.hamr.sysml.instantiation.Instantiate
@@ -11,9 +13,24 @@ import org.sireum.hamr.sysml.library.Sysmlv2Library
 import org.sireum.hamr.sysml.stipe.{TypeChecker, TypeHierarchy, TypeOutliner}
 import org.sireum.hamr.sysml.symbol.{DelineableTypeInfo, GlobalDeclarationResolver, Info, Resolver}
 import org.sireum.hamr.sysml.symbol.Resolver.{NameMap, TypeMap, resolverKind}
-import org.sireum.message.{Message, Reporter}
+import org.sireum.lang.{ast => AST}
+import org.sireum.lang.{FrontEnd => SlangFrontEnd}
+import org.sireum.lang.tipe.{TypeHierarchy => SlangTypeHierarchy}
+import org.sireum.message.{Message, Position, Reporter}
 
 object FrontEnd {
+
+  @datatype class IntegerationConstraints (val systemRootName: ISZ[String],
+                                           val systemRootPos: Option[Position],
+                                           val typeHierarchy: SlangTypeHierarchy,
+                                           val connections: ISZ[IntegerationConnection])
+
+  @datatype class IntegerationConnection(val srcPort: AadlPort,
+                                         val dstPort: AadlPort,
+                                         val srcConstraint: Option[AST.Exp], // assume this
+                                         val dstConstraint: Option[AST.Exp], // assert this
+
+                                         val connectionReferences: HashSMap[ISZ[String], Option[Position]])
 
   def typeCheck(par: Z, inputs: ISZ[Input], reporter: Reporter): (Option[TypeHierarchy], ISZ[ModelUtil.ModelElements]) = {
 
@@ -60,16 +77,110 @@ object FrontEnd {
       case Some((th, models)) =>
         var imodels: ISZ[ModelUtil.ModelElements] = ISZ()
         for (model <- models) {
-          ModelUtil.resolve(model, "model", baseOptions, reporter) match {
+          val connModel = ConnectionInstantiator.instantiateConnections(model, reporter)
+
+          if (reporter.hasError) {
+            return (Some(th), ISZ())
+          }
+
+          ModelUtil.resolve(connModel, "model", baseOptions, reporter) match {
             case Some(modelElements) =>
-              imodels = imodels :+ modelElements(model = ConnectionInstantiator.instantiateConnections(modelElements.model, reporter))
+              imodels = imodels :+ modelElements
             case _ =>
           }
         }
+
         return (Some(th), imodels)
       case _ =>
         return (Some(th), ISZ())
     }
+  }
+
+  def getIntegerationConstraints(modelElements: ISZ[ModelUtil.ModelElements], reporter: Reporter): ISZ[IntegerationConstraints] = {
+
+    var integrationConstraints: ISZ[IntegerationConstraints] = ISZ()
+
+    for(me <- modelElements) {
+
+      var portConstraints: Map[ISZ[String], (AadlPort, GclSpec)] = Map.empty
+      var th: SlangTypeHierarchy = SlangTypeHierarchy.empty
+
+      for(sc <- me.symbolTable.annexClauseInfos.entries) {
+        for (aci <- sc._2) {
+          aci match {
+            case GclAnnexClauseInfo(annex, gclSymbolTable) if gclSymbolTable.integrationMap.nonEmpty =>
+              val c = SlangFrontEnd.combineParseResult(
+                r = (ISZ(), ISZ(AST.TopUnit.Program.empty), th.nameMap, th.typeMap),
+                u = SlangFrontEnd.ParseResult(
+                  program = AST.TopUnit.Program.empty,
+                  nameMap = gclSymbolTable.slangTypeHierarchy.nameMap,
+                  typeMap = gclSymbolTable.slangTypeHierarchy.typeMap,
+                  messages = ISZ())
+              )
+              reporter.reports(c._1)
+
+              if(reporter.hasError) {
+                reporter.printMessages()
+                return ISZ()
+              }
+
+              th = th(nameMap = c._3, typeMap = c._4)
+
+              portConstraints = portConstraints ++ (for(e <- gclSymbolTable.integrationMap.entries) yield e._1.path ~> (e._1, e._2))
+            case _ =>
+          }
+        }
+      }
+
+      var integrationConnections: ISZ[IntegerationConnection] = ISZ()
+      for(ci <- me.symbolTable.connections) {
+        def resolve(fname: ISZ[String], cname: ISZ[String]): (AadlPort, Option[AST.Exp]) = {
+          portConstraints.get(fname) match {
+            case Some((aadlPort, GclAssume(_, _, cons))) =>
+              assert(aadlPort.direction == ir.Direction.In)
+              return (aadlPort, Some(cons))
+            case Some((aadlPort, GclGuarantee(_, _, cons))) =>
+              assert(aadlPort.direction == ir.Direction.Out)
+              return (aadlPort, Some(cons))
+            case _ =>
+              me.symbolTable.componentMap.get(cname) match {
+                case Some(aadlThread: AadlThread) =>
+                  return (aadlThread.getPortByPath(fname).get, None())
+                case _ =>
+                  halt("Infeasible: gumbo integration constraints can only be applied to thread ports")
+              }
+          }
+        }
+
+        val srcCon = resolve(ci.src.feature.get.name, ci.src.component.name)
+        val dstCon = resolve(ci.dst.feature.get.name, ci.dst.component.name)
+
+        var connRefs: HashSMap[ISZ[String], Option[Position]] = HashSMap.empty
+        for(cr <- ci.connectionRefs) {
+          connRefs = connRefs + cr.name.name ~> cr.name.pos
+        }
+
+        if (srcCon._2.nonEmpty || dstCon._2.nonEmpty) {
+          integrationConnections = integrationConnections :+ IntegerationConnection(
+            srcPort = srcCon._1,
+            dstPort = dstCon._1,
+            srcConstraint = srcCon._2,
+            dstConstraint = dstCon._2,
+            connectionReferences = connRefs)
+        }
+      }
+
+      if (integrationConnections.nonEmpty) {
+        integrationConstraints = integrationConstraints :+
+          IntegerationConstraints(
+            systemRootName = me.symbolTable.rootSystem.path,
+            systemRootPos = me.symbolTable.rootSystem.component.identifier.pos,
+            typeHierarchy = th,
+            connections = integrationConnections)
+      }
+    }
+
+    return integrationConstraints
   }
 
   def libraryReporter: (TypeChecker, Reporter) = {

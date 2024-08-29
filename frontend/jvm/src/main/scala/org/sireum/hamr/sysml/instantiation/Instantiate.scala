@@ -136,7 +136,8 @@ object Instantiate {
 
         addDatatypes(projRoot.get.up)
 
-        val system = instantiateComponent(sysRoot, F, ISZ("root"), sysRoot.posOpt)
+        val rootIdName = st"${sysRoot.id}_Instance".render
+        val system = instantiateComponent(sysRoot, F, ISZ(rootIdName), sysRoot.posOpt)
         aadls = aadls :+ ir.Aadl(
           components = ISZ(system),
           annexLib = gumboLibraries,
