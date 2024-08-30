@@ -57,7 +57,7 @@ object cli {
     command = "logika",
     description = "SysML v2 Verifier",
     header = "Sireum HAMR SysML v2 Logika Verifier",
-    usage = "<option>* [<sysmlv2-file]",
+    usage = "<option>* <sysmlv2-file*",
     usageDescOpt = None(),
     opts = ISZ(
       Opt(name = "exclude", longKey = "exclude", shortKey = Some('x'),
