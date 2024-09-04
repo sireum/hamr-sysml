@@ -29,11 +29,16 @@ object FrontEnd {
   @datatype class IntegerationConnection(val srcPort: AadlPort,
                                          val dstPort: AadlPort,
 
-                                         val portEquality: AST.Exp, // srcPort == dstPort
+                                         val srcPortExp: AST.Exp,
+                                         val dstPortExp: AST.Exp,
+
                                          val srcConstraint: Option[AST.Exp], // assume this
                                          val dstConstraint: Option[AST.Exp], // assert this
 
-                                         val connectionMidPoint: Option[Position],
+                                         // connectionMidPoint is the identifier path and position info of the
+                                         // connection references where out connections change to in connections
+                                         val connectionMidPoint: (ISZ[String], Option[Position]),
+
                                          val connectionReferences: HashSMap[ISZ[String], Option[Position]])
 
   def typeCheck(par: Z, inputs: ISZ[Input], reporter: Reporter): (Option[TypeHierarchy], ISZ[ModelUtil.ModelElements]) = {
@@ -156,9 +161,8 @@ object FrontEnd {
           }
         }
 
-        val midPointPos = me.symbolTable.getConnectionInstancePos(ci)
+        val midPoint = me.symbolTable.getConnectionInstancePos(ci)
 
-        def buildExp(srcPort: AadlPort, dstPort: AadlPort): AST.Exp = {
           def slangTypeCheck(context: ISZ[String], exp: AST.Exp, scope: LocalScope): AST.Exp = {
             val typeChecker: SlangTypeChecker = SlangTypeChecker(th, context, F, SlangTypeChecker.ModeContext.Spec, F)
             typeChecker.checkExp(None(), scope, exp, reporter) match {
@@ -166,22 +170,17 @@ object FrontEnd {
               case _ => halt(s"Infeasible: was not able to resolve type of $exp")
             }
           }
-          def buildExpH(port: AadlPort) : AST.Exp = {
+          def buildExp(port: AadlPort) : AST.Exp = {
             val parentThread = me.symbolTable.componentMap.get(ops.ISZOps(port.path).dropRight(1)).get
             val fqPortPath = parentThread.classifier :+ port.identifier
             th.nameMap.get(fqPortPath) match {
               case Some(symbol.Info.Var(_, _, globalScope: GlobalScope, _)) =>
-                val select = SlangUtil.toSelectH(for (p <- fqPortPath) yield AST.Id(p, AST.Attr(midPointPos)))
+                val select = SlangUtil.toSelectH(for (p <- fqPortPath) yield AST.Id(p, AST.Attr(midPoint._2)))
                 return slangTypeCheck(parentThread.classifier, select, LocalScope.create(HashMap.empty, globalScope))
               case x =>
                 halt(s"Infeasible: $fqPortPath did not resolve to a var: $x")
             }
           }
-          val be = AST.Exp.Binary(buildExpH(srcPort), AST.Exp.BinaryOp.Eq, buildExpH(dstPort),
-            AST.ResolvedAttr(midPointPos, None(), None()), midPointPos)
-
-          return slangTypeCheck(ISZ(), be, LocalScope.create(HashMap.empty, GlobalScope(ISZ(), ISZ(), ISZ())))
-        }
 
         val srcCon = resolve(ci.src.feature.get.name, ci.src.component.name)
         val dstCon = resolve(ci.dst.feature.get.name, ci.dst.component.name)
@@ -195,10 +194,14 @@ object FrontEnd {
           integrationConnections = integrationConnections :+ IntegerationConnection(
             srcPort = srcCon._1,
             dstPort = dstCon._1,
+
+            srcPortExp = buildExp(srcCon._1),
+            dstPortExp = buildExp(dstCon._1),
+
             srcConstraint = srcCon._2,
             dstConstraint = dstCon._2,
-            portEquality = buildExp(srcCon._1, dstCon._1),
-            connectionMidPoint = midPointPos,
+
+            connectionMidPoint = midPoint,
             connectionReferences = connRefs)
         }
       }
