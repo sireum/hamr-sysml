@@ -5,12 +5,12 @@ import org.sireum._
 import org.sireum.hamr.ir
 import org.sireum.hamr.ir.SysmlAst.GumboAnnotation
 import org.sireum.hamr.ir.util.AadlUtil
-import org.sireum.hamr.ir.{Aadl, GclLib, GclMethod, SysmlAst, Typed}
+import org.sireum.hamr.ir._
 import org.sireum.hamr.sysml.stipe.{TypeChecker, TypeHierarchy}
-import org.sireum.hamr.sysml.symbol.{Info, Scope, TypeInfo, Util}
 import org.sireum.hamr.sysml.symbol.TypeInfo.PartDefinition
-import org.sireum.message.{Position, Reporter}
+import org.sireum.hamr.sysml.symbol.{Info, Scope, TypeInfo, Util}
 import org.sireum.lang.{ast => AST}
+import org.sireum.message.{Position, Reporter}
 
 object Instantiate {
 

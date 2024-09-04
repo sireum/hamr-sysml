@@ -1,7 +1,7 @@
 package org.sireum.hamr.sysml.library
 
+import org.sireum.$internal.RC
 import org.sireum._
-import org.sireum.$internal.{RC, Trie}
 
 object Sysmlv2Library_Ext {
 

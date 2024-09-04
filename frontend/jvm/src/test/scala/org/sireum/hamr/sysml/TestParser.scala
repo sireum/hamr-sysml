@@ -1,8 +1,7 @@
 package sysml
 
 import org.sireum._
-import org.sireum.hamr.ir.Aadl
-import org.sireum.hamr.sysml.SysMLParser_Ext
+import org.sireum.hamr.sysml.parser.SysMLParser_Ext
 import org.sireum.message.Reporter
 import org.sireum.test.TestSuite
 

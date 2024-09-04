@@ -1,8 +1,8 @@
 package sysml
 
 import org.sireum._
-import org.sireum.hamr.sysml.cli
 import org.sireum.cli.CliOpt.Type
+import org.sireum.hamr.sysml.cli
 
 object TestUtil {
 

@@ -5,17 +5,18 @@ import org.sireum._
 import org.sireum.hamr.codegen.common.symbols.{AadlPort, AadlThread, GclAnnexClauseInfo}
 import org.sireum.hamr.codegen.common.util.{CodeGenConfig, CodeGenIpcMechanism, CodeGenPlatform, ModelUtil}
 import org.sireum.hamr.ir
-import org.sireum.hamr.ir.{Aadl, ConnectionInstance, GclSpec, GclSubclause, GclGuarantee, GclAssume}
 import org.sireum.hamr.ir.SysmlAst.TopUnit
 import org.sireum.hamr.ir.instantiation.ConnectionInstantiator
+import org.sireum.hamr.ir.{GclAssume, GclGuarantee, GclSpec}
 import org.sireum.hamr.sysml.instantiation.Instantiate
 import org.sireum.hamr.sysml.library.Sysmlv2Library
+import org.sireum.hamr.sysml.parser.{SlangUtil, SysMLParser}
 import org.sireum.hamr.sysml.stipe.{TypeChecker, TypeHierarchy, TypeOutliner}
-import org.sireum.hamr.sysml.symbol.{DelineableTypeInfo, GlobalDeclarationResolver, Info, Resolver}
 import org.sireum.hamr.sysml.symbol.Resolver.{NameMap, TypeMap, resolverKind}
-import org.sireum.lang.{ast => AST}
-import org.sireum.lang.{FrontEnd => SlangFrontEnd}
-import org.sireum.lang.tipe.{TypeHierarchy => SlangTypeHierarchy}
+import org.sireum.hamr.sysml.symbol.{GlobalDeclarationResolver, Info, Resolver}
+import org.sireum.lang.symbol.Scope.{Global => GlobalScope, Local => LocalScope}
+import org.sireum.lang.tipe.{TypeChecker => SlangTypeChecker, TypeHierarchy => SlangTypeHierarchy}
+import org.sireum.lang.{symbol, FrontEnd => SlangFrontEnd, ast => AST}
 import org.sireum.message.{Message, Position, Reporter}
 
 object FrontEnd {
@@ -27,9 +28,12 @@ object FrontEnd {
 
   @datatype class IntegerationConnection(val srcPort: AadlPort,
                                          val dstPort: AadlPort,
+
+                                         val portEquality: AST.Exp, // srcPort == dstPort
                                          val srcConstraint: Option[AST.Exp], // assume this
                                          val dstConstraint: Option[AST.Exp], // assert this
 
+                                         val connectionMidPoint: Option[Position],
                                          val connectionReferences: HashSMap[ISZ[String], Option[Position]])
 
   def typeCheck(par: Z, inputs: ISZ[Input], reporter: Reporter): (Option[TypeHierarchy], ISZ[ModelUtil.ModelElements]) = {
@@ -152,6 +156,33 @@ object FrontEnd {
           }
         }
 
+        val midPointPos = me.symbolTable.getConnectionInstancePos(ci)
+
+        def buildExp(srcPort: AadlPort, dstPort: AadlPort): AST.Exp = {
+          def slangTypeCheck(context: ISZ[String], exp: AST.Exp, scope: LocalScope): AST.Exp = {
+            val typeChecker: SlangTypeChecker = SlangTypeChecker(th, context, F, SlangTypeChecker.ModeContext.Spec, F)
+            typeChecker.checkExp(None(), scope, exp, reporter) match {
+              case (e, Some(_)) => return e
+              case _ => halt(s"Infeasible: was not able to resolve type of $exp")
+            }
+          }
+          def buildExpH(port: AadlPort) : AST.Exp = {
+            val parentThread = me.symbolTable.componentMap.get(ops.ISZOps(port.path).dropRight(1)).get
+            val fqPortPath = parentThread.classifier :+ port.identifier
+            th.nameMap.get(fqPortPath) match {
+              case Some(symbol.Info.Var(_, _, globalScope: GlobalScope, _)) =>
+                val select = SlangUtil.toSelectH(for (p <- fqPortPath) yield AST.Id(p, AST.Attr(midPointPos)))
+                return slangTypeCheck(parentThread.classifier, select, LocalScope.create(HashMap.empty, globalScope))
+              case x =>
+                halt(s"Infeasible: $fqPortPath did not resolve to a var: $x")
+            }
+          }
+          val be = AST.Exp.Binary(buildExpH(srcPort), AST.Exp.BinaryOp.Eq, buildExpH(dstPort),
+            AST.ResolvedAttr(midPointPos, None(), None()), midPointPos)
+
+          return slangTypeCheck(ISZ(), be, LocalScope.create(HashMap.empty, GlobalScope(ISZ(), ISZ(), ISZ())))
+        }
+
         val srcCon = resolve(ci.src.feature.get.name, ci.src.component.name)
         val dstCon = resolve(ci.dst.feature.get.name, ci.dst.component.name)
 
@@ -166,6 +197,8 @@ object FrontEnd {
             dstPort = dstCon._1,
             srcConstraint = srcCon._2,
             dstConstraint = dstCon._2,
+            portEquality = buildExp(srcCon._1, dstCon._1),
+            connectionMidPoint = midPointPos,
             connectionReferences = connRefs)
         }
       }

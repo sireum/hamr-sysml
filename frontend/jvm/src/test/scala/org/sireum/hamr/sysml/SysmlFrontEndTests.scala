@@ -1,16 +1,10 @@
 package org.sireum.hamr.sysml
 
 import org.sireum._
-import org.sireum.hamr.codegen.common.util.{CodeGenConfig, CodeGenIpcMechanism, CodeGenPlatform, ModelUtil}
+import org.sireum.hamr.codegen.common.util.{CodeGenConfig, CodeGenIpcMechanism, CodeGenPlatform}
 import org.sireum.hamr.sysml.FrontEnd.Input
-import org.sireum.hamr.sysml.instantiation.Instantiate
-import org.sireum.hamr.sysml.stipe.{TypeChecker, TypeHierarchy, TypeOutliner}
-import org.sireum.hamr.sysml.symbol.DelineableTypeInfo
-import org.sireum.test.TestSuite
-import org.sireum.hamr.sysml.symbol.Resolver._
 import org.sireum.message.Reporter
-import SysmlFrontEndTests._
-import org.sireum.hamr.ir.instantiation.ConnectionInstantiator
+import org.sireum.test.TestSuite
 import sysml.TestUtil
 
 class SysmlFrontEndTests extends TestSuite {
