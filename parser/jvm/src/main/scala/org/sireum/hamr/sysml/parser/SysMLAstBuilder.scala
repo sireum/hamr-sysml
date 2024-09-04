@@ -1,15 +1,15 @@
-package org.sireum.hamr.sysml
+package org.sireum.hamr.sysml.parser
 
 import org.sireum._
 import org.sireum.message._
 import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.tree.TerminalNodeImpl
-import org.sireum.hamr.sysml.SysMLAstBuilder.{binOpsUifs, interpolates, logikaUifs, portUifs}
+import org.sireum.hamr.sysml.parser.SysMLAstBuilder.{binOpsUifs, interpolates, logikaUifs, portUifs}
 import org.sireum.hamr.ir.SysmlAst._
 import org.sireum.hamr.ir.{Attr, GclAssume, GclCaseStatement, GclCompute, GclComputeSpec, GclGuarantee, GclHandle, GclInitialize, GclIntegration, GclInvariant, GclLib, GclMethod, GclSpec, GclStateVar, GclSubclause, InfoFlowClause, ResolvedAttr, Name => AirName}
-import org.sireum.hamr.sysml.SysmlAstUtil.{Placeholders, isRegularComment, mergePos}
+import org.sireum.hamr.sysml.parser.SysmlAstUtil.isRegularComment
+import org.sireum.hamr.sysml.parser.SlangUtil.{Placeholders, mergePos}
 import org.sireum.hamr.sysml.parser.SysMLv2Parser._
-import org.sireum.hamr.sysml.parser.SysMLv2Parser
 import org.sireum.message.{Position, Reporter}
 import org.sireum.lang.{ast => AST}
 import org.sireum.lang.ast.Exp
@@ -1185,7 +1185,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         Some(Identification(
           shortName = Some(visitName(o.ruleName(0))),
           name = Some(visitName(o.ruleName(1))),
-          attr = Attr(SysmlAstUtil.mergePos(toPosOpt(o.ruleName(0)), toPosOpt(o.ruleName(1))))
+          attr = Attr(SlangUtil.mergePos(toPosOpt(o.ruleName(0)), toPosOpt(o.ruleName(1))))
         ))
       }
 
@@ -1360,7 +1360,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
      *        instead, e.g.
      *        '->:' (lhs, rhs) instead of lhs ->: rhs
      */
-    return SysmlAstUtil.collapse1(lhs, AST.Exp.BinaryOp.CondImply, s)
+    return SlangUtil.collapse1(lhs, AST.Exp.BinaryOp.CondImply, s)
   }
 
   // ruleOrExpression: ruleXorExpression ( (ruleOrOperator ruleXorExpression | ruleConditionalOrOperator ruleXorExpressionReference))*;
@@ -1380,7 +1380,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       i = i + 2
     }
 
-    return SysmlAstUtil.collapse2(lhs, s)
+    return SlangUtil.collapse2(lhs, s)
   }
 
   // ruleXorExpression: ruleAndExpression ( ruleXorOperator ruleAndExpression)*;
@@ -1390,7 +1390,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
     val s = Stack(for (e <- exprs.tail) yield visitAndExpression(e))
 
-    return SysmlAstUtil.collapse1(lhs, AST.Exp.BinaryOp.Xor, s)
+    return SlangUtil.collapse1(lhs, AST.Exp.BinaryOp.Xor, s)
   }
 
   private def visitAndExpression(o: RuleAndExpressionContext): AST.Exp = {
@@ -1408,7 +1408,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       }
       i = i + 2
     }
-    return SysmlAstUtil.collapse2(lhs, s)
+    return SlangUtil.collapse2(lhs, s)
   }
 
   // ruleEqualityExpression: ruleClassificationExpression ( ruleEqualityOperator ruleClassificationExpression)*;
@@ -1445,7 +1445,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       i = i + 2
     }
 
-    return SysmlAstUtil.collapse2(lhs, s)
+    return SlangUtil.collapse2(lhs, s)
   }
 
   private def visitClassificationExpression(o: RuleClassificationExpressionContext): AST.Exp = {
@@ -1503,7 +1503,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       i = i + 2
     }
 
-    return SysmlAstUtil.collapse2(lhs, s)
+    return SlangUtil.collapse2(lhs, s)
   }
 
   // ruleRangeExpression: ruleAdditiveExpression ( '..' ruleAdditiveExpression)?;
@@ -1536,7 +1536,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       i = i + 2
     }
 
-    return SysmlAstUtil.collapse2(lhs, s)
+    return SlangUtil.collapse2(lhs, s)
   }
 
   // ruleMultiplicativeExpression: ruleExponentiationExpression ( ruleMultiplicativeOperator ruleExponentiationExpression)*;
@@ -1561,7 +1561,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       i = i + 2
     }
 
-    return SysmlAstUtil.collapse2(lhs, s)
+    return SlangUtil.collapse2(lhs, s)
   }
 
   private def visitExponentiationExpression(o: RuleExponentiationExpressionContext): AST.Exp = {
@@ -1652,7 +1652,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
                 val n = visitQualifiedNameAsSlangName(f.ruleQualifiedName())
                 ids = ids ++ n.ids
               }
-              baseExp = SysmlAstUtil.toSelect(baseExp, ids)
+              baseExp = SlangUtil.toSelect(baseExp, ids)
           }
           index = index + 1
         case _ =>
@@ -1766,11 +1766,11 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
           a match {
             case aAsId: AST.Id =>
-              val posOpt = SysmlAstUtil.mergePos(aAsId.attr.posOpt, b.attr.posOpt)
+              val posOpt = SlangUtil.mergePos(aAsId.attr.posOpt, b.attr.posOpt)
               val ident = AST.Exp.Ident(id = aAsId, attr = Placeholders.emptyResolvedAttr(posOpt))
               s.push(AST.Exp.Select(receiverOpt = Some(ident), id = b, targs = ISZ(), attr = Placeholders.emptyResolvedAttr(posOpt)))
             case aAsSelect: AST.Exp.Select =>
-              val posOpt = SysmlAstUtil.mergePos(aAsSelect.posOpt, b.attr.posOpt)
+              val posOpt = SlangUtil.mergePos(aAsSelect.posOpt, b.attr.posOpt)
               s.push(AST.Exp.Select(receiverOpt = Some(aAsSelect), id = b, targs = ISZ(), attr = Placeholders.emptyResolvedAttr(posOpt)))
           }
           return s.pop().asInstanceOf[AST.Exp.Select]
@@ -1825,7 +1825,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           val ids = ops.ISZOps(name.ids)
 
           val receiver: Option[Exp] = if (ids.s.size > 1) {
-            Some(SysmlAstUtil.toSelectH(ids.dropRight(1)))
+            Some(SlangUtil.toSelectH(ids.dropRight(1)))
           } else {
             None()
           }
@@ -2017,17 +2017,17 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         i.ruleLiteralBoolean().ruleBooleanValue() match {
           case i: RuleBooleanValue1Context =>
             assert(i.K_TRUE() != null)
-            return AST.Exp.LitB(value = T, attr = Placeholders.emptyAttr)
+            return AST.Exp.LitB(value = T, attr = toSlangAttr(o))
           case i: RuleBooleanValue2Context =>
             assert(i.K_FALSE() != null)
-            return AST.Exp.LitB(value = F, attr = Placeholders.emptyAttr)
+            return AST.Exp.LitB(value = F, attr = toSlangAttr(o))
         }
 
       case i: RuleLiteralExpression2Context =>
-        return AST.Exp.LitString(value = i.ruleLiteralString().RULE_STRING_VALUE().string, attr = Placeholders.emptyAttr)
+        return AST.Exp.LitString(value = i.ruleLiteralString().RULE_STRING_VALUE().string, attr = toSlangAttr(o))
 
       case i: RuleLiteralExpression3Context =>
-        return AST.Exp.LitZ(value = Z(i.ruleLiteralInteger().RULE_DECIMAL_VALUE().string).get, attr = Placeholders.emptyAttr)
+        return AST.Exp.LitZ(value = Z(i.ruleLiteralInteger().RULE_DECIMAL_VALUE().string).get, attr = toSlangAttr(o))
 
       case i: RuleLiteralExpression4Context =>
         /* ruleRealValue:
@@ -2262,10 +2262,10 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       params = params :+ AST.Param(
         isHidden = F,
         id = AST.Id(value = p.RULE_ID().string, attr = toSlangAttr(p)),
-        tipe = SysmlAstUtil.buildSlangTypedNamed(paramName))
+        tipe = SlangUtil.buildSlangTypedNamed(paramName))
     }
 
-    val retType = SysmlAstUtil.buildSlangTypedNamed(visitQualifiedNameAsSlangName(o.ruleSlangType().ruleSlangBaseType().ruleQualifiedName()))
+    val retType = SlangUtil.buildSlangTypedNamed(visitQualifiedNameAsSlangName(o.ruleSlangType().ruleSlangBaseType().ruleQualifiedName()))
 
     val ret = AST.Stmt.Return(expOpt = Some(visitOwnedExpression(o.ruleOwnedExpression())), attr = retType.attr)
     val body = AST.Body(stmts = ISZ(ret), undecls = ISZ())

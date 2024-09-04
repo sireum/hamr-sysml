@@ -23,7 +23,7 @@
  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package org.sireum.hamr.sysml
+package org.sireum.hamr.sysml.parser
 
 import org.sireum._
 import org.sireum.hamr.ir.Aadl

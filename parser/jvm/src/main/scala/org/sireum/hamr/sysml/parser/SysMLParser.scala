@@ -1,5 +1,5 @@
 // #Sireum
-package org.sireum.hamr.sysml
+package org.sireum.hamr.sysml.parser
 
 import org.sireum._
 import org.sireum.hamr.ir.SysmlAst.TopUnit

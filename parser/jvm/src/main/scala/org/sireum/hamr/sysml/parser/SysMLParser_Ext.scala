@@ -1,9 +1,8 @@
-package org.sireum.hamr.sysml
+package org.sireum.hamr.sysml.parser
 
 import org.sireum._
 import org.antlr.v4.runtime.{BaseErrorListener, CharStreams, ParserRuleContext, Recognizer}
 import org.sireum.hamr.ir.SysmlAst.TopUnit
-import org.sireum.hamr.sysml.parser.{KerMLv2Lexer, KerMLv2Parser, SysMLv2Lexer, SysMLv2Parser}
 
 import java.io.StringReader
 

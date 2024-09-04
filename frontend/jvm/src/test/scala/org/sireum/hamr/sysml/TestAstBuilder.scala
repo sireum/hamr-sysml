@@ -3,7 +3,7 @@ package sysml
 import org.sireum.hamr.ir.Aadl
 import org.sireum.message.Reporter
 import org.sireum._
-import org.sireum.hamr.sysml.SysMLParser
+import org.sireum.hamr.sysml.parser.SysMLParser
 import org.sireum.test.TestSuite
 
 class TestAstBuilder extends TestSuite {
