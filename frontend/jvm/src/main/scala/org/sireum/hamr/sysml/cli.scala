@@ -28,15 +28,38 @@ package org.sireum.hamr.sysml
 
 import org.sireum._
 import org.sireum.cli.CliOpt._
+import org.sireum.hamr.codegen.common.util.CommonCli
 
 object cli {
+
+  val sysmlCodegen: Tool = Tool(
+    name = "sysmlCodegen",
+    command = "codegen",
+    description = "SysML v2 Codegen",
+    header = "Sireum HAMR SysML v2 Code Generator",
+    usage = "<option>* [<sysmlv2-file>]",
+    usageDescOpt = None(),
+    opts = ISZ(
+      Opt(name = "sourcepath", longKey = "sourcepath", shortKey = None(),
+        tpe = Type.Path(multiple = T, default = None()),
+        description = "Source paths of SysML v2 .sysml files"),
+      Opt(name = "line", longKey = "line", shortKey = None(),
+        tpe = Type.Num(sep = None(), default = 0, min = Some(0), max = None()),
+        description = "Line number containing the system to instantiate in the <sysmlv2-file> argument"),
+      Opt(name = "system", longKey = "system-name", shortKey = None(),
+        tpe = Type.Str(sep = None(), default = None()),
+        description = "Fully qualified name of the system to instantiate")
+    )
+     ++ CommonCli.commonOptions,
+    groups = CommonCli.commonGroups
+  )
 
   val sysmlTipe: Tool = Tool(
     name = "sysmlTipe",
     command = "tipe",
     description = "SysML v2 Type Checker",
     header = "Sireum HAMR SysML v2 Type Checker",
-    usage = "<option>* [<sysmlv2-file]",
+    usage = "<option>* [<sysmlv2-file>]",
     usageDescOpt = None(),
     opts = ISZ(
       Opt(name = "exclude", longKey = "exclude", shortKey = Some('x'),
@@ -44,7 +67,7 @@ object cli {
         description = "Sourcepath exclusion as URI segment"),
       Opt(name = "sourcepath", longKey = "sourcepath", shortKey = Some('s'),
         tpe = Type.Path(multiple = T, default = None()),
-        description = "Sourcepath of SysML v2 .sysml files"),
+        description = "Source paths of SysML v2 .sysml files"),
       Opt(name = "parseableMessages", longKey = "parseable-messages", shortKey = None(),
         tpe = Type.Flag(F),
         description = "Print parseable file messages")
@@ -57,7 +80,7 @@ object cli {
     command = "logika",
     description = "SysML v2 Verifier",
     header = "Sireum HAMR SysML v2 Logika Verifier",
-    usage = "<option>* <sysmlv2-file*",
+    usage = "<option>* <sysmlv2-file>*",
     usageDescOpt = None(),
     opts = ISZ(
       Opt(name = "exclude", longKey = "exclude", shortKey = Some('x'),
@@ -65,7 +88,7 @@ object cli {
         description = "Sourcepath exclusion as URI segment"),
       Opt(name = "sourcepath", longKey = "sourcepath", shortKey = Some('s'),
         tpe = Type.Path(multiple = T, default = None()),
-        description = "Sourcepath of SysML v2 .sysml files"),
+        description = "Source paths of SysML v2 .sysml files"),
       Opt(name = "parseableMessages", longKey = "parseable-messages", shortKey = None(),
         tpe = Type.Flag(F),
         description = "Print parseable file messages")
@@ -102,6 +125,6 @@ object cli {
     description = "SysML v2 Tools",
     header = "Sireum HAMR SysML v2 Tools",
     unlisted = F,
-    subs = ISZ(sysmlLogika, sysmlTipe, sysmlTranslator)
+    subs = ISZ(sysmlCodegen, sysmlLogika, sysmlTipe, sysmlTranslator)
   )
 }
