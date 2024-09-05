@@ -301,7 +301,7 @@ object Instantiate {
                   return (None(), None())
               }
             case x =>
-              reporter.error(posOpt, Instantiate.instantiatorKey, s"Currently only expecting reference usages in port bodies")
+              reporter.error(optPosOpt, Instantiate.instantiatorKey, s"Currently only expecting reference usages in port bodies")
           }
         }
         return (None(), None())

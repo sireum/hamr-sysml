@@ -8,7 +8,7 @@ package TempControlAadl {
 	  library
         functions
           def inRange(temp: Temperature): Base_Types::Boolean :=
-            temp.degrees >= f32(-50.0) and temp.degrees <= f32(150.0);
+            temp.degrees >= -50 [f32] and temp.degrees <= 150 [f32];
 
           def enumTest(e: FanCmd): FanCmd := e;
 
@@ -49,7 +49,7 @@ package TempControlAadl {
 		language "GUMBO" /*{
           functions
 
-            def defaultTempDegrees(): Base_Types::Float_32 := f32(72.0);
+            def defaultTempDegrees(): Base_Types::Float_32 := 72 [f32];
 
           integration
             guarantee Sensor_Temperature_Range:
@@ -82,19 +82,19 @@ package TempControlAadl {
 
           integration
             assume currentTempRange:
-              (currentTemp.degrees >= f32(-128.6)) & (currentTemp.degrees <= f32(134.0));
+              (currentTemp.degrees >= -128.6 [f32]) & (currentTemp.degrees <= 134 [f32]);
 
           initialize
             modifies currentSetPoint, currentFanState, latestTemp;
 
             guarantee defaultSetPoint:
-              (currentSetPoint.low.degrees == f32(70.0)) and (currentSetPoint.high.degrees == f32(80.0));
+              (currentSetPoint.low.degrees == 70 [f32]) and (currentSetPoint.high.degrees == 80 [f32]);
 
             guarantee defaultFanStates:
               currentFanState == FanCmd.Off;
 
             guarantee defaultLatestTemp:
-              latestTemp.degrees == f32(72.0);
+              latestTemp.degrees == 72.0[f32];
 
           compute  // behaviors for COMPUTE Entrypoint
             modifies currentSetPoint, currentFanState, latestTemp;
@@ -234,8 +234,8 @@ package TempControlAadl {
 		language "GUMBO" /*{
           invariants
             inv SetPoint_Data_Invariant:
-              (low.degrees >= f32(50.0)) &
-              (high.degrees <= f32(110.0)) &
+              (low.degrees >= 50 [f32]) &
+              (high.degrees <= 110 [f32]) &
               (low.degrees <= high.degrees);
 		}*/
 	}

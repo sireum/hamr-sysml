@@ -316,15 +316,15 @@ package Monitor {
 									|assumption is that the lower alarm must be at least 1.0f less than
 									|the upper alarm in order to account for the 0.5f tolerance
 									|http://pub.santoslab.org/high-assurance/module-requirements/reading/FAA-DoT-Requirements-AR-08-32.pdf#page=115 ": 
-					upper_alarm_temp.degrees - lower_alarm_temp.degrees >= f32(1.0);
+					upper_alarm_temp.degrees - lower_alarm_temp.degrees >= 1.0 [f32];
 					
 				assume Table_A_12_LowerAlarmTemp "Range [96..101]
 													|http://pub.santoslab.org/high-assurance/module-requirements/reading/FAA-DoT-Requirements-AR-08-32.pdf#page=112 " :
-					f32(96.0) <= lower_alarm_temp.degrees and lower_alarm_temp.degrees <= f32(101.0);
+					96.0 [f32] <= lower_alarm_temp.degrees and lower_alarm_temp.degrees <= 101.0 [f32];
 				
 				assume Table_A_12_UpperAlarmTemp "Range [97..102]
 													|http://pub.santoslab.org/high-assurance/module-requirements/reading/FAA-DoT-Requirements-AR-08-32.pdf#page=112 " :
-					f32(97.0) <= upper_alarm_temp.degrees and upper_alarm_temp.degrees <= f32(102.0);
+					97.0 [f32] <= upper_alarm_temp.degrees and upper_alarm_temp.degrees <= 102.0 [f32];
 					
 				compute_cases
 			
@@ -357,8 +357,8 @@ package Monitor {
 						assume monitor_mode == Isolette_Data_Model::Monitor_Mode.Normal_Monitor_Mode
 							& 
 							((current_tempWstatus.degrees >= lower_alarm_temp.degrees and
-								current_tempWstatus.degrees < lower_alarm_temp.degrees + f32(0.5)) or
-							((current_tempWstatus.degrees > upper_alarm_temp.degrees - f32(0.5)) and
+								current_tempWstatus.degrees < lower_alarm_temp.degrees + 0.5 [f32]) or
+							((current_tempWstatus.degrees > upper_alarm_temp.degrees - 0.5 [f32]) and
 								current_tempWstatus.degrees <= upper_alarm_temp.degrees));
 						guarantee alarm_control == In(lastCmd)
 							&
@@ -371,8 +371,8 @@ package Monitor {
 									|http://pub.santoslab.org/high-assurance/module-requirements/reading/FAA-DoT-Requirements-AR-08-32.pdf#page=115 " :
 						assume monitor_mode == Isolette_Data_Model::Monitor_Mode.Normal_Monitor_Mode
 							&
-							current_tempWstatus.degrees >= lower_alarm_temp.degrees + f32(0.5) &
-							current_tempWstatus.degrees <= upper_alarm_temp.degrees - f32(0.5);
+							current_tempWstatus.degrees >= lower_alarm_temp.degrees + 0.5 [f32] &
+							current_tempWstatus.degrees <= upper_alarm_temp.degrees - 0.5 [f32];
 						guarantee alarm_control == Isolette_Data_Model::On_Off.Off
 							&
 							lastCmd == Isolette_Data_Model::On_Off.Off;

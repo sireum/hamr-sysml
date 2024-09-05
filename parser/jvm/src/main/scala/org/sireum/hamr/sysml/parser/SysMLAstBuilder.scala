@@ -4,7 +4,7 @@ import org.sireum._
 import org.sireum.message._
 import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.tree.TerminalNodeImpl
-import org.sireum.hamr.sysml.parser.SysMLAstBuilder.{binOpsUifs, interpolates, logikaUifs, portUifs}
+import org.sireum.hamr.sysml.parser.SysMLAstBuilder.{binOpsUifs, interpolates, isReservedSequenceName, logikaUifs, numeric_interpolates, portUifs}
 import org.sireum.hamr.ir.SysmlAst._
 import org.sireum.hamr.ir.{Attr, GclAssume, GclCaseStatement, GclCompute, GclComputeSpec, GclGuarantee, GclHandle, GclInitialize, GclIntegration, GclInvariant, GclLib, GclMethod, GclSpec, GclStateVar, GclSubclause, InfoFlowClause, ResolvedAttr, Name => AirName}
 import org.sireum.hamr.sysml.parser.SysmlAstUtil.isRegularComment
@@ -32,7 +32,9 @@ object SysMLAstBuilder {
     }
   }
 
-  val interpolates: ISZ[String] = {
+  val nonnumeric_interpolates: ISZ[String] = ISZ("c", "string")
+
+  val numeric_interpolates: ISZ[String] = {
 
     var ret = ISZ[String](
       "z",
@@ -46,6 +48,12 @@ object SysMLAstBuilder {
       "s32",
       "s64",
 
+      "n",
+      "n8",
+      "n16",
+      "n32",
+      "n64",
+
       "r",
 
       "f32",
@@ -56,6 +64,8 @@ object SysMLAstBuilder {
     }
     ret
   }
+
+  val interpolates: ISZ[String] = nonnumeric_interpolates ++ numeric_interpolates
 
   val portUifs: ISZ[String] = ISZ(
     "MaySend",
@@ -72,10 +82,16 @@ object SysMLAstBuilder {
     "In"
   )
 
-  val reservedUifNames: ops.ISZOps[String] = ops.ISZOps(interpolates ++ portUifs ++ binOpsUifs ++ logikaUifs)
+  val reservedUifNames: ops.ISZOps[String] = ops.ISZOps(portUifs ++ binOpsUifs ++ logikaUifs)
+
+  val reservedSequenceNames: ops.ISZOps[String] = ops.ISZOps(interpolates)
 
   def isReservedUifName(s: String): B = {
     return reservedUifNames.contains(s)
+  }
+
+  def isReservedSequenceName(s: String): B = {
+    return reservedSequenceNames.contains(s)
   }
 
 }
@@ -350,10 +366,10 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           else Some(visitIdentification(text.ruleIdentification()))
 
         if (nonEmpty(text.ruleGumboLibrary())) {
-          assert (text.K_REP() == null, "Not expecting 'rep' for gumbo annotations")
+          assert(text.K_REP() == null, "Not expecting 'rep' for gumbo annotations")
           return GumboAnnotation(visitGumboLibrary(text.ruleGumboLibrary()))
         } else if (nonEmpty(text.ruleGumboSubclause())) {
-          assert (text.K_REP() == null, "Not expecting 'rep' for gumbo annotations")
+          assert(text.K_REP() == null, "Not expecting 'rep' for gumbo annotations")
           return GumboAnnotation(visitGumboSubclause(text.ruleGumboSubclause()))
         } else {
           return TextualRepresentation(
@@ -591,9 +607,9 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   }
 
   case class UsageHolder(val identification: Option[Identification],
-                               val specializations: ISZ[FeatureSpecialization],
-                               val featureValue: Option[FeatureValue],
-                               val definitionBodyItems: ISZ[DefinitionBodyItem])
+                         val specializations: ISZ[FeatureSpecialization],
+                         val featureValue: Option[FeatureValue],
+                         val definitionBodyItems: ISZ[DefinitionBodyItem])
 
   private def visitUsage(ruleUsage: RuleUsageContext): UsageHolder = {
     val (identification, specializations): (Option[Identification], ISZ[FeatureSpecialization]) =
@@ -1181,7 +1197,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           Some(Identification(shortName = None(), name = Some(visitName(o.ruleName(0))), attr = toAttr(o.ruleName(0))))
         }
       } else {
-        assert (o.ruleName().size() == 2)
+        assert(o.ruleName().size() == 2)
         Some(Identification(
           shortName = Some(visitName(o.ruleName(0))),
           name = Some(visitName(o.ruleName(1))),
@@ -1267,7 +1283,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
   def visitQualifiedNameAsSlangName(o: SysMLv2Parser.RuleQualifiedNameContext): AST.Name = {
     val name = visitQualifiedName(o)
-    val ids = for(id <- name.ids) yield AST.Id(value = id.value, AST.Attr(posOpt = id.attr.posOpt))
+    val ids = for (id <- name.ids) yield AST.Id(value = id.value, AST.Attr(posOpt = id.attr.posOpt))
     return AST.Name(ids = ids, attr = AST.Attr(posOpt = name.attr.posOpt))
   }
 
@@ -1648,7 +1664,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
               // e.blah::x.blah2::y.blah3::z
               // currentTemp.degrees
               var ids: ISZ[AST.Id] = ISZ()
-              for(f <- listToISZ(i.ruleOwnedFeatureChain().ruleFeatureChain().ruleOwnedFeatureChaining())) {
+              for (f <- listToISZ(i.ruleOwnedFeatureChain().ruleFeatureChain().ruleOwnedFeatureChaining())) {
                 val n = visitQualifiedNameAsSlangName(f.ruleQualifiedName())
                 ids = ids ++ n.ids
               }
@@ -1675,13 +1691,18 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
             //     | '[' ruleSequenceExpression ']'
             visitSequenceExpression(o.getChild(index + 1).asInstanceOf[RuleSequenceExpressionContext]) match {
               case i: AST.Exp.Ident if index == initIndex && index + 3 == o.getChildCount =>
-                // e.g. 1000 [ms] ~> ms(1000)
-                ret = AST.Exp.Invoke(
-                  receiverOpt = None(),
-                  ident = i,
-                  targs = ISZ(),
-                  args = ISZ(ret),
-                  attr = toSlangResolvedAttr(o))
+
+                if (isReservedSequenceName(i.id.value)) {
+                  return handleReservedSequenceName(ret, i, o)
+                } else {
+                  // e.g. 1000 [ms] ~> ms(1000)
+                  ret = AST.Exp.Invoke(
+                    receiverOpt = None(),
+                    ident = i,
+                    targs = ISZ(),
+                    args = ISZ(ret),
+                    attr = toSlangResolvedAttr(o))
+                }
               case x =>
                 reportError(i, s"The sequencing expression '$x' is not currently handled")
             }
@@ -1819,7 +1840,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         attr = toSlangResolvedAttr(o))
        */
     } else {
-      val (receiverOpt, ident) : (Option[Exp], AST.Exp.Ident) = o.ruleOwnedFeatureTyping() match {
+      val (receiverOpt, ident): (Option[Exp], AST.Exp.Ident) = o.ruleOwnedFeatureTyping() match {
         case i: RuleOwnedFeatureTyping1Context =>
           val name = visitQualifiedNameAsSlangName(i.ruleQualifiedName())
           val ids = ops.ISZOps(name.ids)
@@ -1857,40 +1878,52 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     }
   }
 
-  def handleUif(receiver: Option[Exp], ident: Exp.Ident, args: ISZ[Exp], attr: AST.ResolvedAttr): AST.Exp = {
+  def handleReservedSequenceName(numeric: Exp, ident: Exp.Ident, origin: RulePrimaryExpressionContext): AST.Exp = {
+    val sequenceId = ident.id.value
 
     def handleNumeric: Option[String] = {
-      if (args.size != 1) {
-        reportError(ident.posOpt, s"${ident.id.value} requires exactly one argument")
-        return None()
-      }
-      args(0) match {
-        case u @ AST.Exp.Unary(_, l:AST.Exp.LitR) => return Some(s"${u.opString}${l.value.string}")
-        case u @ AST.Exp.Unary(_, l:AST.Exp.LitZ) => return Some(s"${u.opString}${l.value.string}")
-        case l: AST.Exp.LitR => return Some(l.value.string)
+      numeric match {
+        case u@AST.Exp.Unary(_, l: AST.Exp.LitF64) => return Some(s"${u.opString}${l.value.string}")
+        case u@AST.Exp.Unary(_, l: AST.Exp.LitZ) => return Some(s"${u.opString}${l.value.string}")
+        case l: AST.Exp.LitF64 => return Some(l.value.string)
         case l: AST.Exp.LitZ => return Some(l.value.string)
         case x =>
-          reportError(ident.posOpt, s"'${ident.id.value} requires a numeric argument")
+          reportError(ident.posOpt, s"'${sequenceId} requires a numeric argument")
           return None()
       }
     }
-    val dummy = AST.Exp.LitString(value = "???", attr = AST.Attr(ident.posOpt))
-    if (receiver.nonEmpty) {
-      reportError(receiver.get.posOpt, s"Invalid receiver '${receiver.get}' for reserved UIF '$ident'")
-      return dummy
-    }
-    val uif = ident.id.value
-    if (ops.ISZOps(interpolates).contains(uif)) {
-      uif match {
+
+    val dummy = AST.Exp.LitString(value = "???", attr = toSlangAttr(origin))
+
+    if (ops.ISZOps(interpolates).contains(sequenceId)) {
+      sequenceId match {
         case string"c" =>
-          halt("TODO")
+          numeric match {
+            case AST.Exp.LitString(v) =>
+              val vv = conversions.String.toCis(SlangUtil.unquoteString(v))
+              if (vv.size == 1) {
+                return AST.Exp.LitC(vv(0), toSlangAttr(origin))
+              }
+              reportError(numeric.posOpt, "Slang c interpolator can only have a single character")
+            case _ =>
+              reportError(numeric.posOpt, "Was expecting a string literal")
+          }
+          return dummy
+
         case string"string" =>
-          halt("TODO")
+          numeric match {
+            case AST.Exp.LitString(v) =>
+              return AST.Exp.LitString(SlangUtil.unquoteString(v), toSlangAttr(origin))
+            case _ =>
+              reportError(numeric.posOpt, "Was expecting a string literal")
+              return dummy
+          }
+
         case string"f32" =>
           handleNumeric match {
             case Some(str) =>
               F32(str) match {
-                case Some(f32) => return AST.Exp.LitF32(f32, AST.Attr(args(0).posOpt))
+                case Some(f32) => return AST.Exp.LitF32(f32, toSlangAttr(origin))
                 case _ =>
                   reportError(ident.posOpt, s"'$str' is not a valid F32")
                   return dummy
@@ -1902,7 +1935,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           handleNumeric match {
             case Some(str) =>
               F64(str) match {
-                case Some(f64) => return AST.Exp.LitF64(f64, AST.Attr(args(0).posOpt))
+                case Some(f64) => return AST.Exp.LitF64(f64, toSlangAttr(origin))
                 case _ =>
                   reportError(ident.posOpt, s"'$str' is not a valid F64")
                   return dummy
@@ -1914,7 +1947,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           handleNumeric match {
             case Some(str) =>
               R(str) match {
-                case Some(r) => return AST.Exp.LitR(r, AST.Attr(args(0).posOpt))
+                case Some(r) => return AST.Exp.LitR(r, toSlangAttr(origin))
                 case _ =>
                   reportError(ident.posOpt, s"'$str' is not a valid R")
                   return dummy
@@ -1926,7 +1959,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           handleNumeric match {
             case Some(str) =>
               Z(str) match {
-                case Some(z) => return AST.Exp.LitZ(z, AST.Attr(args(0).posOpt))
+                case Some(z) => return AST.Exp.LitZ(z, toSlangAttr(origin))
                 case _ =>
                   reportError(ident.posOpt, s"'$str' is not a valid Z'")
                   return dummy
@@ -1935,14 +1968,36 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           }
 
         case _ =>
-          reportError(ident.posOpt, s"Unexpected UIF $uif'")
-          return dummy
+          if (ops.ISZOps(numeric_interpolates).contains(sequenceId)) {
+            handleNumeric match {
+              case Some(str) =>
+                val lit = AST.Exp.LitString(str, AST.Attr(ident.posOpt))
+                return AST.Exp.StringInterpolate (sequenceId, ISZ(lit), ISZ(), toSlangTypedAttr (origin) )
+              case _ =>
+                reportError(numeric.posOpt, "Not a valid numeric")
+                return dummy
+            }
+          } else {
+            reportError(ident.posOpt, s"Not currently handling interpolate '$sequenceId'")
+            return dummy
+          }
       }
+    } else {
+      reportError(ident.posOpt, s"Not currently handling reserved sequence identifier '$sequenceId'")
+      return dummy
+    }
+  }
 
-    } else if (ops.ISZOps(portUifs).contains(uif)) {
+  def handleUif(receiver: Option[Exp], ident: Exp.Ident, args: ISZ[Exp], attr: AST.ResolvedAttr): AST.Exp = {
+
+    val dummy = AST.Exp.LitString(value = "???", attr = AST.Attr(ident.posOpt))
+
+    val uif = ident.id.value
+    if (ops.ISZOps(portUifs).contains(uif)) {
       def toInvoke(subName: String): AST.Exp.Invoke = {
         return AST.Exp.Invoke(receiver, ident(id = ident.id(value = subName)), ISZ(), args, attr)
       }
+
       uif match {
         case string"HasEvent" =>
           args match {
@@ -1961,7 +2016,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         case string"MustSend" =>
           args match {
             case ISZ(port) => return toInvoke("uif__MustSend")
-            case ISZ(port, expectedValue) =>  return toInvoke("uif__MustSendWithExpectedValue")
+            case ISZ(port, expectedValue) => return toInvoke("uif__MustSendWithExpectedValue")
             case _ =>
               reportError(ident.posOpt, s"$uif only accepts a port name and optionally the expected value")
               return dummy
@@ -1980,6 +2035,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       def toBinary(lhs: AST.Exp, binOp: String, rhs: AST.Exp): AST.Exp = {
         return AST.Exp.Binary(lhs, binOp, rhs, attr, attr.posOpt)
       }
+
       val op: String = uif match {
         case string"'->:'" => AST.Exp.BinaryOp.Imply
         case string"'-->:'" => AST.Exp.BinaryOp.CondImply
@@ -2051,7 +2107,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
                 i.RULE_DECIMAL_VALUE(1).string
               }
             }
-            return AST.Exp.LitR(value = R(s"$num.$decimal").get, attr = toSlangAttr(i))
+            return AST.Exp.LitF64(value = F64(s"$num.$decimal").get, attr = toSlangAttr(i))
           case i: RuleRealValue2Context =>
             halt("???")
         }
@@ -2068,7 +2124,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   }
 
   def visitGumboLibrary(o: SysMLv2Parser.RuleGumboLibraryContext): GclLib = {
-    val methods = for(m <- listToISZ(o.ruleFunctions().ruleFuncSpec())) yield visitGumboSlangDefDef(m.ruleSlangDefDef())
+    val methods = for (m <- listToISZ(o.ruleFunctions().ruleFuncSpec())) yield visitGumboSlangDefDef(m.ruleSlangDefDef())
     return GclLib(
       containingPackage = AirName(name = ISZ(), pos = None()),
       methods = methods,
@@ -2079,7 +2135,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   def visitGumboSubclause(o: SysMLv2Parser.RuleGumboSubclauseContext): GclSubclause = {
     var state: ISZ[GclStateVar] = ISZ()
     if (nonEmpty(o.ruleSpecSection().ruleState())) {
-      state = for(s <- listToISZ(o.ruleSpecSection().ruleState().ruleStateVarDecl())) yield
+      state = for (s <- listToISZ(o.ruleSpecSection().ruleState().ruleStateVarDecl())) yield
         visitStateVarDecl(s)
     }
 
@@ -2089,7 +2145,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     }
 
     var invariants: ISZ[GclInvariant] = ISZ()
-    if (nonEmpty(o.ruleSpecSection().ruleInvariants())){
+    if (nonEmpty(o.ruleSpecSection().ruleInvariants())) {
       for (i <- listToISZ(o.ruleSpecSection().ruleInvariants().ruleInvSpec())) {
         invariants = invariants :+ GclInvariant(
           id = i.RULE_ID().string,
@@ -2101,7 +2157,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
     var integration: Option[GclIntegration] = None()
     if (nonEmpty(o.ruleSpecSection().ruleIntegration())) {
-      val specs = for(s <- listToISZ(o.ruleSpecSection().ruleIntegration().ruleSpecStatement())) yield visitSpecStatement(s)
+      val specs = for (s <- listToISZ(o.ruleSpecSection().ruleIntegration().ruleSpecStatement())) yield visitSpecStatement(s)
       integration = Some(GclIntegration(specs = specs, attr = toAttr(o.ruleSpecSection().ruleIntegration())))
     }
 
@@ -2170,9 +2226,9 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   def visitInitialize(o: RuleInitializeContext): GclInitialize = {
     var modifies: ISZ[AST.Exp] = ISZ()
     if (nonEmpty(o.ruleSlangModifies())) {
-      modifies = for(m <- listToISZ(o.ruleSlangModifies().ruleOwnedExpression())) yield visitOwnedExpression(m)
+      modifies = for (m <- listToISZ(o.ruleSlangModifies().ruleOwnedExpression())) yield visitOwnedExpression(m)
     }
-    val guarantees = for(g <- listToISZ(o.ruleInitializeSpecStatement())) yield visitGuaranteeStatement(g.ruleGuaranteeStatement())
+    val guarantees = for (g <- listToISZ(o.ruleInitializeSpecStatement())) yield visitGuaranteeStatement(g.ruleGuaranteeStatement())
 
     val flows = for (f <- listToISZ(o.ruleInfoFlowClause())) yield visitInfoFlowClause(f)
 
@@ -2222,7 +2278,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   def visitGuaranteeStatement(i: RuleGuaranteeStatementContext): GclGuarantee = {
     return GclGuarantee(
       id = i.RULE_ID().string,
-      descriptor = if(i.RULE_STRING_VALUE() != null) Some(i.RULE_STRING_VALUE().string) else None(),
+      descriptor = if (i.RULE_STRING_VALUE() != null) Some(i.RULE_STRING_VALUE().string) else None(),
       exp = visitOwnedExpression(i.ruleOwnedExpression()),
       attr = toAttr(i))
   }
@@ -2230,13 +2286,13 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   def visitAssumeStatement(i: RuleAssumeStatementContext): GclAssume = {
     return GclAssume(
       id = i.RULE_ID().string,
-      descriptor = if(i.RULE_STRING_VALUE() != null) Some(i.RULE_STRING_VALUE().string) else None(),
+      descriptor = if (i.RULE_STRING_VALUE() != null) Some(i.RULE_STRING_VALUE().string) else None(),
       exp = visitOwnedExpression(i.ruleOwnedExpression()),
       attr = toAttr(i))
   }
 
   def visitStateVarDecl(s: RuleStateVarDeclContext): GclStateVar = {
-    val typName = st"${(for(t <- visitQualifiedName(s.ruleQualifiedName()).ids) yield t.value, "::")}".render
+    val typName = st"${(for (t <- visitQualifiedName(s.ruleQualifiedName()).ids) yield t.value, "::")}".render
     return GclStateVar(name = s.RULE_ID().string, classifier = typName, attr = toAttr(s))
   }
 
@@ -2276,7 +2332,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     if (nonEmpty(o.ruleSlangDefContract().ruleSlangReads())) {
       hasContract = T
       var refs: ISZ[AST.Exp.Ref] = ISZ()
-      for(read <- o.ruleSlangDefContract().ruleSlangReads().ruleOwnedExpression().asScala) {
+      for (read <- o.ruleSlangDefContract().ruleSlangReads().ruleOwnedExpression().asScala) {
         visitOwnedExpression(read) match {
           case i: AST.Exp.Ref => refs = refs :+ i
           case _ => reportError(read, "Only select expressions or simple names are allowed for read clauses")
@@ -2299,7 +2355,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       hasContract = T
       hasContract = T
       var refs: ISZ[AST.Exp.Ref] = ISZ()
-      for(mod <- o.ruleSlangDefContract().ruleSlangModifies().ruleOwnedExpression().asScala) {
+      for (mod <- o.ruleSlangDefContract().ruleSlangModifies().ruleOwnedExpression().asScala) {
         visitOwnedExpression(mod) match {
           case i: AST.Exp.Ref => refs = refs :+ i
           case _ => reportError(mod, "Only select expressions or simple names are allowed for modifies clauses")
@@ -2370,6 +2426,10 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
   def toResolvedAttr(o: ParserRuleContext): ResolvedAttr = {
     return ResolvedAttr(posOpt = toPosOpt(o), resOpt = None(), typedOpt = None())
+  }
+
+  def toSlangTypedAttr(o: ParserRuleContext): AST.TypedAttr = {
+    return AST.TypedAttr(posOpt = toPosOpt(o), typedOpt = None())
   }
 
   def toPosOpt(x: ParserRuleContext): Option[Position] = {

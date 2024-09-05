@@ -64,6 +64,16 @@ class SysmlFrontEndTests extends TestSuite {
     test(inputs)
   }
 
+  val gumbo_models: Os.Path = resourceDir / "models" / "internal" / "gumbo"
+
+  "data-invariants" in {
+    val root = gumbo_models / "data-invariants"
+    val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
+    println(s"Resolving: ${root.toUri}")
+    val inputs: ISZ[Input] = omgDefs ++ (for(r <- files) yield toInput(r))
+    test(inputs)
+  }
+
   def test(inputs: ISZ[Input]): Unit = {
 
     val reporter = Reporter.create

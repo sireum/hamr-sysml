@@ -11,6 +11,15 @@ import org.sireum.message.{FlatPos, Position}
 
 object SlangUtil {
 
+  def unquoteString(str: String): String = {
+    val o = ops.StringOps(str)
+    if (o.startsWith("\"") && o.endsWith("\"")) {
+      return o.substring(1, o.size - 1)
+    } else {
+      return str
+    }
+  }
+
   def mergePos(a: Option[Position], b: Option[Position]): Option[Position] = {
     (a, b) match {
       case (None(), _) => return b

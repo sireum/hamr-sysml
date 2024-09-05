@@ -3,6 +3,6 @@ package GUMBO_Definitions {
     library
         functions
 
-          def aboveAbsoluteZero(value: Base_Types::Float_32): Base_Types::Boolean := f32(-459.67) < value;
+          def aboveAbsoluteZero(value: Base_Types::Float_32): Base_Types::Boolean := -459.67 [f32] < value;
   }*/
 }
