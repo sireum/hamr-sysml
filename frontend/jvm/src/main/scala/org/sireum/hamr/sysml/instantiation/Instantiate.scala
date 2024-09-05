@@ -32,96 +32,9 @@ object Instantiate {
       }
     }
 
-    def isAadlComponent(name: ISZ[String]): B = {
-      return (
-        isAadlSystem(name) ||
-          isAadlProcesssor(name) ||
-          isAadlProcesss(name) ||
-          isAadlThread(name) ||
-          isAadlData(name) ||
-          isAadlAbstract(name))
-    }
-
-    def isAadlComponentOpt(opt: Option[Typed]): B = {
-      opt match {
-        case Some(t: Typed.Name) => return isAadlComponent(t.ids)
-        case _ => return F
-      }
-    }
-
-    def isAadlSystem(name: ISZ[String]): B = {
-      return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlSystemName)
-    }
-
-    def isAadlSystemOpt(opt: Option[Typed]): B = {
-      opt match {
-        case Some(t: Typed.Name) => return isAadlSystem(t.ids)
-        case _ => return F
-      }
-    }
-
-    def isAadlSystemDefinition(pd: TypeInfo.PartDefinition): B = {
-      return isAadlSystem(pd.name)
-    }
-
-    def isAadlProcesssor(name: ISZ[String]): B = {
-      return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlProcessorName)
-    }
-
-    def isAadlProcessorOpt(opt: Option[Typed]): B = {
-      opt match {
-        case Some(t: Typed.Name) => return isAadlProcesssor(t.ids)
-        case _ => return F
-      }
-    }
-
-    def isAadlProcesss(name: ISZ[String]): B = {
-      return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlProcessName)
-    }
-
-    def isAadlProcessOpt(opt: Option[Typed]): B = {
-      opt match {
-        case Some(t: Typed.Name) => return isAadlProcesss(t.ids)
-        case _ => return F
-      }
-    }
-
-    def isAadlThread(name: ISZ[String]): B = {
-      return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlThreadName)
-    }
-
-    def isAadlThreadOpt(opt: Option[Typed]): B = {
-      opt match {
-        case Some(t: Typed.Name) => return isAadlThread(t.ids)
-        case _ => return F
-      }
-    }
-
-    def isAadlData(name: ISZ[String]): B = {
-      return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlDataName)
-    }
-
-    def isAadlDataOpt(opt: Option[Typed]): B = {
-      opt match {
-        case Some(t: Typed.Name) => return isAadlData(t.ids)
-        case _ => return F
-      }
-    }
-
-    def isAadlAbstract(name: ISZ[String]): B = {
-      return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlAbstractName)
-    }
-
-    def isAadlAbstractOpt(opt: Option[Typed]): B = {
-      opt match {
-        case Some(t: Typed.Name) => return isAadlAbstract(t.ids)
-        case _ => return F
-      }
-    }
-
     def process(): Option[(TypeHierarchy, ISZ[Aadl])] = {
 
-      val systemRoots: ISZ[TypeInfo.PartDefinition] = getSystemRoots()
+      val systemRoots: ISZ[TypeInfo.PartDefinition] = InstantiateUtil.getSystemRoots(typeHierarchy)
 
       if (systemRoots.isEmpty) {
         reporter.warn(None(), instantiatorKey, "Could not find any system roots to instantiate")
@@ -145,19 +58,6 @@ object Instantiate {
       }
 
       return Some((typeHierarchy, aadls))
-    }
-
-    def getSystemRoots(): ISZ[TypeInfo.PartDefinition] = {
-      var systemRoots = ISZ[PartDefinition]()
-      for (n <- typeHierarchy.typeMap.entries) {
-        n._2 match {
-          case pd: TypeInfo.PartDefinition if isAadlSystemDefinition(pd) =>
-            systemRoots = systemRoots :+ pd
-          case _ =>
-        }
-      }
-
-      return systemRoots
     }
 
     def getGumboLibraries(): ISZ[ir.AnnexLib] = {
@@ -210,15 +110,15 @@ object Instantiate {
     }
 
     def instantiateComponent(p: TypeInfo.DefinitionTypeInfo, processingDatatype: B, idPath: ISZ[String], posOpt: Option[Position]): ir.Component = {
-      assert(isAadlComponent(p.name))
+      assert(InstantiateUtil.isAadlComponent(p.name, typeHierarchy))
 
       val category: ir.ComponentCategory.Type = {
-        if (isAadlSystemOpt(p.typedOpt)) ir.ComponentCategory.System
-        else if (isAadlProcessorOpt(p.typedOpt)) ir.ComponentCategory.Processor
-        else if (isAadlProcessOpt(p.typedOpt)) ir.ComponentCategory.Process
-        else if (isAadlThreadOpt(p.typedOpt)) ir.ComponentCategory.Thread
-        else if (isAadlDataOpt(p.typedOpt)) ir.ComponentCategory.Data
-        else if (isAadlAbstractOpt(p.typedOpt)) ir.ComponentCategory.Abstract
+        if (InstantiateUtil.isAadlSystemOpt(p.typedOpt, typeHierarchy)) ir.ComponentCategory.System
+        else if (InstantiateUtil.isAadlProcessorOpt(p.typedOpt, typeHierarchy)) ir.ComponentCategory.Processor
+        else if (InstantiateUtil.isAadlProcessOpt(p.typedOpt, typeHierarchy)) ir.ComponentCategory.Process
+        else if (InstantiateUtil.isAadlThreadOpt(p.typedOpt, typeHierarchy)) ir.ComponentCategory.Thread
+        else if (InstantiateUtil.isAadlDataOpt(p.typedOpt, typeHierarchy)) ir.ComponentCategory.Data
+        else if (InstantiateUtil.isAadlAbstractOpt(p.typedOpt, typeHierarchy)) ir.ComponentCategory.Abstract
         else ir.ComponentCategory.Subprogram
       }
       if (category == ir.ComponentCategory.Subprogram) {
@@ -251,7 +151,7 @@ object Instantiate {
 
       var subcomponents: ISZ[ir.Component] = ISZ()
       for (member <- members) {
-        if (isAadlComponentOpt(member.typedOpt) ) {
+        if (InstantiateUtil.isAadlComponentOpt(member.typedOpt, typeHierarchy) ) {
           getDefinition(member.typedOpt.get) match {
             case Some(x) =>
               if (!processingDatatype || isDatatype(member.typedOpt.get)) {

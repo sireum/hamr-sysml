@@ -2,6 +2,10 @@
 package org.sireum.hamr.sysml.instantiation
 
 import org.sireum._
+import org.sireum.hamr.ir.Typed
+import org.sireum.hamr.sysml.stipe.TypeHierarchy
+import org.sireum.hamr.sysml.symbol.TypeInfo
+import org.sireum.hamr.sysml.symbol.TypeInfo.PartDefinition
 
 object InstantiateUtil {
 
@@ -54,6 +58,106 @@ object InstantiateUtil {
     } else {
       return ops.ISZOps(AadlPackageNames).contains(name(0))
     }
+  }
+
+  def isAadlComponent(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {
+    return (
+      InstantiateUtil.isAadlSystem(name, typeHierarchy) ||
+        InstantiateUtil.isAadlProcesssor(name, typeHierarchy) ||
+        InstantiateUtil.isAadlProcesss(name, typeHierarchy) ||
+        InstantiateUtil.isAadlThread(name, typeHierarchy) ||
+        InstantiateUtil.isAadlData(name, typeHierarchy) ||
+        InstantiateUtil.isAadlAbstract(name, typeHierarchy))
+  }
+
+  def isAadlComponentOpt(opt: Option[Typed], typeHierarchy: TypeHierarchy): B = {
+    opt match {
+      case Some(t: Typed.Name) => return isAadlComponent(t.ids, typeHierarchy)
+      case _ => return F
+    }
+  }
+
+  def isAadlSystem(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {
+    return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlSystemName)
+  }
+
+  def isAadlSystemOpt(opt: Option[Typed], typeHierarchy: TypeHierarchy): B = {
+    opt match {
+      case Some(t: Typed.Name) => return isAadlSystem(t.ids, typeHierarchy)
+      case _ => return F
+    }
+  }
+
+  def isAadlSystemDefinition(pd: TypeInfo.PartDefinition, typeHierarchy: TypeHierarchy): B = {
+    return isAadlSystem(pd.name, typeHierarchy)
+  }
+
+  def isAadlProcesssor(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {
+    return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlProcessorName)
+  }
+
+  def isAadlProcessorOpt(opt: Option[Typed], typeHierarchy: TypeHierarchy): B = {
+    opt match {
+      case Some(t: Typed.Name) => return isAadlProcesssor(t.ids, typeHierarchy)
+      case _ => return F
+    }
+  }
+
+  def isAadlProcesss(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {
+    return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlProcessName)
+  }
+
+  def isAadlProcessOpt(opt: Option[Typed], typeHierarchy: TypeHierarchy): B = {
+    opt match {
+      case Some(t: Typed.Name) => return isAadlProcesss(t.ids, typeHierarchy)
+      case _ => return F
+    }
+  }
+
+  def isAadlThread(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {
+    return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlThreadName)
+  }
+
+  def isAadlThreadOpt(opt: Option[Typed], typeHierarchy: TypeHierarchy): B = {
+    opt match {
+      case Some(t: Typed.Name) => return isAadlThread(t.ids, typeHierarchy)
+      case _ => return F
+    }
+  }
+
+  def isAadlData(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {
+    return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlDataName)
+  }
+
+  def isAadlDataOpt(opt: Option[Typed], typeHierarchy: TypeHierarchy): B = {
+    opt match {
+      case Some(t: Typed.Name) => return isAadlData(t.ids, typeHierarchy)
+      case _ => return F
+    }
+  }
+
+  def isAadlAbstract(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {
+    return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlAbstractName)
+  }
+
+  def isAadlAbstractOpt(opt: Option[Typed], typeHierarchy: TypeHierarchy): B = {
+    opt match {
+      case Some(t: Typed.Name) => return isAadlAbstract(t.ids, typeHierarchy)
+      case _ => return F
+    }
+  }
+
+  def getSystemRoots(typeHierarchy: TypeHierarchy): ISZ[TypeInfo.PartDefinition] = {
+    var systemRoots = ISZ[PartDefinition]()
+    for (n <- typeHierarchy.typeMap.entries) {
+      n._2 match {
+        case pd: TypeInfo.PartDefinition if isAadlSystemDefinition(pd, typeHierarchy) =>
+          systemRoots = systemRoots :+ pd
+        case _ =>
+      }
+    }
+
+    return systemRoots
   }
 }
 
