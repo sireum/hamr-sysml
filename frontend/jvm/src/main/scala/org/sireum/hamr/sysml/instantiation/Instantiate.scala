@@ -7,7 +7,6 @@ import org.sireum.hamr.ir.SysmlAst.GumboAnnotation
 import org.sireum.hamr.ir.util.AadlUtil
 import org.sireum.hamr.ir._
 import org.sireum.hamr.sysml.stipe.{TypeChecker, TypeHierarchy}
-import org.sireum.hamr.sysml.symbol.TypeInfo.PartDefinition
 import org.sireum.hamr.sysml.symbol.{Info, Scope, TypeInfo, Util}
 import org.sireum.lang.{ast => AST}
 import org.sireum.message.{Position, Reporter}
@@ -16,7 +15,7 @@ object Instantiate {
 
   val instantiatorKey: String = "Declarative AIR Instantiator"
 
-  def instantiate(topUnits: ISZ[SysmlAst.TopUnit], typeHierarchy: TypeHierarchy, reporter: Reporter): (Option[(TypeHierarchy, ISZ[Aadl])]) = {
+  def instantiate(topUnits: ISZ[SysmlAst.TopUnit], typeHierarchy: TypeHierarchy, reporter: Reporter): (Option[(TypeHierarchy, ISZ[(Aadl, Option[Position])])]) = {
 
     var dataComponents: Map[ISZ[String], ir.Component] = Map.empty
 
@@ -32,7 +31,7 @@ object Instantiate {
       }
     }
 
-    def process(): Option[(TypeHierarchy, ISZ[Aadl])] = {
+    def process(): Option[(TypeHierarchy, ISZ[(Aadl, Option[Position])])] = {
 
       val systemRoots: ISZ[TypeInfo.PartDefinition] = InstantiateUtil.getSystemRoots(typeHierarchy)
 
@@ -43,7 +42,7 @@ object Instantiate {
 
       val gumboLibraries: ISZ[ir.AnnexLib] = getGumboLibraries()
 
-      var aadls: ISZ[ir.Aadl] = ISZ()
+      var aadls: ISZ[(ir.Aadl, Option[Position])] = ISZ()
       for (sysRoot <- systemRoots) {
         val projRoot = getPath(sysRoot.posOpt)
 
@@ -51,10 +50,10 @@ object Instantiate {
 
         val rootIdName = st"${sysRoot.id}_Instance".render
         val system = instantiateComponent(sysRoot, F, ISZ(rootIdName), sysRoot.posOpt)
-        aadls = aadls :+ ir.Aadl(
+        aadls = aadls :+ (ir.Aadl(
           components = ISZ(system),
           annexLib = gumboLibraries,
-          dataComponents = dataComponents.values)
+          dataComponents = dataComponents.values), sysRoot.posOpt)
       }
 
       return Some((typeHierarchy, aadls))

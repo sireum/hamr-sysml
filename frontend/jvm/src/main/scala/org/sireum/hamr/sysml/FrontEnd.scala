@@ -86,13 +86,13 @@ object FrontEnd {
       case Some((th, models)) =>
         var imodels: ISZ[ModelUtil.ModelElements] = ISZ()
         for (model <- models) {
-          val connModel = ConnectionInstantiator.instantiateConnections(model, reporter)
+          val connModel = ConnectionInstantiator.instantiateConnections(model._1, reporter)
 
           if (reporter.hasError) {
             return (Some(th), ISZ())
           }
 
-          ModelUtil.resolve(connModel, "model", baseOptions, reporter) match {
+          ModelUtil.resolve(connModel, model._2, "model", baseOptions, reporter) match {
             case Some(modelElements) =>
               imodels = imodels :+ modelElements
             case _ =>
