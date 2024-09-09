@@ -230,7 +230,7 @@ object TypeHierarchy {
 
         val (outlined, ancestors): (B, ISZ[SAST.Typed.Name]) =
           typeMap.get(t1.ids) match {
-            //case Some(info: TypeInfo.AllocationDefinition) => (info.outlined, info.ancestors)
+            case Some(info: TypeInfo.AllocationDefinition) => (info.outlined, info.ancestors)
             case Some(info: TypeInfo.AttributeDefinition) => (info.outlined, info.ancestors)
             case Some(info: TypeInfo.ConnectionDefinition) => (info.outlined, info.ancestors)
             case Some(info: TypeInfo.EnumDefinition) => (info.outlined, info.ancestors)
@@ -256,7 +256,10 @@ object TypeHierarchy {
     }
     (t1, t2) match {
       case (t1: SAST.Typed.Name, t2: SAST.Typed.Name) =>
-        if (t1.ids == ISZ("Timing_Properties", "Period") && t2.ids == ISZ("SI", "DurationUnit")) {
+        if ((t1.ids == ISZ("Timing_Properties", "Period") || t1.ids == ISZ("Timing_Properties","Frame_Period") || t1.ids == ISZ("Timing_Properties","Clock_Period")) &&
+          t2.ids == ISZ("SI", "DurationUnit")) {
+          return T
+        } else if ((t1.ids == ISZ("CASE_Scheduling", "Max_Domain") || t1.ids == ISZ("CASE_Scheduling", "Domain")) && t2.ids == ISZ("org", "sireum", "Z")) {
           return T
         }
       case _ =>

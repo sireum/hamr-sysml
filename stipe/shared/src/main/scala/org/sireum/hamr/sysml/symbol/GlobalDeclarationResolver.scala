@@ -318,6 +318,7 @@ object GlobalDeclarationResolver {
   }
 
   def resolveMembers(owner: IS[Z, String], scope: Scope, items: ISZ[SysmlAst.DefinitionBodyItem]): TypeInfo.Members = {
+    var allocationUsages = HashSMap.empty[String, Info.AllocationUsage]
     var attributeUsages = HashSMap.empty[String, Info.AttributeUsage]
     var connectionUsages = HashSMap.empty[String, Info.ConnectionUsage]
     var itemUsages = HashSMap.empty[String, Info.ItemUsage]
@@ -341,7 +342,21 @@ object GlobalDeclarationResolver {
 
     for (item <- items) {
       item match {
-        case ast: SysmlAst.AttributeUsage =>
+      case ast: SysmlAst.AllocationUsage =>
+        getId(ast.commonUsageElements.identification, ast.posOpt) match {
+          case (Some(id), posOpt) =>
+            checkId(id, posOpt)
+            allocationUsages = allocationUsages +
+              id ~> Info.AllocationUsage(owner = owner, id = id, scope = scope,
+                ast = ast(commonUsageElements = update(ast.commonUsageElements, id)),
+                srcName = ISZ(),
+                srcAst = None(),
+                dstName = ISZ(),
+                dstAst = None())
+          case _ =>
+          //reporter.warn(ast.posOpt, resolverKind, s"How to handle usages without identification")
+        }
+      case ast: SysmlAst.AttributeUsage =>
           getId(ast.commonUsageElements.identification, ast.posOpt) match {
             case (Some(id), posOpt) =>
               checkId(id, posOpt)
@@ -360,7 +375,7 @@ object GlobalDeclarationResolver {
                   ast = ast(commonUsageElements = update(ast.commonUsageElements, id)),
                   srcAst = None(), dstAst = None())
             case _ =>
-              //reporter.warn(ast.posOpt, resolverKind, s"How to handle usages without identification")
+            //reporter.warn(ast.posOpt, resolverKind, s"How to handle usages without identification")
           }
         case ast: SysmlAst.ItemUsage =>
           getId(ast.commonUsageElements.identification, ast.posOpt) match {
@@ -411,6 +426,7 @@ object GlobalDeclarationResolver {
     }
 
     return TypeInfo.Members(
+      allocationUsages = allocationUsages,
       attributeUsages = attributeUsages,
       connectionUsages = connectionUsages,
       itemUsages = itemUsages,

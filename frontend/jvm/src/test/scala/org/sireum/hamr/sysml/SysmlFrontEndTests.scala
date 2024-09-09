@@ -27,16 +27,26 @@ class SysmlFrontEndTests extends TestSuite {
     "Thread_Properties.sysml",
     "Timing_Properties.sysml")) yield toInput(aadl_library / s)
 
+  val propertySets = for (s <- ISZ(
+    "CASE_Scheduling.sysml")) yield toInput(omgDir / "aadl.property.sets" / s)
 
   def toInput(o: Os.Path): Input = {
     return Input(content = o.read, fileUri = Some(o.toUri))
+  }
+
+  "temp-control-case-omg" in {
+    val root = omg_models / "temp-control-case-omg"
+    val files = Os.Path.walk(root, F, F, x => x.up.name != string"aadl.library" && x.ext.native == "sysml")
+    println(s"Resolving: ${root.toUri}")
+    val inputs: ISZ[Input] = omgDefs ++ propertySets ++ (for(r <- files) yield toInput(r))
+    test(inputs)
   }
 
   "temp-control-mixed-hybrid-omg" in {
     val root = omg_models / "temp-control-mixed-hybrid-omg" / "sysml"
     val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
     println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = omgDefs ++ (for(r <- files) yield toInput(r))
+    val inputs: ISZ[Input] = omgDefs ++ propertySets ++ (for(r <- files) yield toInput(r))
     test(inputs)
   }
 
@@ -44,7 +54,7 @@ class SysmlFrontEndTests extends TestSuite {
     val root = omg_models / "temp-control-periodic-hybrid-omg" / "sysml"
     val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
     println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = omgDefs ++ (for(r <- files) yield toInput(r))
+    val inputs: ISZ[Input] = omgDefs ++ propertySets ++ (for(r <- files) yield toInput(r))
     test(inputs)
   }
 
@@ -52,7 +62,7 @@ class SysmlFrontEndTests extends TestSuite {
     val root = omg_models / "rts-hybrid-omg" / "sysml"
     val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
     println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = omgDefs ++ (for(r <- files) yield toInput(r))
+    val inputs: ISZ[Input] = omgDefs ++ propertySets ++ (for(r <- files) yield toInput(r))
     test(inputs)
   }
 
@@ -60,7 +70,7 @@ class SysmlFrontEndTests extends TestSuite {
     val root = omg_models / "isolette-hybrid-omg"
     val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
     println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = omgDefs ++ (for(r <- files) yield toInput(r))
+    val inputs: ISZ[Input] = omgDefs ++ propertySets ++ (for(r <- files) yield toInput(r))
     test(inputs)
   }
 
@@ -70,7 +80,7 @@ class SysmlFrontEndTests extends TestSuite {
     val root = gumbo_models / "data-invariants"
     val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
     println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = omgDefs ++ (for(r <- files) yield toInput(r))
+    val inputs: ISZ[Input] = omgDefs ++ propertySets ++ (for(r <- files) yield toInput(r))
     test(inputs)
   }
 

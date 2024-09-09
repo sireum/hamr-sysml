@@ -22,8 +22,9 @@
  * DM24-0309
 */
 
-standard library package AADL {
-	
+//standard library package AADL {
+library package AADL {
+
 	enum def ComponentCategory {
 		enum Abstract;
 		enum Bus;

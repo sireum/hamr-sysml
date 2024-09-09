@@ -65,6 +65,8 @@ object Util {
       case SAST.ResolvedInfo.Package(name) => halt("")
       case SAST.ResolvedInfo.Enum(name) => halt("")
       case SAST.ResolvedInfo.EnumElement(owner, name, ordinal) => halt("")
+      case SAST.ResolvedInfo.AllocationUsage(owner, name) =>
+        return Some(AST.ResolvedInfo.Var(isInObject = T, isSpec = F, isVal = T, owner = owner, id = name))
       case SAST.ResolvedInfo.AttributeUsage(owner, name) =>
         return Some(AST.ResolvedInfo.Var(isInObject = T, isSpec = F, isVal = T, owner = owner, id = name))
       case SAST.ResolvedInfo.ConnectionUsage(owner, name) =>

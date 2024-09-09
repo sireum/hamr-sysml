@@ -725,6 +725,9 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           case su10: RuleStructureUsageElement10Context =>
             return visitConnectionUsage(visibility, su10.ruleConnectionUsage())
 
+          case su12: RuleStructureUsageElement12Context =>
+            return visitAllocationUsage(visibility, su12.ruleAllocationUsage())
+
           case x =>
             reportError(x, s"${x.getClass.getSimpleName} are not currently supported")
             return Placeholders.OccurrenceUsageElementPlaceholder
@@ -794,6 +797,69 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         attr = toResolvedAttr(o)))
 
   }
+
+  /*
+   * ruleAllocationUsage: ruleOccurrenceUsagePrefix ruleAllocationUsageDeclaration ruleUsageBody;
+   *
+   * ruleAllocationUsageDeclaration:
+   *     ruleAllocationUsageKeyword ruleUsageDeclaration? (ruleAllocateKeyword ruleConnectorPart)? #ruleAllocationUsageDeclaration1
+   *   | ruleAllocateKeyword ruleConnectorPart #ruleAllocationUsageDeclaration2;
+
+   */
+  def visitAllocationUsage(visibility: Visibility.Type, o: SysMLv2Parser.RuleAllocationUsageContext): AllocationUsage = {
+    val occurrenceUsagePrefix: OccurrenceUsagePrefix = visitOccurrenceUsagePrefix(o.ruleOccurrenceUsagePrefix())
+
+    val (id, specs, connectorPart) :  (Option[Identification], ISZ[FeatureSpecialization], Option[ConnectorPart]) =
+      o.ruleAllocationUsageDeclaration() match {
+      case r1: RuleAllocationUsageDeclaration1Context =>
+        val (identification, specializations): (Option[Identification], ISZ[FeatureSpecialization]) =
+          if (isEmpty(r1.ruleUsageDeclaration())) {
+            (None(), ISZ())
+          } else {
+            visitFeatureDeclaration(r1.ruleUsageDeclaration().ruleFeatureDeclaration())
+          }
+
+        val connectorPart: Option[ConnectorPart] =
+          if (isEmpty(r1.ruleAllocateKeyword())) {
+            assert(isEmpty(r1.ruleConnectorPart()))
+            None()
+          } else {
+            r1.ruleConnectorPart() match {
+              case c1: RuleConnectorPart1Context =>
+                assert(c1.ruleBinaryConnectorPart().ruleConnectorEndMember().size() == 2)
+                val src = visitConnectorEnd(c1.ruleBinaryConnectorPart().ruleConnectorEndMember(0).ruleConnectorEnd())
+                val dst = visitConnectorEnd(c1.ruleBinaryConnectorPart().ruleConnectorEndMember(1).ruleConnectorEnd())
+                Some(BinaryConnectorPart(src, dst))
+              case c2: RuleConnectorPart2Context =>
+                val ends = for (c <- listToISZ(c2.ruleNaryConnectorPart().ruleConnectorEndMember())) yield visitConnectorEnd(c.ruleConnectorEnd())
+                Some(NaryConnectorPart(connectorEnds = ends))
+            }
+          }
+
+        (identification, specializations, connectorPart)
+
+      case r2: RuleAllocationUsageDeclaration2Context =>
+        reportError(r2, "Not currently handling RuleAllocationUsageDeclaration2Context")
+        (None(), ISZ(), None())
+      case _ => halt("Infeasible")
+    }
+
+    val bodyItems = visitDefinitionBody(o.ruleUsageBody().ruleDefinitionBody())
+
+    return AllocationUsage(
+      occurrenceUsagePrefix = occurrenceUsagePrefix,
+      connectorPart = connectorPart,
+
+      commonUsageElements = CommonUsageElements(
+        visibility = visibility,
+        identification = id,
+        specializations = specs,
+        featureValue = None(),
+        definitionBodyItems = bodyItems,
+        tipeOpt = None(),
+        attr = toResolvedAttr(o)))
+  }
+
 
   private def visitConnectorEnd(context: RuleConnectorEndContext): ConnectorEnd = {
     if (nonEmpty(context.ruleName())) {

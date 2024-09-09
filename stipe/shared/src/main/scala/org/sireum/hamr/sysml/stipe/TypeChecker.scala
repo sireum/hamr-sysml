@@ -227,6 +227,39 @@ object TypeChecker {
 
     val newMembers: TypeInfo.Members = updateMembers(newBodyItems, info.members, reporter)
 
+    val allocationUsages: HashSMap[String, Info.AllocationUsage] = {
+      var cus = newMembers.allocationUsages
+      for (e <- newMembers.allocationUsages.entries) {
+        val cu: Info.AllocationUsage = e._2
+        cu.ast.connectorPart match {
+          case Some(b @ SysmlAst.BinaryConnectorPart(src, dst)) =>
+            def resolvePart(connEnd: SysmlAst.ConnectorEnd): Option[Info.PartUsage] = {
+              assert(connEnd.reference.size == 1)
+              val partId = connEnd.reference(connEnd.reference.lastIndex)
+              assert (partId.ids.size == 1)
+              newMembers.partUsages.get(partId.ids(partId.ids.lastIndex).value) match {
+                case Some(p) => return Some(p)
+                case _ =>
+                  reporter.error(connEnd.resOpt.posOpt, TypeChecker.typeCheckerKind, s"'$partId' is not a valid part usage")
+                  return None()
+              }
+            }
+            (resolvePart(src), resolvePart(dst)) match {
+              case (Some(srcInfo), Some(dstInfo)) =>
+                cus = cus + e._1 ~> cu(
+                  srcName = srcInfo.name,
+                  srcAst = Some(srcInfo.ast),
+                  dstName = dstInfo.name,
+                  dstAst = Some(dstInfo.ast)
+                )
+              case _ =>
+            }
+          case _ =>
+        }
+      }
+      cus
+    }
+
     // resolve the connection ends
     val connectionsUsages: HashSMap[String, Info.ConnectionUsage] = {
       var cus = newMembers.connectionUsages
@@ -253,7 +286,8 @@ object TypeChecker {
                           halt("Infeasible")
                       }
                     case x =>
-                      halt(s"Infeasible $x")
+                      reporter.error(receiver.posOpt, TypeChecker.typeCheckerKind, "Could not resolve the receiver's type")
+                      return None()
                   }
                 } else if (connEnd.reference.size == 1) {
                   newMembers.portUsages
@@ -285,7 +319,9 @@ object TypeChecker {
       cus
     }
 
-    val xm = newMembers(connectionUsages = connectionsUsages)
+    val xm = newMembers(
+      allocationUsages = allocationUsages,
+      connectionUsages = connectionsUsages)
     val newInfo = info(
       typeChecked = T,
       ast = info.ast(bodyItems = newBodyItems),
@@ -322,6 +358,7 @@ object TypeChecker {
       }
     }
 
+    add(members.allocationUsages.asInstanceOf[HashSMap[String, Info]])
     add(members.attributeUsages.asInstanceOf[HashSMap[String, Info]])
     add(members.connectionUsages.asInstanceOf[HashSMap[String, Info]])
     add(members.itemUsages.asInstanceOf[HashSMap[String, Info]])
@@ -334,6 +371,7 @@ object TypeChecker {
 
   def updateMembers(newBodyItems: ISZ[SAST.SysmlAst.DefinitionBodyItem], origMembers: TypeInfo.Members, reporter: Reporter): TypeInfo.Members = {
 
+    var allocationUsages: HashSMap[String, Info.AllocationUsage] = origMembers.allocationUsages
     var attributeUsages: HashSMap[String, Info.AttributeUsage] = origMembers.attributeUsages
     var connectionUsages: HashSMap[String, Info.ConnectionUsage] = origMembers.connectionUsages
     var itemUsages: HashSMap[String, Info.ItemUsage] = origMembers.itemUsages
@@ -343,6 +381,11 @@ object TypeChecker {
 
     for (bi <- newBodyItems) {
       bi match {
+        case nast: SAST.SysmlAst.AllocationUsage if nast.commonUsageElements.identification.nonEmpty =>
+          val (id, posOpt) = Util.getId(nast.commonUsageElements.identification, nast.commonUsageElements.specializations, nast.posOpt, TypeChecker.typeCheckerKind, reporter)
+          val bInfo = origMembers.allocationUsages.get(id.get).get
+          allocationUsages = allocationUsages + id.get ~> bInfo(ast = nast)
+
         case nast: SAST.SysmlAst.AttributeUsage if nast.commonUsageElements.identification.nonEmpty =>
           val (id, posOpt) = Util.getId(nast.commonUsageElements.identification, nast.commonUsageElements.specializations, nast.posOpt, TypeChecker.typeCheckerKind, reporter)
           val bInfo = origMembers.attributeUsages.get(id.get).get
@@ -373,10 +416,15 @@ object TypeChecker {
           val bInfo = origMembers.referenceUsages.get(id.get).get
           referenceUsages = referenceUsages + id.get ~> bInfo(ast = nast)
 
+        case x: SAST.SysmlAst.UsageElement if x.commonUsageElements.identification.nonEmpty =>
+          reporter.error(x.posOpt, TypeChecker.typeCheckerKind, s"Need to handle : $x")
+
         case _ =>
+
       }
     }
     return TypeInfo.Members(
+      allocationUsages = allocationUsages,
       attributeUsages = attributeUsages,
       connectionUsages = connectionUsages,
       itemUsages = itemUsages,
@@ -473,6 +521,7 @@ object TypeChecker {
                   }
                 }
                 val resOpt: ResolvedInfo = item match {
+                  case i:SysmlAst.AllocationUsage => ResolvedInfo.AllocationUsage(owner = context, name = id)
                   case i:SysmlAst.AttributeUsage => ResolvedInfo.AttributeUsage(owner = context, name = id)
                   case i:SysmlAst.ReferenceUsage => ResolvedInfo.ReferenceUsage(owner = context, name = id)
                   case i:SysmlAst.ConnectionUsage => ResolvedInfo.ConnectionUsage(owner = context, name = id)
@@ -585,6 +634,20 @@ object TypeChecker {
     }
 
     item match {
+      case item: SysmlAst.AllocationUsage =>
+        item.commonUsageElements.attr.resOpt match {
+          case Some(_: SAST.ResolvedInfo.AllocationUsage) => return item
+          case _ =>
+        }
+        item.connectorPart match {
+          case Some(b @ BinaryConnectorPart(src, dst)) =>
+            return item(commonUsageElements = update(item.commonUsageElements))
+
+          case _ =>
+            reporter.error(item.posOpt, TypeChecker.typeCheckerKind, "Only binary connections are currently supported")
+            return item(commonUsageElements = update(item.commonUsageElements))
+        }
+
       case item: SysmlAst.AttributeUsage =>
         item.commonUsageElements.attr.resOpt match {
           case Some(_: SAST.ResolvedInfo.AttributeUsage) => return item

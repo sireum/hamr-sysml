@@ -1,3 +1,4 @@
+// library package AADL_Project {
 standard library package AADL_Project {
 	
 	// begin proposed additions

@@ -284,6 +284,7 @@ object TypeOutliner {
                               scope: Scope.Local,
                               info: TypeInfo.Members,
                               reporter: Reporter): (TypeInfo.Members, ISZ[SAST.Typed.Name], ISZ[SAST.Type.Named]) = {
+    var allocationUsages = info.allocationUsages
     var attributeUsages = info.attributeUsages
     var connectionUsages = info.connectionUsages
     var itemUsages = info.itemUsages
@@ -308,6 +309,7 @@ object TypeOutliner {
         }
       }
       var ok: B = T
+      ok = ok & check(allocationUsages.asInstanceOf[HashSMap[String, Info.UsageInfo]])
       ok = ok & check(attributeUsages.asInstanceOf[HashSMap[String, Info.UsageInfo]])
       ok = ok & check(connectionUsages.asInstanceOf[HashSMap[String, Info.UsageInfo]])
       ok = ok & check(itemUsages.asInstanceOf[HashSMap[String, Info.UsageInfo]])
@@ -316,6 +318,17 @@ object TypeOutliner {
       return ok
     }
 
+    def inheritAllocationUsages(allocationUsage: Info.AllocationUsage, posOpt: Option[Position]): Unit = {
+      val owner = allocationUsage.owner
+      val id = allocationUsage.id
+      if (allocationUsage.ast.commonUsageElements.visibility != Visibility.Public) {
+        reporter.error(allocationUsage.ast.posOpt, TypeChecker.typeCheckerKind,
+          "Currently only supporting public visibilities")
+      }
+      if (checkInherit(id, owner, posOpt)) {
+        allocationUsages = allocationUsages + id ~> allocationUsage
+      }
+    }
     def inheritAttributeUsages(attributeUsage: Info.AttributeUsage, posOpt: Option[Position]): Unit = {
       val owner = attributeUsage.owner
       val id = attributeUsage.id
@@ -408,6 +421,9 @@ object TypeOutliner {
                     ancestors = ancestors + parentAllocDefAncestor
                   }
 
+                  for (parentAllocationUsage <- parentAllocDef.members.allocationUsages.values) {
+                    inheritAllocationUsages(parentAllocationUsage, posOpt)
+                  }
                   for (parentAttributeUsage <- parentAllocDef.members.attributeUsages.values) {
                     inheritAttributeUsages(parentAttributeUsage, posOpt)
                   }
@@ -434,6 +450,9 @@ object TypeOutliner {
                     ancestors = ancestors + parentAttrDefAncestor
                   }
 
+                  for (parentAllocationUsage <- parentAttrDef.members.allocationUsages.values) {
+                    inheritAllocationUsages(parentAllocationUsage, posOpt)
+                  }
                   for (parentAttributeUsage <- parentAttrDef.members.attributeUsages.values) {
                     inheritAttributeUsages(parentAttributeUsage, posOpt)
                   }
@@ -461,6 +480,9 @@ object TypeOutliner {
                     ancestors = ancestors + parentConnDefAncestor
                   }
 
+                  for (parentAllocationUsage <- parentConnDef.members.allocationUsages.values) {
+                    inheritAllocationUsages(parentAllocationUsage, posOpt)
+                  }
                   for (parentAttributeUsage <- parentConnDef.members.attributeUsages.values) {
                     inheritAttributeUsages(parentAttributeUsage, posOpt)
                   }
@@ -494,6 +516,9 @@ object TypeOutliner {
                     ancestors = ancestors + parentPartDefAncestor
                   }
 
+                  for (parentAllocationUsage <- parentPartDef.members.allocationUsages.values) {
+                    inheritAllocationUsages(parentAllocationUsage, posOpt)
+                  }
                   for (parentAttributeUsage <- parentPartDef.members.attributeUsages.values) {
                     inheritAttributeUsages(parentAttributeUsage, posOpt)
                   }
@@ -520,6 +545,9 @@ object TypeOutliner {
                     ancestors = ancestors + parentPortDefAncestor
                   }
 
+                  for (parentAllocationUsage <- parentPortDef.members.allocationUsages.values) {
+                    inheritAllocationUsages(parentAllocationUsage, posOpt)
+                  }
                   for (parentAttributeUsage <- parentPortDef.members.attributeUsages.values) {
                     inheritAttributeUsages(parentAttributeUsage, posOpt)
                   }
@@ -550,6 +578,7 @@ object TypeOutliner {
     }
 
     return (TypeInfo.Members(
+      allocationUsages = allocationUsages,
       attributeUsages = attributeUsages,
       connectionUsages = connectionUsages,
       itemUsages = itemUsages,
@@ -561,6 +590,7 @@ object TypeOutliner {
   }
 
   def outlineMembers(info: TypeInfo.Members, scope: Scope.Local, reporter: Reporter): TypeInfo.Members = {
+    var allocationUsages = HashSMap.empty[String, Info.AllocationUsage]
     var attributeUsages = HashSMap.empty[String, Info.AttributeUsage]
     var connectionUsages = HashSMap.empty[String, Info.ConnectionUsage]
     var itemUsages = HashSMap.empty[String, Info.ItemUsage]
@@ -571,7 +601,8 @@ object TypeOutliner {
 
     def isDeclared(id: String): B = {
       return (
-        attributeUsages.contains(id) ||
+        allocationUsages.contains(id) ||
+          attributeUsages.contains(id) ||
           connectionUsages.contains(id) ||
           itemUsages.contains(id) ||
           partUsages.contains(id) ||
@@ -607,6 +638,27 @@ object TypeOutliner {
 
     def update(elements: SAST.SysmlAst.CommonUsageElements, tipeOpt: Type, tipedOpt: Option[SAST.Typed]): SAST.SysmlAst.CommonUsageElements = {
       return elements(tipeOpt = Some(tipeOpt), attr = elements.attr(typedOpt = tipedOpt))
+    }
+
+    def checkAllocationUsage(aInfo: Info.AllocationUsage): Unit = {
+      val ast = aInfo.ast
+      val id = aInfo.id
+      if (isDeclared(id)) {
+        reporter.error(ast.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
+      }
+      // NOTE: this is bit different than slang as usage like entities (e.g. vars)
+      // will have their tipeOpt field populated during AST building. For sysml
+      // the type maps are built first and then the usage's specializations are
+      // used to lookup up the usage's type (and then build the typed info) so
+      // this is when tipeOpt fields are populated
+      val tipeOpt = getType(aInfo.id, aInfo.posOpt, ast.commonUsageElements.specializations, scope)
+      tipeOpt match {
+        case Some(tipe) =>
+          allocationUsages = allocationUsages + id ~>
+            aInfo(
+              ast = ast(commonUsageElements = update(ast.commonUsageElements, tipe, tipe.typedOpt)))
+        case _ =>
+      }
     }
 
     def checkAttributeUsage(aInfo: Info.AttributeUsage): Unit = {
@@ -735,6 +787,10 @@ object TypeOutliner {
       }
     }
 
+    for (p <- info.allocationUsages.values) {
+      checkAllocationUsage(p)
+    }
+
     for (p <- info.attributeUsages.values) {
       checkAttributeUsage(p)
     }
@@ -760,6 +816,7 @@ object TypeOutliner {
     }
 
     return TypeInfo.Members(
+      allocationUsages = allocationUsages,
       attributeUsages = attributeUsages,
       connectionUsages = connectionUsages,
       itemUsages = itemUsages,

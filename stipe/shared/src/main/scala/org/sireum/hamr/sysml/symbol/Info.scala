@@ -358,6 +358,27 @@ object Info {
     //}
   }
 
+  @datatype class AllocationUsage(val owner: ISZ[String],
+                                  val id: String,
+                                  val scope: Scope,
+                                  val ast: SAST.SysmlAst.AllocationUsage,
+
+                                  val srcName: ISZ[String],
+                                  val srcAst: Option[SAST.SysmlAst.PartUsage],
+
+                                  val dstName: ISZ[String],
+                                  val dstAst: Option[SAST.SysmlAst.PartUsage]) extends UsageInfo {
+    @strictpure def posOpt: Option[Position] = ast.commonUsageElements.attr.posOpt
+
+    @pure def name: ISZ[String] = {
+      return owner :+ id
+    }
+
+    //@pure def resOpt: Option[SAST.ResolvedInfo] = {
+    //  return ast.commonUsageElements.attr.resOpt
+    //}
+  }
+
   @datatype class ConnectionUsage(val owner: ISZ[String],
                                   val id: String,
                                   val scope: Scope,
@@ -568,17 +589,19 @@ object TypeInfo {
   }
 
   object Members {
-    @strictpure def empty: Members = Members(HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty)
+    @strictpure def empty: Members = Members(HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty)
   }
 
-  @datatype class Members(val attributeUsages: HashSMap[String, Info.AttributeUsage],
+  @datatype class Members(val allocationUsages: HashSMap[String, Info.AllocationUsage],
+                          val attributeUsages: HashSMap[String, Info.AttributeUsage],
                           val connectionUsages: HashSMap[String, Info.ConnectionUsage],
                           val itemUsages: HashSMap[String, Info.ItemUsage],
                           val partUsages: HashSMap[String, Info.PartUsage],
                           val portUsages: HashSMap[String, Info.PortUsage],
                           val referenceUsages: HashSMap[String, Info.ReferenceUsage]) {
     @strictpure def isEmpty: B =
-      attributeUsages.isEmpty &&
+      allocationUsages.isEmpty &&
+        attributeUsages.isEmpty &&
         connectionUsages.isEmpty &&
         itemUsages.isEmpty &&
         partUsages.isEmpty &&

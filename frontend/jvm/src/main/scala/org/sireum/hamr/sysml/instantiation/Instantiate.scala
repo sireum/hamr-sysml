@@ -17,6 +17,8 @@ object Instantiate {
 
   def instantiate(topUnits: ISZ[SysmlAst.TopUnit], typeHierarchy: TypeHierarchy, reporter: Reporter): (Option[(TypeHierarchy, ISZ[(Aadl, Option[Position])])]) = {
 
+    var actualProcessorBindings: HashMap[ISZ[String], ir.Property] = HashMap.empty
+
     var dataComponents: Map[ISZ[String], ir.Component] = Map.empty
 
     def getDefinition(t: Typed): Option[TypeInfo.DefinitionTypeInfo] = {
@@ -47,6 +49,8 @@ object Instantiate {
         val projRoot = getPath(sysRoot.posOpt)
 
         addDatatypes(projRoot.get.up)
+
+        actualProcessorBindings = HashMap.empty
 
         val rootIdName = st"${sysRoot.id}_Instance".render
         val system = instantiateComponent(sysRoot, F, ISZ(rootIdName), sysRoot.posOpt)
@@ -147,6 +151,8 @@ object Instantiate {
         }
         ret
       }
+
+      processActualProcessorBindings(idPath, p.members.allocationUsages)
 
       var subcomponents: ISZ[ir.Component] = ISZ()
       for (member <- members) {
@@ -270,7 +276,7 @@ object Instantiate {
       val (properties, annexes): (ISZ[ir.Property], ISZ[ir.Annex]) = p match {
         case t: TypeInfo.PartDefinition =>
 
-          val properties_ : ISZ[ir.Property] = processProperties(t)
+          val properties_ : ISZ[ir.Property] = processProperties(t) ++ getActualProcessorBindings(idPath)
 
           val annexes_ : ISZ[ir.Annex] = {
             var as: ISZ[ir.Annex] = ISZ()
@@ -308,6 +314,40 @@ object Instantiate {
         uriFrag = "")
     }
 
+    def getActualProcessorBindings(ids: ISZ[String]): ISZ[ir.Property] = {
+      var ret: ISZ[Property] = ISZ()
+      var currentPath = ISZ[String]()
+      for (id <- ids) {
+        currentPath = currentPath :+ id
+        actualProcessorBindings.get(currentPath) match {
+          case Some(p) => ret = ret :+ p
+          case _ =>
+        }
+      }
+      return ret
+    }
+
+    def processActualProcessorBindings(idPath: ISZ[String], allocationUsages: HashSMap[String, Info.AllocationUsage]): Unit = {
+      for (au <- allocationUsages.entries) {
+        au._2.ast.commonUsageElements.tipeOpt match {
+          case Some(t: Type.Named) if (Util.ids2string(t.name.ids)) == ISZ("Deployment_Properties", "Actual_Processor_Binding") =>
+            (au._2.srcAst, au._2.dstAst) match {
+              case (Some(src), Some(dst)) =>
+                val srcPath = idPath :+ au._2.srcName(au._2.srcName.lastIndex)
+                val dstPath = idPath :+ au._2.dstName(au._2.dstName.lastIndex)
+                val prop = ir.Property(
+                  name = ir.Name(ISZ("Deployment_Properties::Actual_Processor_Binding"), au._2.posOpt),
+                  propertyValues = ISZ(ir.ReferenceProp(value = ir.Name(dstPath, au._2.posOpt))),
+                  appliesTo = ISZ())
+                actualProcessorBindings = actualProcessorBindings + srcPath ~> prop
+              case _ =>
+                reporter.error(au._2.posOpt, Instantiate.instantiatorKey, "Did not resolve one of the part usages")
+            }
+            assert (T)
+          case _ =>
+        }
+      }
+    }
 
     def processProperties(ti: TypeInfo.PartDefinition): ISZ[ir.Property] = {
       var props: ISZ[ir.Property] = ISZ()
@@ -346,8 +386,11 @@ object Instantiate {
                               }
 
                             ISZ(ir.UnitProp(value = inPs.string, unit = Some("ps")))
+                          case l: AST.Exp.LitZ =>
+                            ISZ(ir.UnitProp(value = l.value.string, unit = None()))
                           case x =>
-                            halt ("Unexpected expresion: $x")
+                            val t = x
+                            halt (s"Unexpected expression: $x")
                         }
                       }
                       props = props :+ ir.Property(
