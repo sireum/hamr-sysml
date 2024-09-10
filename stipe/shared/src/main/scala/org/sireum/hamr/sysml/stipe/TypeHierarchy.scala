@@ -21,7 +21,7 @@ object TypeHierarchy {
           scope.resolveType(typeMap, name) match {
             case Some(ti) => name = ti.name
             case _ =>
-              reporter.error(t.name.posOpt, resolverKind, st"Could not resolve type named '${(name, ".")}'.'".render)
+              reporter.error(t.name.posOpt, resolverKind, st"Could not resolve type named '${(name, "::")}'.'".render)
           }
           return SAST.Typed.Name(name)
       }
@@ -52,7 +52,7 @@ object TypeHierarchy {
               name = parentName,
               attr = SAST.TypedAttr(parentName.posOpt, Some(typed)))
           case _ =>
-            reporter.error(posOpt, TypeHierarchy.resolverKind, s"Could not resolve type ${pName}")
+            reporter.error(posOpt, TypeHierarchy.resolverKind, st"Could not resolve type named '${(pName, "::")}'".render)
         }
       }
       return ret

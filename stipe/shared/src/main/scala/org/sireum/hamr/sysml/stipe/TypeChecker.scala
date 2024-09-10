@@ -504,7 +504,7 @@ object TypeChecker {
                                       halt("Infeasible: parent usages must have been typed by now")
                                   }
                                 case _ =>
-                                  reporter.error(redefinedTypeName.posOpt, TypeChecker.typeCheckerKind, st"Could not resolve type ${(Util.ids2string(redefinedTypeName.ids), "::")}".render)
+                                  reporter.error(redefinedTypeName.posOpt, TypeChecker.typeCheckerKind, st"Could not resolve type name '${(Util.ids2string(redefinedTypeName.ids), "::")}''".render)
                                   None()
                               }
                             case _ =>

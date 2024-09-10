@@ -166,7 +166,7 @@ object SysmlFrontEndTests {
     runTranspiler = F,
     camkesOutputDir = None(),
     camkesAuxCodeDirs = ISZ(),
-    aadlRootDir = None(),
+    workspaceRootDir = None(),
     experimentalOptions = ISZ()
   )
 }
