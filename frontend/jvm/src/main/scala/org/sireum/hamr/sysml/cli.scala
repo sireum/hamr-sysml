@@ -134,9 +134,6 @@ object cli {
       Opt(name = "parseableMessages", longKey = "parseable-messages", shortKey = None(),
         tpe = Type.Flag(F),
         description = "Print parseable file messages"),
-      Opt(name = "properties", longKey = "properties", shortKey = Some('p'),
-        tpe = Type.Path(multiple = F, default = None()),
-        description = "Options .properties file"),
       Opt(name = "target", longKey = "target", shortKey = Some('t'),
         tpe = Type.Choice(name = "platform", sep = None(), elements = ISZ("JVM", "macOS", "Linux", "Cygwin", "seL4", "seL4_Only", "seL4_TB")),
         description = "Target platform")
