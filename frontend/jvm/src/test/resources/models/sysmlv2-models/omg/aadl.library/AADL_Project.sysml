@@ -1,6 +1,6 @@
-// library package AADL_Project {
-standard library package AADL_Project {
-	
+//standard library package AADL_Project {
+library package AADL_Project {
+
 	// begin proposed additions
 	enum def Supported_Dispatch_Protocols {
 		/* Periodic, Sporadic, Aperiodic, Timed, Hybrid, Background, <project-specified> */
