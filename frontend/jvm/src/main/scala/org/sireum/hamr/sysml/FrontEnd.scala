@@ -3,7 +3,7 @@ package org.sireum.hamr.sysml
 
 import org.sireum._
 import org.sireum.hamr.codegen.common.symbols.{AadlPort, AadlThread, GclAnnexClauseInfo}
-import org.sireum.hamr.codegen.common.util.{CodeGenConfig, CodeGenIpcMechanism, CodeGenPlatform, ModelUtil}
+import org.sireum.hamr.codegen.common.util.{CodeGenConfig, CodeGenIpcMechanism, CodeGenPlatform, CodegenLaunchCodeLanguage, CodegenNodesCodeLanguage, ModelUtil}
 import org.sireum.hamr.ir
 import org.sireum.hamr.ir.SysmlAst.TopUnit
 import org.sireum.hamr.ir.instantiation.ConnectionInstantiator
@@ -242,12 +242,14 @@ object FrontEnd {
       runtimeMonitoring = F,
       verbose = F,
       platform = CodeGenPlatform.JVM,
+      //
       slangOutputDir = None(),
       packageName = None(),
       noProyekIve = T,
       noEmbedArt = F,
       devicesAsThreads = T,
       genSbtMill = T,
+      //
       slangAuxCodeDirs = ISZ(),
       slangOutputCDir = None(),
       excludeComponentImpl = F,
@@ -255,9 +257,17 @@ object FrontEnd {
       maxStringSize = 256,
       maxArraySize = 1,
       runTranspiler = F,
+      //
       camkesOutputDir = None(),
       camkesAuxCodeDirs = ISZ(),
       workspaceRootDir = None(),
+      //
+      strictAadlMode = F,
+      ros2OutputWorkspaceDir = None(),
+      ros2Dir = None(),
+      ros2NodesLanguage = CodegenNodesCodeLanguage.Cpp,
+      ros2LaunchLanguage = CodegenLaunchCodeLanguage.Xml,
+      //
       experimentalOptions = ISZ()
     )
 

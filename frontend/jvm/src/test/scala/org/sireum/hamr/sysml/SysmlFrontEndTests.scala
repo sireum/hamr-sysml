@@ -1,7 +1,7 @@
 package org.sireum.hamr.sysml
 
 import org.sireum._
-import org.sireum.hamr.codegen.common.util.{CodeGenConfig, CodeGenIpcMechanism, CodeGenPlatform}
+import org.sireum.hamr.codegen.common.util.{CodeGenConfig, CodeGenIpcMechanism, CodeGenPlatform, CodegenLaunchCodeLanguage, CodegenNodesCodeLanguage}
 import org.sireum.hamr.sysml.FrontEnd.Input
 import org.sireum.message.Reporter
 import org.sireum.test.TestSuite
@@ -151,12 +151,14 @@ object SysmlFrontEndTests {
     runtimeMonitoring = F,
     verbose = F,
     platform = CodeGenPlatform.JVM,
+    //
     slangOutputDir = None(),
     packageName = None(),
     noProyekIve = T,
     noEmbedArt = F,
     devicesAsThreads = T,
     genSbtMill = T,
+    //
     slangAuxCodeDirs = ISZ(),
     slangOutputCDir = None(),
     excludeComponentImpl = F,
@@ -164,9 +166,17 @@ object SysmlFrontEndTests {
     maxStringSize = 256,
     maxArraySize = 1,
     runTranspiler = F,
+    //
     camkesOutputDir = None(),
     camkesAuxCodeDirs = ISZ(),
     workspaceRootDir = None(),
+    //
+    strictAadlMode = F,
+    ros2OutputWorkspaceDir = None(),
+    ros2Dir = None(),
+    ros2NodesLanguage = CodegenNodesCodeLanguage.Cpp,
+    ros2LaunchLanguage = CodegenLaunchCodeLanguage.Xml,
+    //
     experimentalOptions = ISZ()
   )
 }
