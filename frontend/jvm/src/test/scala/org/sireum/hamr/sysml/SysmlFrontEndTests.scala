@@ -1,8 +1,8 @@
 package org.sireum.hamr.sysml
 
 import org.sireum._
-import org.sireum.hamr.codegen.common.util.{CodeGenConfig, CodeGenIpcMechanism, CodeGenPlatform, CodegenLaunchCodeLanguage, CodegenNodesCodeLanguage}
 import org.sireum.hamr.sysml.FrontEnd.Input
+import org.sireum.hamr.codegen.common.util.HamrCli.{CodegenHamrPlatform, CodegenLaunchCodeLanguage, CodegenNodesCodeLanguage, CodegenOption}
 import org.sireum.message.Reporter
 import org.sireum.test.TestSuite
 import sysml.TestUtil
@@ -144,13 +144,14 @@ class SysmlFrontEndTests extends TestSuite {
 }
 
 object SysmlFrontEndTests {
-  val baseOptions = CodeGenConfig(
-    writeOutResources = T,
-    ipc = CodeGenIpcMechanism.SharedMemory,
-
-    runtimeMonitoring = F,
+  val baseOptions = CodegenOption(
+    help = "",
+    args = ISZ(),
+    msgpack = F,
     verbose = F,
-    platform = CodeGenPlatform.JVM,
+    runtimeMonitoring = F,
+    platform = CodegenHamrPlatform.JVM,
+    parseableMessages = F,
     //
     slangOutputDir = None(),
     packageName = None(),

@@ -3,7 +3,8 @@ package org.sireum.hamr.sysml
 
 import org.sireum._
 import org.sireum.hamr.codegen.common.symbols.{AadlPort, AadlThread, GclAnnexClauseInfo}
-import org.sireum.hamr.codegen.common.util.{CodeGenConfig, CodeGenIpcMechanism, CodeGenPlatform, CodegenLaunchCodeLanguage, CodegenNodesCodeLanguage, ModelUtil}
+import org.sireum.hamr.codegen.common.util.HamrCli.{CodegenHamrPlatform, CodegenLaunchCodeLanguage, CodegenNodesCodeLanguage, CodegenOption}
+import org.sireum.hamr.codegen.common.util.ModelUtil
 import org.sireum.hamr.ir
 import org.sireum.hamr.ir.SysmlAst.TopUnit
 import org.sireum.hamr.ir.instantiation.ConnectionInstantiator
@@ -234,14 +235,15 @@ object FrontEnd {
   }
 
   // TODO: remove instantiator's dependence on codegen's options
-  val baseOptions: CodeGenConfig =
-    CodeGenConfig(
-      writeOutResources = T,
-      ipc = CodeGenIpcMechanism.SharedMemory,
-
-      runtimeMonitoring = F,
+  val baseOptions: CodegenOption =
+    CodegenOption(
+      help = "",
+      args = ISZ(),
+      msgpack = F,
       verbose = F,
-      platform = CodeGenPlatform.JVM,
+      runtimeMonitoring = F,
+      platform = CodegenHamrPlatform.JVM,
+      parseableMessages = F,
       //
       slangOutputDir = None(),
       packageName = None(),
