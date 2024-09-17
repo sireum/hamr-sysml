@@ -1,5 +1,6 @@
 // @ HAMR: --slang-output-dir hamr/slang --package-name tc --platform seL4 --output-c-dir hamr/c --camkes-output-dir hamr/camkes
-//@ HAMR: --platform microkit --camkes-output-dir hamr/camkes
+//@ HAMR: --platform Microkit --camkes-output-dir --camkes-output-dir microkit
+
 
 // codegen will write out to the workspace root dir if output-dir is not set.
 // The option can be relative to the workspace (above) or absolute
@@ -39,7 +40,7 @@ package TempControlAadl {
   }
 
   part def TempControlProcessor :> Processor {
-    attribute framePeriod: Timing_Properties::Clock_Period = 1000 [millisecond];
+    attribute framePeriod: Timing_Properties::Frame_Period = 1000 [millisecond];
     attribute clockPeriod: Timing_Properties::Clock_Period = 2 [millisecond];
   }
 
@@ -109,7 +110,7 @@ package TempControlAadl {
 
       integration
         assume currentTempRange:
-          (currentTemp.degrees >= -70.0[f32]) & (currentTemp.degrees <= 80.0[f32]);
+          (currentTemp.degrees >= 70.0[f32]) & (currentTemp.degrees <= 80.0[f32]);
 
       initialize
         modifies (latestFanCmd);
