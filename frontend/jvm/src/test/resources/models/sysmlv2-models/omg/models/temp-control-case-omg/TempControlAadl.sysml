@@ -1,5 +1,5 @@
 // @ HAMR: --slang-output-dir hamr/slang --package-name tc --platform seL4 --output-c-dir hamr/c --camkes-output-dir hamr/camkes
-//@ HAMR: --platform Microkit --camkes-output-dir --camkes-output-dir microkit
+//@ HAMR: --platform Microkit --camkes-output-dir microkit
 
 
 // codegen will write out to the workspace root dir if output-dir is not set.
