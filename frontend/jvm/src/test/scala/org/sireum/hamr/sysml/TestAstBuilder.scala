@@ -1,4 +1,4 @@
-package sysml
+package org.sireum.hamr.sysml
 
 import org.sireum._
 import org.sireum.hamr.sysml.parser.SysMLParser

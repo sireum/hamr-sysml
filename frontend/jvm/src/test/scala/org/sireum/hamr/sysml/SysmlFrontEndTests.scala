@@ -5,7 +5,6 @@ import org.sireum.hamr.sysml.FrontEnd.Input
 import org.sireum.hamr.codegen.common.util.HamrCli.{CodegenHamrPlatform, CodegenLaunchCodeLanguage, CodegenNodesCodeLanguage, CodegenOption}
 import org.sireum.message.Reporter
 import org.sireum.test.TestSuite
-import sysml.TestUtil
 
 class SysmlFrontEndTests extends TestSuite {
 
