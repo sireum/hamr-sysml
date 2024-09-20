@@ -41,7 +41,7 @@ package TempControlAadl {
 
   part def TempControlProcessor :> Processor {
     attribute framePeriod: Timing_Properties::Frame_Period = 1000 [millisecond];
-    attribute clockPeriod: Timing_Properties::Clock_Period = 2 [millisecond];
+    attribute clockPeriod: Timing_Properties::Clock_Period = 1 [millisecond];
   }
 
   part def TempSensorProcess :> Process {
@@ -64,6 +64,7 @@ package TempControlAadl {
   
     attribute :>> Dispatch_Protocol = Supported_Dispatch_Protocols::Periodic;
     attribute :>> Period = 1000 [millisecond];
+    attribute :>> Compute_Execution_Time = 100 [millisecond] .. 100 [millisecond];
 
     language "GUMBO" /*{
       integration
@@ -102,6 +103,7 @@ package TempControlAadl {
 
     attribute :>> Dispatch_Protocol = Supported_Dispatch_Protocols::Periodic;
     attribute :>> Period = 1000 [millisecond];
+    attribute :>> Compute_Execution_Time = 100 [millisecond] .. 100 [millisecond];
 
     language "GUMBO" /*{
 
@@ -185,6 +187,7 @@ package TempControlAadl {
     
     attribute :>> Dispatch_Protocol = Supported_Dispatch_Protocols::Periodic;
     attribute :>> Period = 1000 [millisecond];
+    attribute :>> Compute_Execution_Time = 100 [millisecond] .. 100 [millisecond];
   }
 
   part def OperatorInterfaceProcess :> Process {
@@ -206,6 +209,7 @@ package TempControlAadl {
   
     attribute :>> Dispatch_Protocol = Supported_Dispatch_Protocols::Periodic;
     attribute :>> Period = 1000 [millisecond];
+    attribute :>> Compute_Execution_Time = 100 [millisecond] .. 100 [millisecond];
   }
 
   // Data Types

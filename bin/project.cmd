@@ -25,17 +25,18 @@ val sysml = "sysml"
 val parser = "parser"
 val air = "hamr-air"
 val air_shared = "hamr-air-shared"
-val ast = "ast"
 val frontend = "frontend"
-val slangTipe = "slang-tipe"
 val stipe = "stipe"
 val hamr_common_shared = "hamr-common-shared"
+val library = "library"
 
 val homeDir = Os.slashDir.up.canon
 
-val sysmlParserJvm = moduleJvmPub(
-  id = s"$hamr-$sysml-$parser",
+val sysmlParserSharedJvm = moduleSharedJvmPub(
+  baseId = s"$hamr-$sysml-$parser",
   baseDir = homeDir / parser,
+  sharedDeps = sharedId(library),
+  sharedIvyDeps = ISZ(),
   jvmDeps = ISZ(parser, air),
   jvmIvyDeps = ISZ("org.sireum:hamr-sysml-parser:"),
   pubOpt = pub(
@@ -49,7 +50,7 @@ val sysmlParserJvm = moduleJvmPub(
 val sysmlStipeShared = moduleSharedPub(
   id = s"$hamr-$sysml-$stipe",
   baseDir = homeDir / stipe,
-  sharedDeps = ISZ(air_shared),
+  sharedDeps = ISZ(air_shared, sysmlParserSharedJvm._1.id),
   sharedIvyDeps = ISZ(),
   pubOpt = pub(
     desc = "Sireum HAMR SysML Type",
@@ -62,7 +63,7 @@ val sysmlStipeShared = moduleSharedPub(
 val sysmlFrontend = moduleJvmPub(
   id = s"$hamr-$sysml-$frontend",
   baseDir = homeDir / frontend,
-  jvmDeps = ISZ(sysmlParserJvm.id, sysmlStipeShared.id, hamr_common_shared),
+  jvmDeps = ISZ(sysmlParserSharedJvm._2.id, sysmlStipeShared.id, hamr_common_shared),
   jvmIvyDeps = ISZ(),
   pubOpt = pub(
     desc = "Sireum HAMR SysML Frontend",
@@ -71,6 +72,6 @@ val sysmlFrontend = moduleJvmPub(
     devs = ISZ(jasonBelt)
   )
 )
-val project = Project.empty + sysmlParserJvm + sysmlStipeShared + sysmlFrontend
+val project = Project.empty + sysmlParserSharedJvm._1 + sysmlParserSharedJvm._2 + sysmlStipeShared + sysmlFrontend
 
 projectCli(Os.cliArgs, project)

@@ -1593,7 +1593,15 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     val lhs = visitAdditiveExpression(o.ruleAdditiveExpression(0))
 
     if (o.ruleAdditiveExpression().size() > 1) {
-      reportError(o, "Range expressions are not currently handled")
+      val rhs = visitAdditiveExpression(o.ruleAdditiveExpression(1))
+
+      val ident = AST.Exp.Ident(id = AST.Id(value = UIF.RangeExpression, attr = toSlangAttr(o)), attr = toSlangResolvedAttr(o))
+      return AST.Exp.Invoke(
+        receiverOpt = None(),
+        ident = ident,
+        targs = ISZ(),
+        args = ISZ(lhs, rhs),
+        attr = toSlangResolvedAttr(o))
     }
 
     return lhs

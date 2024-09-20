@@ -12,6 +12,7 @@ import org.sireum.lang.ast.Exp
 import org.sireum.lang.{ast => AST}
 import org.sireum.message.{Message, Position, Reporter}
 import TypeChecker._
+import org.sireum.hamr.sysml.parser.UIF
 
 object TypeChecker {
 
@@ -853,6 +854,19 @@ object TypeChecker {
 
           val r = checkInvokeH(typedOpt, resOpt, Some(newReceiver), iexp)
           return r
+
+        case _ if UIF.isUif(invokeExp.ident.id.value) =>
+          invokeExp.ident.id.value match {
+            case UIF.RangeExpression =>
+              invokeExp.args match {
+                case ISZ(lhs, rhs) =>
+                  val lhsr = checkExp(None(), scope, lhs, reporter)
+                  val rhsr = checkExp(None(), scope, rhs, reporter)
+                  return (invokeExp(args = ISZ(lhsr._1, rhsr._1)), None())
+                case _ => halt("Infeasible")
+              }
+            case x => halt(s"TODO: need to handle UIF $x")
+          }
 
         case _ =>
           val (typedOpt, resOpt) = checkId(scope, invokeExp.ident.id, reporter)

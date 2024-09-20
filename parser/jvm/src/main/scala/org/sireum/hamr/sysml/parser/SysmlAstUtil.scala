@@ -3,7 +3,6 @@ package org.sireum.hamr.sysml.parser
 import org.sireum._
 import org.sireum.hamr.sysml.parser.{SysMLv2Parser => Sysml}
 
-
 object SysmlAstUtil {
 
   def isRegularComment(context: Sysml.RuleAnnotatingElementContext): B = {
