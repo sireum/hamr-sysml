@@ -1,7 +1,9 @@
 #include "../../../include/printf.h"
 #include "tsp_tempSensor.h"
 
-int temp = 70;
+struct base_TempControlAadl_Temperature temp = { .degrees = 72.0, .unit = Fahrenheit };
+
+//int temp = 70;
 int incr = 2;
 
 void tsp_tempSensor_initialize(void) {
@@ -15,10 +17,10 @@ void tsp_tempSensor_timeTriggered() {
   // add compute phase code here
   //printf("%s: timeTriggered\n", microkit_name);
 
-  temp = temp + incr;
-  if (temp > 80) {
+  temp.degrees = temp.degrees + incr;
+  if (temp.degrees > 80) {
     incr = -2;
-  } else if (temp < 70) {
+  } else if (temp.degrees < 70) {
     incr = 2;
   }
   putCurrentTemp(&temp);

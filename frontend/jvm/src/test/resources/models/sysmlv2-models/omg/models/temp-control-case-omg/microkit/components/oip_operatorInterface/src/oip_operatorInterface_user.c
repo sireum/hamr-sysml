@@ -10,7 +10,7 @@ void oip_operatorInterface_timeTriggered() {
   // add compute phase code here
   //printf("%s: timeTriggered\n", microkit_name);
 
-  int value;
+  base_TempControlAadl_Temperature value;
   getCurrentTemp(&value);
-  printf("%s: received %d\n", microkit_name, value);
+  printf("%s: received %.2lf\n", microkit_name, value.degrees);
 }

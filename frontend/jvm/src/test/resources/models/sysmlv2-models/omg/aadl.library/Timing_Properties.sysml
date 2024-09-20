@@ -6,7 +6,7 @@
 //standard library package Timing_Properties {
 library package Timing_Properties {
 
-	import AADL_Project::*;
+	private import AADL_Project::*;
 
 	attribute def Compute_Execution_Time :> AADL::Property, Time_Range;
 

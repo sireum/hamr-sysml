@@ -1,7 +1,7 @@
 library package Base_Types {
 
-  import AADL::*;
-  import SI::*;
+  private import AADL::*;
+  private import SI::*;
 
   // TODO: convert Data_Model::Data_Representation properties
 

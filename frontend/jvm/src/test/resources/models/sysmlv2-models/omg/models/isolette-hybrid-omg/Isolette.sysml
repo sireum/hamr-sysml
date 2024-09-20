@@ -17,12 +17,12 @@
 
 package Isolette {
 	
-	import Isolette_Data_Model::*;
-	import Regulate::*;
-	import Monitor::*;
-	import AADL::*;
-	import AADL_Project::*;
-    import AADL_Project::Time_Units::*;
+	private import Isolette_Data_Model::*;
+	private import Regulate::*;
+	private import Monitor::*;
+	private import AADL::*;
+	private import AADL_Project::*;
+    private import AADL_Project::Time_Units::*;
     
 	// top-level system component representing the Isolette
 	part def Isolette :> System {

@@ -6,7 +6,7 @@
 //standard library package Thread_Properties {
 library package Thread_Properties {
 
-	import AADL_Project::*;
+	private import AADL_Project::*;
 
 	attribute def Dispatch_Protocol :> AADL::Property, Supported_Dispatch_Protocols;
 

@@ -3,16 +3,16 @@
 void oip_operatorInterface_initialize(void);
 void oip_operatorInterface_timeTriggered(void);
 
-volatile int *currentTemp;
-volatile int *setPoint;
+volatile base_TempControlAadl_Temperature *currentTemp;
+volatile base_TempControlAadl_SetPoint *setPoint;
 
 #define PORT_FROM_PACER 58
 
-void getCurrentTemp(int *value) {
+void getCurrentTemp(base_TempControlAadl_Temperature *value) {
   *value = *currentTemp;
 }
 
-void putSetPoint(int *value) {
+void putSetPoint(base_TempControlAadl_SetPoint *value) {
   *setPoint = *value;
 }
 

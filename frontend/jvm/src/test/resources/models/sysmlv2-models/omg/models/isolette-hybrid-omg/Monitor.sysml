@@ -1,10 +1,10 @@
 // Monitor.sysml
 package Monitor {
 	
-	import Isolette_Data_Model::*;
-	import AADL::*;
-	import AADL_Project::*;
-    import AADL_Project::Time_Units::*;
+	private import Isolette_Data_Model::*;
+	private import AADL::*;
+	private import AADL_Project::*;
+    private import AADL_Project::Time_Units::*;
 		
 	//A.5.2 Monitor Temperature Function
 	// thread to manage the interactions between with operator interface and the rest

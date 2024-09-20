@@ -2,6 +2,16 @@ ifeq ($(strip $(MICROKIT_SDK)),)
 $(error MICROKIT_SDK must be specified)
 endif
 
+MICROKIT_TOOL ?= $(MICROKIT_SDK)/bin/microkit
+
+ifeq ("$(wildcard $(MICROKIT_TOOL))","")
+$(error Microkit tool not found at ${MICROKIT_TOOL})
+endif
+
+ifeq ($(strip $(MICROKIT_BOARD)),)
+$(error MICROKIT_BOARD must be specified)
+endif
+
 BUILD_DIR ?= build
 # By default we make a debug build so that the client debug prints can be seen.
 MICROKIT_CONFIG ?= debug
@@ -12,8 +22,6 @@ CC := clang
 LD := ld.lld
 AR := llvm-ar
 RANLIB := llvm-ranlib
-
-MICROKIT_TOOL ?= $(MICROKIT_SDK)/bin/microkit
 
 CFLAGS := -mcpu=$(CPU) \
 	-mstrict-align \
@@ -51,39 +59,39 @@ ${CHECK_FLAGS_BOARD_MD5}:
 	touch $@
 
 %.o: ${TOP}/%.c Makefile
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@ -I${TOP}/include
 
-printf.o: ${TOP}/include/printf.c Makefile
-	$(CC) -c $(CFLAGS) $< -o $@
+printf.o: ${TOP}/src/printf.c Makefile
+	$(CC) -c $(CFLAGS) $< -o $@ -I${TOP}/include
 
-util.o: ${TOP}/include/util.c Makefile
-	$(CC) -c $(CFLAGS) $< -o $@
+util.o: ${TOP}/src/util.c Makefile
+	$(CC) -c $(CFLAGS) $< -o $@ -I${TOP}/include
 
 tsp_tempSensor_user.o: ${TOP}/components/tsp_tempSensor/src/tsp_tempSensor_user.c Makefile
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@ -I${TOP}/include -I${TOP}/components/tsp_tempSensor/include
 tsp_tempSensor.o: ${TOP}/components/tsp_tempSensor/src/tsp_tempSensor.c Makefile
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@ -I${TOP}/include -I${TOP}/components/tsp_tempSensor/include
 
 tcp_tempControl_user.o: ${TOP}/components/tcp_tempControl/src/tcp_tempControl_user.c Makefile
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@ -I${TOP}/include -I${TOP}/components/tcp_tempControl/include
 tcp_tempControl.o: ${TOP}/components/tcp_tempControl/src/tcp_tempControl.c Makefile
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@ -I${TOP}/include -I${TOP}/components/tcp_tempControl/include
 
 fp_fan_user.o: ${TOP}/components/fp_fan/src/fp_fan_user.c Makefile
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@ -I${TOP}/include -I${TOP}/components/fp_fan/include
 fp_fan.o: ${TOP}/components/fp_fan/src/fp_fan.c Makefile
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@ -I${TOP}/include -I${TOP}/components/fp_fan/include
 
 oip_operatorInterface_user.o: ${TOP}/components/oip_operatorInterface/src/oip_operatorInterface_user.c Makefile
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@ -I${TOP}/include -I${TOP}/components/oip_operatorInterface/include
 oip_operatorInterface.o: ${TOP}/components/oip_operatorInterface/src/oip_operatorInterface.c Makefile
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@ -I${TOP}/include -I${TOP}/components/oip_operatorInterface/include
 
 pacer.o: ${TOP}/components/pacer/src/pacer.c Makefile
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@ -I${TOP}/include
 
 end_of_frame_component.o: ${TOP}/components/end_of_frame_component/src/end_of_frame_component.c Makefile
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@ -I${TOP}/include
 
 tsp_tempSensor.elf: $(PRINTF_OBJS) tsp_tempSensor_user.o tsp_tempSensor.o
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@

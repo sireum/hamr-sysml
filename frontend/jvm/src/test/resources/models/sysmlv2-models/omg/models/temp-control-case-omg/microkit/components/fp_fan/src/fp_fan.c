@@ -3,17 +3,17 @@
 void fp_fan_initialize(void);
 void fp_fan_timeTriggered(void);
 
-volatile int *fanCmd;
-volatile int *fanAck;
+volatile base_TempControlAadl_FanCmd_Type *fanCmd;
+volatile base_TempControlAadl_FanAck_Type *fanAck;
 
 #define PORT_FROM_PACER 59
 
-void getFanCmd(int *value) {
-  *value = *fanCmd;
+base_TempControlAadl_FanCmd_Type getFanCmd() {
+  return *fanCmd;
 }
 
-void putFanAck(int *value) {
-  *fanAck = *value;
+void putFanAck(base_TempControlAadl_FanAck_Type value) {
+  *fanAck = value;
 }
 
 void init(void) {

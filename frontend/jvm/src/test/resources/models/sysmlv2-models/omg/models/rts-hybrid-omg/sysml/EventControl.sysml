@@ -1,8 +1,8 @@
 package EventControl {
 	
-	import AADL::*;
-	import AADL_Project::*;
-	import AADL_Project::Time_Units::*;
+	private import AADL::*;
+	private import AADL_Project::*;
+	private import AADL_Project::Time_Units::*;
 	
 	part def EventControlMockProcess :> Process {
 		part eventControlMockThread : EventControlMockThread;

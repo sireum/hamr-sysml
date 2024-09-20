@@ -1,5 +1,6 @@
 // @ HAMR: --slang-output-dir hamr/slang --package-name tc --platform seL4 --output-c-dir hamr/c --camkes-output-dir hamr/camkes
-//@ HAMR: --platform Microkit --camkes-output-dir microkit
+// @ HAMR: --platform Microkit --camkes-output-dir microkit
+//@ HAMR: --platform Microkit --camkes-output-dir /Users/belt/devel/sireum/kekinian/hamr/sysml/frontend/jvm/src/test/resources/models/sysmlv2-models/omg/models/temp-control-case-omg/microkit
 
 
 // codegen will write out to the workspace root dir if output-dir is not set.
@@ -7,9 +8,9 @@
 
 package TempControlAadl {
  
-    import AADL::*;
-    import AADL_Project::*;
-    import AADL_Project::Time_Units::*;
+  private import AADL::*;
+  private import AADL_Project::*;
+  private import AADL_Project::Time_Units::*;
 
   language "GUMBO" /*{
     library
@@ -40,8 +41,8 @@ package TempControlAadl {
   }
 
   part def TempControlProcessor :> Processor {
-    attribute framePeriod: Timing_Properties::Frame_Period = 1000 [millisecond];
-    attribute clockPeriod: Timing_Properties::Clock_Period = 1 [millisecond];
+    attribute Frame_Period: Timing_Properties::Frame_Period = 1000 [millisecond];
+    attribute Clock_Period: Timing_Properties::Clock_Period = 1 [millisecond];
   }
 
   part def TempSensorProcess :> Process {
@@ -54,7 +55,7 @@ package TempControlAadl {
     // connections
     connection c0 : PortConnection connect tempSensor.currentTemp to currentTemp;
 
-    attribute domain: CASE_Scheduling::Domain = 2;
+    attribute Domain: CASE_Scheduling::Domain = 2;
   }
   
   // TempSensor Thread
@@ -64,7 +65,7 @@ package TempControlAadl {
   
     attribute :>> Dispatch_Protocol = Supported_Dispatch_Protocols::Periodic;
     attribute :>> Period = 1000 [millisecond];
-    attribute :>> Compute_Execution_Time = 100 [millisecond] .. 100 [millisecond];
+    //attribute :>> Compute_Execution_Time = 100 [millisecond] .. 100 [millisecond];
 
     language "GUMBO" /*{
       integration
@@ -91,7 +92,7 @@ package TempControlAadl {
     connection c2 : PortConnection connect setPoint to tempControl.setPoint;
     connection c3 : PortConnection connect tempControl.fanCmd to fanCmd;
 
-    attribute domain: CASE_Scheduling::Domain = 3;
+    attribute Domain: CASE_Scheduling::Domain = 3;
   }
 
   part def TempControl :> Thread {
@@ -103,7 +104,7 @@ package TempControlAadl {
 
     attribute :>> Dispatch_Protocol = Supported_Dispatch_Protocols::Periodic;
     attribute :>> Period = 1000 [millisecond];
-    attribute :>> Compute_Execution_Time = 100 [millisecond] .. 100 [millisecond];
+    //attribute :>> Compute_Execution_Time = 100[millisecond] .. 100[millisecond];
 
     language "GUMBO" /*{
 
@@ -177,7 +178,7 @@ package TempControlAadl {
     connection c0 : PortConnection connect fanCmd to fan.fanCmd;
     connection c1 : PortConnection connect fan.fanAck to fanAck;
 
-    attribute domain: CASE_Scheduling::Domain = 4;
+    attribute Domain: CASE_Scheduling::Domain = 4;
   }
 
   part def Fan :> Thread {
@@ -187,7 +188,7 @@ package TempControlAadl {
     
     attribute :>> Dispatch_Protocol = Supported_Dispatch_Protocols::Periodic;
     attribute :>> Period = 1000 [millisecond];
-    attribute :>> Compute_Execution_Time = 100 [millisecond] .. 100 [millisecond];
+    //attribute :>> Compute_Execution_Time = 100 [millisecond] .. 100 [millisecond];
   }
 
   part def OperatorInterfaceProcess :> Process {
@@ -199,7 +200,7 @@ package TempControlAadl {
     connection c0 : PortConnection connect currentTemp to operatorInterface.currentTemp;
     connection c1 : PortConnection connect operatorInterface.setPoint to setPoint;
 
-    attribute domain: CASE_Scheduling::Domain = 5;
+    attribute Domain: CASE_Scheduling::Domain = 5;
   }
 
   part def OperatorInterface :> Thread {
@@ -209,7 +210,7 @@ package TempControlAadl {
   
     attribute :>> Dispatch_Protocol = Supported_Dispatch_Protocols::Periodic;
     attribute :>> Period = 1000 [millisecond];
-    attribute :>> Compute_Execution_Time = 100 [millisecond] .. 100 [millisecond];
+    //attribute :>> Compute_Execution_Time = 100 [millisecond] .. 100 [millisecond];
   }
 
   // Data Types

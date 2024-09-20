@@ -2,10 +2,10 @@
 
 package Devices {
 	
-	import Isolette_Data_Model::*;
-	import AADL::*;
-    import AADL_Project::*;
-    import AADL_Project::Time_Units::*;
+	private import Isolette_Data_Model::*;
+	private import AADL::*;
+    private import AADL_Project::*;
+    private import AADL_Project::Time_Units::*;
     	
 	//device Detect_Regulator_Failure
 	//features

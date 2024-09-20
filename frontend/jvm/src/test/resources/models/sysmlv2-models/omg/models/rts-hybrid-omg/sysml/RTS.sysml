@@ -1,10 +1,10 @@
 package RTS {
 	
-	import Actuation::*;
-	import Actuators::*;
-	import EventControl::*;
-	import Instrumentation::*;
-	import AADL::*;
+	private import Actuation::*;
+	private import Actuators::*;
+	private import EventControl::*;
+	private import Instrumentation::*;
+	private import AADL::*;
 	
 	part def RTS :> System {
 		part actuationSubsystem: Actuation::RTSActuation;

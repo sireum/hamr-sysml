@@ -3,27 +3,27 @@
 void tcp_tempControl_initialize(void);
 void tcp_tempControl_timeTriggered(void);
 
-volatile int *currentTemp;
-volatile int *fanAck;
-volatile int *setPoint;
-volatile int *fanCmd;
+volatile base_TempControlAadl_Temperature *currentTemp;
+volatile base_TempControlAadl_FanAck_Type *fanAck;
+volatile base_TempControlAadl_SetPoint *setPoint;
+volatile base_TempControlAadl_FanCmd_Type *fanCmd;
 
 #define PORT_FROM_PACER 60
 
-void getCurrentTemp(int *value) {
+void getCurrentTemp(base_TempControlAadl_Temperature *value) {
   *value = *currentTemp;
 }
 
-void getFanAck(int *value) {
-  *value = *fanAck;
+base_TempControlAadl_FanAck_Type getFanAck() {
+  return *fanAck;
 }
 
-void getSetPoint(int *value) {
+void getSetPoint(base_TempControlAadl_SetPoint *value) {
   *value = *setPoint;
 }
 
-void putFanCmd(int *value) {
-  *fanCmd = *value;
+void putFanCmd(base_TempControlAadl_FanCmd_Type value) {
+  *fanCmd = value;
 }
 
 void init(void) {

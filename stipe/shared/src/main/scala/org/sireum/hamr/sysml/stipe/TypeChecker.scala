@@ -860,9 +860,25 @@ object TypeChecker {
             case UIF.RangeExpression =>
               invokeExp.args match {
                 case ISZ(lhs, rhs) =>
-                  val lhsr = checkExp(None(), scope, lhs, reporter)
-                  val rhsr = checkExp(None(), scope, rhs, reporter)
-                  return (invokeExp(args = ISZ(lhsr._1, rhsr._1)), None())
+                  checkExp(None(), scope, lhs, reporter) match {
+                    case (lhsr, Some(lhst)) =>
+                      checkExp(None(), scope, rhs, reporter) match {
+                        case (rhsr, Some(rhst)) =>
+                          if (lhst != rhst) {
+                            reporter.error(invokeExp.posOpt, TypeChecker.typeCheckerKind,
+                              s"Incompatible types for range construction '$lhst' .. '$rhst'.")
+                            return (invokeExp, None())
+                          }
+                          return (invokeExp(args = ISZ(lhsr, rhsr)), Some(rhst))
+                        case _ =>
+                          reporter.error(lhs.posOpt, TypeChecker.typeCheckerKind, "Could not resolve type of right expression.")
+                          return (invokeExp, None())
+                      }
+                    case _ =>
+                      reporter.error(lhs.posOpt, TypeChecker.typeCheckerKind, "Could not resolve type of left expression.")
+                      return (invokeExp, None())
+                  }
+
                 case _ => halt("Infeasible")
               }
             case x => halt(s"TODO: need to handle UIF $x")
@@ -951,7 +967,7 @@ object TypeChecker {
               !typeHierarchy.isSubType(expected, t)) {
 
               if (!typeHierarchy.mimicSysml(expected, t)) {
-                reporter.error(exp.posOpt, TypeChecker.typeCheckerKind, s"Expecting type '${Util.printTyped(expected)}' but '${Util.printTyped(t)}' found.")
+                reporter.error(exp.posOpt, TypeChecker.typeCheckerKind, st"Expecting type '${Util.printTyped(expected)}' but '${Util.printTyped(t)}' found.".render)
               }
             }
           case _ =>

@@ -3,11 +3,11 @@
 void tsp_tempSensor_initialize(void);
 void tsp_tempSensor_timeTriggered(void);
 
-volatile int *currentTemp;
+volatile base_TempControlAadl_Temperature *currentTemp;
 
 #define PORT_FROM_PACER 61
 
-void putCurrentTemp(int *value) {
+void putCurrentTemp(base_TempControlAadl_Temperature *value) {
   *currentTemp = *value;
 }
 

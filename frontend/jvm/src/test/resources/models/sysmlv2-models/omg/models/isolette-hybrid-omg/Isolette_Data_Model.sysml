@@ -2,9 +2,9 @@
 
 package Isolette_Data_Model {
 	
-	import AADL::*;
-	import Base_Types::*;
-	import ScalarValues::*;
+	private import AADL::*;
+	private import Base_Types::*;
+	private import ScalarValues::*;
 	
 	part def PhysicalTemp :> Data {
 		part degrees : Float_32;

@@ -6,7 +6,7 @@
  //standard library package Deployment_Properties {
  library package Deployment_Properties {
 	
-	import AADL_Project::*;
+	private import AADL_Project::*;
 	
 	allocation def Actual_Processor_Binding {
 		end part sw : AADL::Component; 
