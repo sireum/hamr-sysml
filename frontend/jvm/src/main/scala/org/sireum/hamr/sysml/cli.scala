@@ -138,11 +138,54 @@ object cli {
     groups = ISZ()
   )
 
+  val vscodiumExtensions: ISZ[String] = ISZ(
+    "llvm-vs-code-extensions.vscode-clangd",
+    "mike-lischke.vscode-antlr4",
+    "mads-hartmann.bash-ide-vscode",
+    "dbaeumer.vscode-eslint",
+    "mhutchie.git-graph",
+    "ecmel.vscode-html-css",
+    "kofuk.hugo-utils",
+    "redhat.java",
+    "langium.langium-vscode",
+    "James-Yu.latex-workshop",
+    "jebbs.plantuml",
+    "esbenp.prettier-vscode",
+    "ms-python.python",
+    "rust-lang.rust-analyzer",
+    "scalameta.metals",
+    "mshr-h.veriloghdl",
+    "redhat.vscode-xml",
+    "redhat.vscode-yaml",
+    "adamraichu.zip-viewer"
+  )
+
+  val sysmlSetup: Tool = Tool(
+    name = "setup",
+    command = "setup",
+    description = "HAMR SysMLv2 VSCode setup",
+    header = "Sireum HAMR SysMLv2 VSCode Setup",
+    usage = "<options>*",
+    usageDescOpt = None(),
+    opts = ISZ(
+      Opt(name = "existingInstall", longKey = "existing-install", shortKey = None(),
+        tpe = Type.Path(multiple = F, default = None()),
+        description = "Existing VSCodium/VSCode installation path"),
+      Opt(name = "extensions", longKey = "extensions", shortKey = None(),
+        tpe = Type.Str(sep = Some(','), default = Some(st"${(vscodiumExtensions, ", ")}".render)),
+        description = "List of extensions to be installed (excluding Sireum and SysIDE)"),
+      Opt(name = "extensionsDir", longKey = "extensions-dir", shortKey = None(),
+        tpe = Type.Path(multiple = F, default = None()),
+        description = "Custom VSCodium/VSCode extensions directory")
+    ),
+    groups = ISZ()
+  )
+
   val group: Group = Group(
     name = "sysml",
     description = "SysML v2 Tools",
     header = "Sireum HAMR SysML v2 Tools",
     unlisted = F,
-    subs = ISZ(sysmlCodegen, sysmlConfig, sysmlLogika, sysmlTipe, sysmlTranslator)
+    subs = ISZ(sysmlCodegen, sysmlConfig, sysmlLogika, sysmlSetup, sysmlTipe, sysmlTranslator)
   )
 }
