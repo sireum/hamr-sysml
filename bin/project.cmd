@@ -27,7 +27,7 @@ val air = "hamr-air"
 val air_shared = "hamr-air-shared"
 val frontend = "frontend"
 val stipe = "stipe"
-val hamr_common_shared = "hamr-common-shared"
+val hamr_codegen_shared = "hamr-codegen-shared"
 val library = "library"
 
 val homeDir = Os.slashDir.up.canon
@@ -63,7 +63,7 @@ val sysmlStipeShared = moduleSharedPub(
 val sysmlFrontend = moduleJvmPub(
   id = s"$hamr-$sysml-$frontend",
   baseDir = homeDir / frontend,
-  jvmDeps = ISZ(sysmlParserSharedJvm._2.id, sysmlStipeShared.id, hamr_common_shared),
+  jvmDeps = ISZ(sysmlParserSharedJvm._2.id, sysmlStipeShared.id, hamr_codegen_shared),
   jvmIvyDeps = ISZ(),
   pubOpt = pub(
     desc = "Sireum HAMR SysML Frontend",
