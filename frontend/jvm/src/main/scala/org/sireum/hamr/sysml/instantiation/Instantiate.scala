@@ -42,11 +42,11 @@ object Instantiate {
         return (None())
       }
 
-      val gumboLibraries: ISZ[ir.AnnexLib] = getGumboLibraries()
-
       var aadls: ISZ[(ir.Aadl, Option[Position])] = ISZ()
       for (sysRoot <- systemRoots) {
         val projRoot = getPath(sysRoot.posOpt)
+
+        val gumboLibraries: ISZ[ir.AnnexLib] = getGumboLibraries(projRoot.get.up)
 
         addDatatypes(projRoot.get.up)
 
@@ -63,33 +63,37 @@ object Instantiate {
       return Some((typeHierarchy, aadls))
     }
 
-    def getGumboLibraries(): ISZ[ir.AnnexLib] = {
+    def getGumboLibraries(projRoot: Os.Path): ISZ[ir.AnnexLib] = {
       var gumboLibraries: ISZ[ir.AnnexLib] = ISZ()
       for (t <- topUnits;
            te <- t.packageBodyElements) {
         te match {
           case p: SysmlAst.Package =>
-            for(e <- p.packageElements) {
-              e match {
-                case GumboAnnotation(lib: GclLib) =>
-                  Util.getId(id = p.identification, specializations = ISZ(),
-                    posOpt = p.posOpt, toolKind = Instantiate.instantiatorKey, reporter = reporter) match {
-                    case (Some(id), posOpt) =>
+            // FIXME: this should be based on whether 'project' projRoot is in has access
+            //        to the package and its elements
+            if (p.posOpt.nonEmpty && isInProject(projRoot, getPath(p.posOpt))) {
+              for (e <- p.packageElements) {
+                e match {
+                  case GumboAnnotation(lib: GclLib) =>
+                    Util.getId(id = p.identification, specializations = ISZ(),
+                      posOpt = p.posOpt, toolKind = Instantiate.instantiatorKey, reporter = reporter) match {
+                      case (Some(id), posOpt) =>
 
-                      // FIXME: package level gumbo libraries should be resolved during type checking
-                      var methods: ISZ[GclMethod] = ISZ()
-                      for (m <- lib.methods) {
-                        val scope = Scope.Global(ISZ(id), ISZ(), ISZ(id))
-                        methods = methods :+ TypeChecker.resolveMethod(m, scope, typeHierarchy, reporter)
-                      }
+                        // FIXME: package level gumbo libraries should be resolved during type checking
+                        var methods: ISZ[GclMethod] = ISZ()
+                        for (m <- lib.methods) {
+                          val scope = Scope.Global(ISZ(id), ISZ(), ISZ(id))
+                          methods = methods :+ TypeChecker.resolveMethod(m, scope, typeHierarchy, reporter)
+                        }
 
-                      gumboLibraries = gumboLibraries :+ lib (
-                        containingPackage = ir.Name (ISZ (id), posOpt),
-                        methods = methods)
-                    case _ =>
-                      reporter.error(p.posOpt, Instantiate.instantiatorKey, "Could not resolve package name")
-                  }
-                case _ =>
+                        gumboLibraries = gumboLibraries :+ lib(
+                          containingPackage = ir.Name(ISZ(id), posOpt),
+                          methods = methods)
+                      case _ =>
+                        reporter.error(p.posOpt, Instantiate.instantiatorKey, "Could not resolve package name")
+                    }
+                  case _ =>
+                }
               }
             }
         }
@@ -156,7 +160,7 @@ object Instantiate {
 
       var subcomponents: ISZ[ir.Component] = ISZ()
       for (member <- members) {
-        if (InstantiateUtil.isAadlComponentOpt(member.typedOpt, typeHierarchy) ) {
+        if (InstantiateUtil.isAadlComponentOpt(member.typedOpt, typeHierarchy)) {
           getDefinition(member.typedOpt.get) match {
             case Some(x) =>
               if (!processingDatatype || isDatatype(member.typedOpt.get)) {
@@ -170,7 +174,7 @@ object Instantiate {
             case _ =>
               getEnumerationDefinition(member.typedOpt.get) match {
                 case Some(e) =>
-                  subcomponents = subcomponents :+ processEnum (idPath :+ member.id, e)
+                  subcomponents = subcomponents :+ processEnum(idPath :+ member.id, e)
                 case _ =>
               }
           }
@@ -183,11 +187,11 @@ object Instantiate {
 
       def getPayloadType(portName: String, optPosOpt: Option[Position], definitionBodyItems: ISZ[SysmlAst.DefinitionBodyItem]): (Option[ir.Classifier], Option[SysmlAst.FeatureDirection.Type]) = {
         if (definitionBodyItems.size != 1) {
-          reporter.error(optPosOpt , Instantiate.instantiatorKey, "Currently expecting a single body item for data ports that refines 'type'")
+          reporter.error(optPosOpt, Instantiate.instantiatorKey, "Currently expecting a single body item for data ports that refines 'type'")
           return (None(), None())
         }
 
-        for(b <- definitionBodyItems) {
+        for (b <- definitionBodyItems) {
           b match {
             case r: SysmlAst.ReferenceUsage =>
               r.commonUsageElements.attr.typedOpt match {
@@ -198,7 +202,7 @@ object Instantiate {
                     return (Some(ir.Classifier(st"${(n.ids, "::")}".render)), r.prefix.direction)
                   } else {
                     reporter.error(posOpt = optPosOpt, kind = Instantiate.instantiatorKey, message =
-                    st"Data port type must be an enum or a descendant of ${(InstantiateUtil.AadlDataName, "::")}".render)
+                      st"Data port type must be an enum or a descendant of ${(InstantiateUtil.AadlDataName, "::")}".render)
                   }
                 case _ =>
                   reporter.warn(r.posOpt, Instantiate.instantiatorKey,
@@ -256,7 +260,7 @@ object Instantiate {
                 reporter.error(portUsage._2.posOpt, Instantiate.instantiatorKey, s"Unexpected port type $x p")
             }
           case x =>
-            reporter.error(portUsage._2.posOpt, Instantiate.instantiatorKey,  s"Port usages should have been resolved to Typed.Name but found $x")
+            reporter.error(portUsage._2.posOpt, Instantiate.instantiatorKey, s"Port usages should have been resolved to Typed.Name but found $x")
         }
       }
 
@@ -343,7 +347,7 @@ object Instantiate {
               case _ =>
                 reporter.error(au._2.posOpt, Instantiate.instantiatorKey, "Did not resolve one of the part usages")
             }
-            assert (T)
+            assert(T)
           case _ =>
         }
       }
@@ -375,13 +379,13 @@ object Instantiate {
                             val inPs: R =
                               if (value == "picosecond" || value == "ps") {
                                 R(f.args(0).string).get
-                              } else if(value == "nanosecond" || value == "ns") {
+                              } else if (value == "nanosecond" || value == "ns") {
                                 R(f.args(0).string).get * R("1.0E3").get
-                              } else if(value == "microsecond" || value == "us") {
+                              } else if (value == "microsecond" || value == "us") {
                                 R(f.args(0).string).get * R("1.0E6").get
-                              } else if(value == "millisecond" || value == "ms") {
+                              } else if (value == "millisecond" || value == "ms") {
                                 R(f.args(0).string).get * R("1.0E9").get
-                              } else  {
+                              } else {
                                 halt(s"Unexpected uif: $value")
                               }
 
@@ -390,7 +394,7 @@ object Instantiate {
                             ISZ(ir.UnitProp(value = l.value.string, unit = None()))
                           case x =>
                             val t = x
-                            halt (s"Unexpected expression: $x")
+                            halt(s"Unexpected expression: $x")
                         }
                       }
                       props = props :+ ir.Property(
@@ -420,19 +424,19 @@ object Instantiate {
         case Some(b: SysmlAst.BinaryConnectorPart) =>
 
           var srcComponentName: ISZ[String] = idPath
-          for(n <- ops.ISZOps(b.src.reference).dropRight(1)) {
+          for (n <- ops.ISZOps(b.src.reference).dropRight(1)) {
             srcComponentName = srcComponentName ++ Util.ids2string(n.ids)
           }
           val srcFeatureName = srcComponentName ++ Util.ids2string(b.src.reference(b.src.reference.lastIndex).ids)
           val srcDirection = getDirection(c.srcAst.get.occurrenceUsagePrefix.refPrefix.direction)
           val src_ = ir.EndPoint(
-            component = ir.Name(name = srcComponentName , pos = b.src.reference(0).posOpt),
+            component = ir.Name(name = srcComponentName, pos = b.src.reference(0).posOpt),
             feature = Some(ir.Name(srcFeatureName, b.src.reference(0).posOpt)),
             direction = Some(srcDirection)
           )
 
           var dstComponentName: ISZ[String] = idPath
-          for(n <- ops.ISZOps(b.dst.reference).dropRight(1)) {
+          for (n <- ops.ISZOps(b.dst.reference).dropRight(1)) {
             dstComponentName = dstComponentName ++ Util.ids2string(n.ids)
           }
           val dstFeatureName = dstComponentName ++ Util.ids2string(b.dst.reference(b.dst.reference.lastIndex).ids)
@@ -528,10 +532,12 @@ object Instantiate {
     }
 
     def addDatatypes(projectRoot: Os.Path): Unit = {
-      for(e <- typeHierarchy.typeMap.entries) {
+      for (e <- typeHierarchy.typeMap.entries) {
         e._2.tpe match {
           case t: Typed.Name =>
             val p = getPath(e._2.posOpt)
+            // FIXME: this should be based on whether the type is accessible via the 'project'
+            //        that projectRoot is in
             if (isInProject(projectRoot, p)) {
               processDatatype(t.ids, ISZ())
             }
@@ -596,6 +602,7 @@ object Instantiate {
         case _ => return F
       }
     }
+
     return process()
   }
 
