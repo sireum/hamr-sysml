@@ -44,13 +44,15 @@ object Instantiate {
 
       var aadls: ISZ[(ir.Aadl, Option[Position])] = ISZ()
       for (sysRoot <- systemRoots) {
+
+        dataComponents = Map.empty
+        actualProcessorBindings = HashMap.empty
+
         val projRoot = getPath(sysRoot.posOpt)
 
         val gumboLibraries: ISZ[ir.AnnexLib] = getGumboLibraries(projRoot.get.up)
 
         addDatatypes(projRoot.get.up)
-
-        actualProcessorBindings = HashMap.empty
 
         val rootIdName = st"${sysRoot.id}_Instance".render
         val system = instantiateComponent(sysRoot, F, ISZ(rootIdName), sysRoot.posOpt)
@@ -69,9 +71,6 @@ object Instantiate {
            te <- t.packageBodyElements) {
         te match {
           case p: SysmlAst.Package =>
-            // FIXME: this should be based on whether 'project' projRoot is in has access
-            //        to the package and its elements
-            if (p.posOpt.nonEmpty && isInProject(projRoot, getPath(p.posOpt))) {
               for (e <- p.packageElements) {
                 e match {
                   case GumboAnnotation(lib: GclLib) =>
@@ -95,7 +94,6 @@ object Instantiate {
                   case _ =>
                 }
               }
-            }
         }
       }
 
@@ -535,12 +533,7 @@ object Instantiate {
       for (e <- typeHierarchy.typeMap.entries) {
         e._2.tpe match {
           case t: Typed.Name =>
-            val p = getPath(e._2.posOpt)
-            // FIXME: this should be based on whether the type is accessible via the 'project'
-            //        that projectRoot is in
-            if (isInProject(projectRoot, p)) {
-              processDatatype(t.ids, ISZ())
-            }
+            processDatatype(t.ids, ISZ())
           case _ =>
         }
       }
@@ -582,24 +575,6 @@ object Instantiate {
             case _ => return None()
           }
         case _ => return None()
-      }
-    }
-
-    def isInProject(projRoot: Os.Path, cand: Option[Os.Path]): B = {
-      cand match {
-        case Some(p) =>
-          val pr = ops.StringOps(projRoot.toUri).split(c => c == '/')
-          val c = ops.StringOps(p.toUri).split(c => c == '/')
-          if (c.size >= pr.size) {
-            for (i <- 0 until pr.size) {
-              if (pr(i) != c(i)) {
-                return F
-              }
-            }
-            return T
-          }
-          return F
-        case _ => return F
       }
     }
 
