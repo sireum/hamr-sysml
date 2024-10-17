@@ -108,7 +108,7 @@ object cli {
     usageDescOpt = None(),
     opts = ISZ(
       Opt(name = "version", longKey = "version", shortKey = Some('v'),
-        tpe = Type.Str(sep = None(), default = Some("2024-07")),
+        tpe = Type.Str(sep = None(), default = Some("2024-09")),
         description = "SysML v2 grammar version"),
       Opt(name = "grammar", longKey = "grammar", shortKey = Some('g'),
         tpe = Type.Str(sep = None(), default = None()),
