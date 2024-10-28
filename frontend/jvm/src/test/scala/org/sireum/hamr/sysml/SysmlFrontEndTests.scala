@@ -150,6 +150,7 @@ object SysmlFrontEndTests {
     verbose = F,
     runtimeMonitoring = F,
     platform = CodegenHamrPlatform.JVM,
+    outputDir = None(),
     parseableMessages = F,
     //
     slangOutputDir = None(),
