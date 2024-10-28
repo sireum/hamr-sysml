@@ -128,7 +128,7 @@ object cli {
     command = "config",
     description = "SysML v2 CodeGen Config",
     header = "Sireum HAMR SysML v2 CodeGen Config",
-    usage = "<option>* <sysmlv2-file>+",
+    usage = "<option>* <sysmlv2-file>",
     usageDescOpt = None(),
     opts = ISZ(
       Opt(name = "parseableMessages", longKey = "parseable-messages", shortKey = None(),
