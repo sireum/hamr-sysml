@@ -130,11 +130,7 @@ object cli {
     header = "Sireum HAMR SysML v2 CodeGen Config",
     usage = "<option>* <sysmlv2-file>",
     usageDescOpt = None(),
-    opts = ISZ(
-      Opt(name = "parseableMessages", longKey = "parseable-messages", shortKey = None(),
-        tpe = Type.Flag(F),
-        description = "Print parseable file messages")
-    ),
+    opts = ISZ(),
     groups = ISZ()
   )
 
