@@ -130,7 +130,11 @@ object cli {
     header = "Sireum HAMR SysML v2 CodeGen Config",
     usage = "<option>* <sysmlv2-file>",
     usageDescOpt = None(),
-    opts = ISZ(),
+    opts = ISZ(
+      Opt(name = "theme", longKey = "theme", shortKey = Some('t'),
+        tpe = Type.Choice(name = "Theme", sep = None(), elements = ISZ("dark", "light")),
+        description = "Form color theme")
+    ),
     groups = ISZ()
   )
 
