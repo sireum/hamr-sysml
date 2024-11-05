@@ -17,6 +17,7 @@ object InstantiateUtil {
     "Thread_Properties",
     "Timing_Properties"
   )
+  val AadlComponentName: ISZ[String] = ISZ("AADL", "Component")
 
   val AadlSystemName: ISZ[String] = ISZ("AADL", "System")
 

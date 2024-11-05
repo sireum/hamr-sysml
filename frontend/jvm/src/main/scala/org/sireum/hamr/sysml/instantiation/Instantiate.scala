@@ -142,11 +142,19 @@ object Instantiate {
       val members: ISZ[Info.UsageInfo] = {
         var ret: ISZ[Info.UsageInfo] = ISZ()
         if (processingDatatype) {
-          for (p <- p.members.partUsages.values if isDatatype(p.typedOpt.get)) {
-            ret = ret :+ p
+          for (p <- p.members.partUsages.values ) {
+            if (isDatatype(p.typedOpt.get)) {
+              ret = ret :+ p
+            } else if (!allowedDataComponentMembers(p)) {
+              reporter.error(p.posOpt, Instantiate.instantiatorKey, s"Unexpected part usage for an AADL Data Component")
+            }
           }
-          for (p <- p.members.attributeUsages.values if isDatatype(p.typedOpt.get)) {
-            ret = ret :+ p
+          for (p <- p.members.attributeUsages.values) {
+            if (isDatatype(p.typedOpt.get)) {
+              ret = ret :+ p
+            } else if (!allowedDataComponentMembers(p)) {
+              reporter.error(p.posOpt, Instantiate.instantiatorKey, s"Unexpected attribute usage for an AADL Data Component")
+            }
           }
         } else {
           ret = p.members.partUsages.values.asInstanceOf[ISZ[Info.UsageInfo]]
@@ -558,6 +566,16 @@ object Instantiate {
           dataComponents = dataComponents + typeName ~> processEnum(idPath, e)
         case _ =>
           halt(st"Infeasible: datatype ${(typeName, "::")} was not resolved".render)
+      }
+    }
+
+    def allowedDataComponentMembers(p: Info.UsageInfo): B = {
+      p match {
+        case i:Info.AttributeUsage =>
+          return (i.owner == InstantiateUtil.AadlDataName ||
+            i.owner == InstantiateUtil.AadlComponentName)
+        case _ =>
+          return F
       }
     }
 
