@@ -293,7 +293,8 @@ object TypeChecker {
                 } else if (connEnd.reference.size == 1) {
                   newMembers.portUsages
                 } else {
-                  halt("Unexpected")
+                  reporter.error(connEnd.resOpt.posOpt, typeCheckerKind, "Tunneled connections are not possible in AADL so they are currently unsupported")
+                  HashSMap.empty
                 }
 
               val portId = srcPortId.ids(srcPortId.ids.lastIndex).value
