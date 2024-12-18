@@ -321,7 +321,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
         val locale: Option[String] =
           if (comment.K_LOCALE() == null) None()
-          else Some(comment.RULE_STRING_VALUE().string)
+          else Some(SlangUtil.unquoteString(comment.RULE_STRING_VALUE().string))
 
         return Comment(
           visibility = visiblilty,
@@ -341,7 +341,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
         val locale: Option[String] =
           if (doc.K_LOCALE() == null) None()
-          else Some(doc.RULE_STRING_VALUE().string)
+          else Some(SlangUtil.unquoteString(doc.RULE_STRING_VALUE().string))
 
         return Documentation(
           visibility = visiblilty,
@@ -375,7 +375,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           return TextualRepresentation(
             visibility = visiblilty,
             identification = identification,
-            language = text.RULE_STRING_VALUE().string,
+            language = SlangUtil.unquoteString(text.RULE_STRING_VALUE().string),
             comment = text.RULE_REGULAR_COMMENT().string,
             attr = toAttr(o))
         }
@@ -863,7 +863,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
   private def visitConnectorEnd(context: RuleConnectorEndContext): ConnectorEnd = {
     if (nonEmpty(context.ruleName())) {
-      halt("Need to see and example of this")
+      halt("Need to see an example of this")
     }
 
     val ref: ISZ[Name] = context.ruleOwnedReferenceSubsetting() match {
@@ -1442,7 +1442,14 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
      *        instead, e.g.
      *        '->:' (lhs, rhs) instead of lhs ->: rhs
      */
-    return SlangUtil.collapse1(lhs, AST.Exp.BinaryOp.CondImply, s)
+
+    // using alt version of conditional implication as AST.Exp.BinaryOp.CondImpl results
+    // in "___>.:" (minus the .) in plain-text/VSCode since ligatures are not supported
+
+    //return SlangUtil.collapse1(lhs, AST.Exp.BinaryOp.CondImply, s)
+
+    return SlangUtil.collapse1(lhs, "-->:", s)
+
   }
 
   // ruleOrExpression: ruleXorExpression ( (ruleOrOperator ruleXorExpression | ruleConditionalOrOperator ruleXorExpressionReference))*;
@@ -2110,9 +2117,11 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         return AST.Exp.Binary(lhs, binOp, rhs, attr, attr.posOpt)
       }
 
+      // using alt version of implies as the ligature versions do not look
+      // good in plain-text/vscode
       val op: String = uif match {
-        case string"'->:'" => AST.Exp.BinaryOp.Imply
-        case string"'-->:'" => AST.Exp.BinaryOp.CondImply
+        case string"'->:'" => "->:" // AST.Exp.BinaryOp.Imply
+        case string"'-->:'" => "-->:" // AST.Exp.BinaryOp.CondImply
         case _ =>
           halt(s"Infeasible binary op uif $uif")
           "??"
@@ -2154,7 +2163,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         }
 
       case i: RuleLiteralExpression2Context =>
-        return AST.Exp.LitString(value = i.ruleLiteralString().RULE_STRING_VALUE().string, attr = toSlangAttr(o))
+        return AST.Exp.LitString(value = SlangUtil.unquoteString(i.ruleLiteralString().RULE_STRING_VALUE().string), attr = toSlangAttr(o))
 
       case i: RuleLiteralExpression3Context =>
         return AST.Exp.LitZ(value = Z(i.ruleLiteralInteger().RULE_DECIMAL_VALUE().string).get, attr = toSlangAttr(o))
@@ -2223,7 +2232,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       for (i <- listToISZ(o.ruleSpecSection().ruleInvariants().ruleInvSpec())) {
         invariants = invariants :+ GclInvariant(
           id = i.RULE_ID().string,
-          descriptor = if (i.RULE_STRING_VALUE() != null) Some(i.RULE_STRING_VALUE().string) else None(),
+          descriptor = if (i.RULE_STRING_VALUE() != null) Some(SlangUtil.unquoteString(i.RULE_STRING_VALUE().string)) else None(),
           exp = visitOwnedExpression(i.ruleOwnedExpression()),
           attr = toAttr(i))
       }
@@ -2291,7 +2300,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   def visitCaseStatementClause(o: RuleCaseStatementClauseContext): GclCaseStatement = {
     return GclCaseStatement(
       id = o.RULE_ID().string,
-      descriptor = if (o.RULE_STRING_VALUE() != null) Some(o.RULE_STRING_VALUE().string) else None(),
+      descriptor = if (o.RULE_STRING_VALUE() != null) Some(SlangUtil.unquoteString(o.RULE_STRING_VALUE().string)) else None(),
       assumes = visitOwnedExpression(o.ruleAnonAssumeStatement().ruleOwnedExpression()),
       guarantees = visitOwnedExpression(o.ruleAnonGuaranteeStatement().ruleOwnedExpression()),
       attr = toAttr(o))
@@ -2336,7 +2345,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     }
     return InfoFlowClause(
       id = o.RULE_ID(0).string,
-      descriptor = if (o.RULE_STRING_VALUE() != null) Some(o.RULE_STRING_VALUE().string) else None(),
+      descriptor = if (o.RULE_STRING_VALUE() != null) Some(SlangUtil.unquoteString(o.RULE_STRING_VALUE().string)) else None(),
       from = froms,
       to = tos,
       attr = toAttr(o))
@@ -2352,7 +2361,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   def visitGuaranteeStatement(i: RuleGuaranteeStatementContext): GclGuarantee = {
     return GclGuarantee(
       id = i.RULE_ID().string,
-      descriptor = if (i.RULE_STRING_VALUE() != null) Some(i.RULE_STRING_VALUE().string) else None(),
+      descriptor = if (i.RULE_STRING_VALUE() != null) Some(SlangUtil.unquoteString(i.RULE_STRING_VALUE().string)) else None(),
       exp = visitOwnedExpression(i.ruleOwnedExpression()),
       attr = toAttr(i))
   }
@@ -2360,7 +2369,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   def visitAssumeStatement(i: RuleAssumeStatementContext): GclAssume = {
     return GclAssume(
       id = i.RULE_ID().string,
-      descriptor = if (i.RULE_STRING_VALUE() != null) Some(i.RULE_STRING_VALUE().string) else None(),
+      descriptor = if (i.RULE_STRING_VALUE() != null) Some(SlangUtil.unquoteString(i.RULE_STRING_VALUE().string)) else None(),
       exp = visitOwnedExpression(i.ruleOwnedExpression()),
       attr = toAttr(i))
   }
