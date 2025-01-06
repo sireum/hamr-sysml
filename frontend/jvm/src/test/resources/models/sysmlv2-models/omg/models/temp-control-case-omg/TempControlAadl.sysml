@@ -1,6 +1,6 @@
-// @ HAMR: --slang-output-dir hamr/slang --package-name tc --platform seL4 --output-c-dir hamr/c --camkes-output-dir hamr/camkes
-// @ HAMR: --platform Microkit --camkes-output-dir microkit
-//@ HAMR: --platform Microkit --camkes-output-dir /Users/belt/devel/sireum/kekinian/hamr/sysml/frontend/jvm/src/test/resources/models/sysmlv2-models/omg/models/temp-control-case-omg/microkit
+// @ HAMR: --slang-output-dir hamr/slang --package-name tc --platform seL4 --output-c-dir hamr/c --sel4-output-dir hamr/camkes
+// @ HAMR: --platform Microkit --sel4-output-dir microkit
+//@ HAMR: --platform Microkit --sel4-output-dir /Users/belt/devel/sireum/kekinian/hamr/sysml/frontend/jvm/src/test/resources/models/sysmlv2-models/omg/models/temp-control-case-omg/microkit
 
 
 // codegen will write out to the workspace root dir if output-dir is not set.
