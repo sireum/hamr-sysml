@@ -21,15 +21,16 @@ object TestUtil {
       destDir.removeAll()
       destDir.mkdirAll()
       for (c <- candidates) {
-        val url = s"https://github.com/Systems-Modeling/SysML-v2-Release/archive/refs/tags/${c}.zip"
+        val url = s"https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/archive/refs/tags/${c}.zip"
         println(s"Attempting to download from $url ...")
         val t = Os.tempDir() / "s.zip"
         t.downloadFrom(url)
         if (t.exists) {
           t.unzipTo(destDir)
           val del = Os.Path.walk(destDir, T, T, p =>
-            !(p.ext.native == "kerml" || p.ext.native == "sysml" ||
-              p.name.native == ".project" || p.name.native.startsWith("LICENSE")))
+            !(ops.StringOps(p.toUri).contains("/kerml/src") || ops.StringOps(p.toUri).contains("/sysml/src")) ||
+              !(p.ext.native == "kerml" || p.ext.native == "sysml" ||
+                p.name.native == ".project" || p.name.native.startsWith("LICENSE")))
           for (d <- del.elements.reverse if d.isFile || d.list.isEmpty) d.removeAll()
           (destDir / ".version").writeOver(version.s)
         }
