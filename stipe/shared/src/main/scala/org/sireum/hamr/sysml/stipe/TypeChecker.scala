@@ -2,7 +2,7 @@
 package org.sireum.hamr.sysml.stipe
 
 import org.sireum._
-import org.sireum.hamr.ir.SysmlAst.{BinaryConnectorPart, GumboAnnotation, RedefinitionsSpecialization, SubsettingsSpecialization, TypingsSpecialization}
+import org.sireum.hamr.ir.SysmlAst.{BinaryConnectorPart, GumboAnnotation, OccurrenceBasicUsagePrefix, RedefinitionsSpecialization, SubsettingsSpecialization, TypingsSpecialization}
 import org.sireum.hamr.ir.{GclLib, GclMethod, GclStateVar, GclSubclause, ResolvedInfo, SysmlAst, Typed}
 import org.sireum.hamr.{ir => SAST}
 import org.sireum.hamr.sysml.symbol.Resolver.NameMap
@@ -697,9 +697,11 @@ object TypeChecker {
           case Some(_: SAST.ResolvedInfo.PortUsage) => return item
           case _ =>
         }
-        if (item.occurrenceUsagePrefix.refPrefix.direction.isEmpty) {
-          reporter.error(item.posOpt, TypeChecker.typeCheckerKind,
-            "Port direction must be supplied at the port usage level")
+        item.occurrenceUsagePrefix match {
+          case obup: OccurrenceBasicUsagePrefix if obup.refPrefix.direction.isEmpty =>
+            reporter.error(item.posOpt, TypeChecker.typeCheckerKind,
+              "Port direction must be supplied at the port usage level")
+          case _ =>
         }
         return item(commonUsageElements = update(item.commonUsageElements))
 

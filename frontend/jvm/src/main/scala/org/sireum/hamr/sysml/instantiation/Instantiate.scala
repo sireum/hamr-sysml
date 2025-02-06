@@ -3,7 +3,7 @@ package org.sireum.hamr.sysml.instantiation
 
 import org.sireum._
 import org.sireum.hamr.ir
-import org.sireum.hamr.ir.SysmlAst.GumboAnnotation
+import org.sireum.hamr.ir.SysmlAst.{GumboAnnotation, OccurrenceBasicUsagePrefix, OccurrenceEndUsagePrefix, OccurrenceUsagePrefix}
 import org.sireum.hamr.ir.util.AadlUtil
 import org.sireum.hamr.ir._
 import org.sireum.hamr.sysml.stipe.{TypeChecker, TypeHierarchy}
@@ -111,6 +111,13 @@ object Instantiate {
         case Some(SysmlAst.FeatureDirection.InOut) => return ir.Direction.InOut
         case _ =>
           halt("Infeasible: type checking should have insured a direction was provided")
+      }
+    }
+
+    def getDirectionFromUsage(usage: OccurrenceUsagePrefix): Direction.Type = {
+      usage match {
+        case b: OccurrenceBasicUsagePrefix => return getDirection(b.refPrefix.direction)
+        case e: OccurrenceEndUsagePrefix => halt("Infeasible: a port cannot also be a cross feature")
       }
     }
 
@@ -229,7 +236,7 @@ object Instantiate {
           case Some(t: Typed.Name) =>
             t.ids match {
               case ISZ("AADL", "DataPort") =>
-                val usageDir = getDirection(portUsage._2.ast.occurrenceUsagePrefix.refPrefix.direction)
+                val usageDir = getDirectionFromUsage(portUsage._2.ast.occurrenceUsagePrefix)
                 val (pType, refDir) = getPayloadType(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
                 if (refDir.nonEmpty && usageDir != getDirection(refDir)) {
                   reporter.error(portUsage._2.posOpt, Instantiate.instantiatorKey, "Port usage direction and the direction of the body reference usage must be the same")
@@ -242,7 +249,7 @@ object Instantiate {
                   properties = ISZ(),
                   uriFrag = "")
               case ISZ("AADL", "EventDataPort") =>
-                val usageDir = getDirection(portUsage._2.ast.occurrenceUsagePrefix.refPrefix.direction)
+                val usageDir = getDirectionFromUsage(portUsage._2.ast.occurrenceUsagePrefix)
                 val (pType, refDir) = getPayloadType(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
                 if (refDir.nonEmpty && usageDir != getDirection(refDir)) {
                   reporter.error(portUsage._2.posOpt, Instantiate.instantiatorKey, "Port usage direction and the direction of the body reference usage must be the same")
@@ -257,7 +264,7 @@ object Instantiate {
               case ISZ("AADL", "EventPort") =>
                 features = features + portName ~> ir.FeatureEnd(
                   identifier = ir.Name(portName, portUsage._2.posOpt),
-                  direction = getDirection(portUsage._2.ast.occurrenceUsagePrefix.refPrefix.direction),
+                  direction = getDirectionFromUsage(portUsage._2.ast.occurrenceUsagePrefix),
                   category = ir.FeatureCategory.EventPort,
                   classifier = None(),
                   properties = ISZ(),
@@ -434,7 +441,7 @@ object Instantiate {
             srcComponentName = srcComponentName ++ Util.ids2string(n.ids)
           }
           val srcFeatureName = srcComponentName ++ Util.ids2string(b.src.reference(b.src.reference.lastIndex).ids)
-          val srcDirection = getDirection(c.srcAst.get.occurrenceUsagePrefix.refPrefix.direction)
+          val srcDirection = getDirectionFromUsage(c.srcAst.get.occurrenceUsagePrefix)
           val src_ = ir.EndPoint(
             component = ir.Name(name = srcComponentName, pos = b.src.reference(0).posOpt),
             feature = Some(ir.Name(srcFeatureName, b.src.reference(0).posOpt)),
@@ -447,7 +454,7 @@ object Instantiate {
           }
           val dstFeatureName = dstComponentName ++ Util.ids2string(b.dst.reference(b.dst.reference.lastIndex).ids)
 
-          val dstDirection = getDirection(c.dstAst.get.occurrenceUsagePrefix.refPrefix.direction)
+          val dstDirection = getDirectionFromUsage(c.dstAst.get.occurrenceUsagePrefix)
           val dst_ = ir.EndPoint(
             component = ir.Name(name = dstComponentName, pos = b.dst.reference(0).posOpt),
             feature = Some(ir.Name(dstFeatureName, b.dst.reference(0).posOpt)),

@@ -7,6 +7,7 @@ import org.antlr.v4.runtime.tree.TerminalNodeImpl
 import org.sireum.hamr.sysml.parser.SysMLAstBuilder.{binOpsUifs, interpolates, isReservedSequenceName, logikaUifs, numeric_interpolates, portUifs}
 import org.sireum.hamr.ir.SysmlAst._
 import org.sireum.hamr.ir.{Attr, GclAssume, GclCaseStatement, GclCompute, GclComputeSpec, GclGuarantee, GclHandle, GclInitialize, GclIntegration, GclInvariant, GclLib, GclMethod, GclSpec, GclStateVar, GclSubclause, InfoFlowClause, ResolvedAttr, Name => AirName}
+import org.sireum.hamr.sysml.parser.SlangUtil.Placeholders.{emptyOccurrenceUsagePrefix, emptyUsagePrefix}
 import org.sireum.hamr.sysml.parser.SysmlAstUtil.isRegularComment
 import org.sireum.hamr.sysml.parser.SlangUtil.{Placeholders, mergePos}
 import org.sireum.hamr.sysml.parser.SysMLv2Parser._
@@ -809,40 +810,40 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   def visitAllocationUsage(visibility: Visibility.Type, o: SysMLv2Parser.RuleAllocationUsageContext): AllocationUsage = {
     val occurrenceUsagePrefix: OccurrenceUsagePrefix = visitOccurrenceUsagePrefix(o.ruleOccurrenceUsagePrefix())
 
-    val (id, specs, connectorPart) :  (Option[Identification], ISZ[FeatureSpecialization], Option[ConnectorPart]) =
+    val (id, specs, connectorPart): (Option[Identification], ISZ[FeatureSpecialization], Option[ConnectorPart]) =
       o.ruleAllocationUsageDeclaration() match {
-      case r1: RuleAllocationUsageDeclaration1Context =>
-        val (identification, specializations): (Option[Identification], ISZ[FeatureSpecialization]) =
-          if (isEmpty(r1.ruleUsageDeclaration())) {
-            (None(), ISZ())
-          } else {
-            visitFeatureDeclaration(r1.ruleUsageDeclaration().ruleFeatureDeclaration())
-          }
-
-        val connectorPart: Option[ConnectorPart] =
-          if (isEmpty(r1.ruleAllocateKeyword())) {
-            assert(isEmpty(r1.ruleConnectorPart()))
-            None()
-          } else {
-            r1.ruleConnectorPart() match {
-              case c1: RuleConnectorPart1Context =>
-                assert(c1.ruleBinaryConnectorPart().ruleConnectorEndMember().size() == 2)
-                val src = visitConnectorEnd(c1.ruleBinaryConnectorPart().ruleConnectorEndMember(0).ruleConnectorEnd())
-                val dst = visitConnectorEnd(c1.ruleBinaryConnectorPart().ruleConnectorEndMember(1).ruleConnectorEnd())
-                Some(BinaryConnectorPart(src, dst))
-              case c2: RuleConnectorPart2Context =>
-                val ends = for (c <- listToISZ(c2.ruleNaryConnectorPart().ruleConnectorEndMember())) yield visitConnectorEnd(c.ruleConnectorEnd())
-                Some(NaryConnectorPart(connectorEnds = ends))
+        case r1: RuleAllocationUsageDeclaration1Context =>
+          val (identification, specializations): (Option[Identification], ISZ[FeatureSpecialization]) =
+            if (isEmpty(r1.ruleUsageDeclaration())) {
+              (None(), ISZ())
+            } else {
+              visitFeatureDeclaration(r1.ruleUsageDeclaration().ruleFeatureDeclaration())
             }
-          }
 
-        (identification, specializations, connectorPart)
+          val connectorPart: Option[ConnectorPart] =
+            if (isEmpty(r1.ruleAllocateKeyword())) {
+              assert(isEmpty(r1.ruleConnectorPart()))
+              None()
+            } else {
+              r1.ruleConnectorPart() match {
+                case c1: RuleConnectorPart1Context =>
+                  assert(c1.ruleBinaryConnectorPart().ruleConnectorEndMember().size() == 2)
+                  val src = visitConnectorEnd(c1.ruleBinaryConnectorPart().ruleConnectorEndMember(0).ruleConnectorEnd())
+                  val dst = visitConnectorEnd(c1.ruleBinaryConnectorPart().ruleConnectorEndMember(1).ruleConnectorEnd())
+                  Some(BinaryConnectorPart(src, dst))
+                case c2: RuleConnectorPart2Context =>
+                  val ends = for (c <- listToISZ(c2.ruleNaryConnectorPart().ruleConnectorEndMember())) yield visitConnectorEnd(c.ruleConnectorEnd())
+                  Some(NaryConnectorPart(connectorEnds = ends))
+              }
+            }
 
-      case r2: RuleAllocationUsageDeclaration2Context =>
-        reportError(r2, "Not currently handling RuleAllocationUsageDeclaration2Context")
-        (None(), ISZ(), None())
-      case _ => halt("Infeasible")
-    }
+          (identification, specializations, connectorPart)
+
+        case r2: RuleAllocationUsageDeclaration2Context =>
+          reportError(r2, "Not currently handling RuleAllocationUsageDeclaration2Context")
+          (None(), ISZ(), None())
+        case _ => halt("Infeasible")
+      }
 
     val bodyItems = visitDefinitionBody(o.ruleUsageBody().ruleDefinitionBody())
 
@@ -873,7 +874,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         visitOwnedFeatureChain(s2.ruleOwnedFeatureChain())
     }
 
-    reportError(isEmpty(context.ruleOwnedMultiplicity()), context, "Multiplicities are not currently supported")
+    reportError(isEmpty(context.ruleOwnedCrossMultiplicityMember()), context, "Multiplicities are not currently supported")
 
     return ConnectorEnd(reference = ref, tipeOpt = None(), resOpt = toResolvedAttr(context))
   }
@@ -1061,6 +1062,14 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     return ret
   }
 
+  /*
+    ruleFeatureSpecialization:
+    ruleTypings #ruleFeatureSpecialization1
+    | ruleSubsettings #ruleFeatureSpecialization2
+    | ruleReferences #ruleFeatureSpecialization3
+    | ruleCrossings #ruleFeatureSpecialization4
+    | ruleRedefinitions #ruleFeatureSpecialization5;
+   */
   def visitFeatureSpecialization(context: SysMLv2Parser.RuleFeatureSpecializationContext): FeatureSpecialization = {
     context match {
       case x: RuleFeatureSpecialization1Context =>
@@ -1120,6 +1129,10 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         }
 
       case x: RuleFeatureSpecialization4Context =>
+        reportError(x, "Crossing feature specialization is not currently supported")
+        return CrossingsSpecialization()
+
+      case x: RuleFeatureSpecialization5Context =>
         // ruleRedefinitions: ruleRedefines (',' ruleOwnedRedefinition)*;
         // ruleRedefines: ruleRedefinesKeyword ruleOwnedRedefinition;
 
@@ -1143,22 +1156,46 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     }
   }
 
+  /*
+    ruleRefPrefix: ruleFeatureDirection? ('abstract' | 'variation')? 'readonly'? 'derived'?;
+
+    ruleBasicUsagePrefix: ruleRefPrefix 'ref'?;
+
+    ruleEndUsagePrefix: 'end' ruleOwnedCrossFeatureMember?;
+
+    ruleUnextendedUsagePrefix:
+      ruleEndUsagePrefix #ruleUnextendedUsagePrefix1
+      | ruleBasicUsagePrefix #ruleUnextendedUsagePrefix2;
+
+    ruleUsageExtensionKeyword: rulePrefixMetadataMember;
+
+    ruleUsagePrefix: ruleUnextendedUsagePrefix ruleUsageExtensionKeyword*;
+   */
   private def visitUsagePrefix(o: RuleUsagePrefixContext): UsagePrefix = {
 
-    val refPrefix = visitRefPrefix(o.ruleBasicUsagePrefix().ruleRefPrefix())
+    o.ruleUnextendedUsagePrefix() match {
+      case r: RuleUnextendedUsagePrefix1Context =>
+        reportError(r, "'end' is not currently supported")
+        return emptyUsagePrefix
 
-    var usageExtensions: ISZ[Name] = ISZ()
-    if (!o.ruleUsageExtensionKeyword().isEmpty) {
-      for (ue <- o.ruleUsageExtensionKeyword().asScala) {
-        usageExtensions = usageExtensions :+
-          visitQualifiedName(ue.rulePrefixMetadataMember().rulePrefixMetadataUsage().ruleMetadataTyping().ruleQualifiedName())
-      }
+      case r: RuleUnextendedUsagePrefix2Context =>
+
+        val refPrefix = visitRefPrefix(r.ruleBasicUsagePrefix().ruleRefPrefix())
+
+        var usageExtensions: ISZ[Name] = ISZ()
+        if (!o.ruleUsageExtensionKeyword().isEmpty) {
+          for (ue <- o.ruleUsageExtensionKeyword().asScala) {
+            usageExtensions = usageExtensions :+
+              visitQualifiedName(ue.rulePrefixMetadataMember().rulePrefixMetadataUsage().ruleMetadataTyping().ruleQualifiedName())
+          }
+        }
+
+        return UsagePrefix(
+          refPrefix = refPrefix,
+          isRef = r.ruleBasicUsagePrefix().K_REF() != null,
+          usageExtensions = usageExtensions)
     }
 
-    return UsagePrefix(
-      refPrefix = refPrefix,
-      isRef = o.ruleBasicUsagePrefix().K_REF() != null,
-      usageExtensions = usageExtensions)
   }
 
   private def visitRefPrefix(context: RuleRefPrefixContext): RefPrefix = {
@@ -1185,26 +1222,12 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       isAbstract = context.K_ABSTRACT() != null,
       isVariation = context.K_VARIATION() != null,
       isReadOnly = context.K_READONLY() != null,
-      isDerived = context.K_DERIVED() != null,
-      isEnd = context.K_END() != null)
+      isDerived = context.K_DERIVED() != null
+    )
   }
 
+  // ruleOccurrenceUsagePrefix: (ruleEndUsagePrefix | ruleBasicUsagePrefix 'individual'? rulePortionKind?) ruleUsageExtensionKeyword*;
   private def visitOccurrenceUsagePrefix(ocup: RuleOccurrenceUsagePrefixContext): OccurrenceUsagePrefix = {
-    val refPrefix = visitRefPrefix(ocup.ruleBasicUsagePrefix().ruleRefPrefix())
-    val isRef = ocup.ruleBasicUsagePrefix().K_REF() != null
-
-    var isSnapshot: B = F
-    var isTimeslice: B = F
-    if (nonEmpty(ocup.rulePortionKind())) {
-      ocup.rulePortionKind() match {
-        case i: RulePortionKind1Context =>
-          assert(i.K_SNAPSHOT() != null)
-          isSnapshot = T
-        case i: RulePortionKind2Context =>
-          assert(i.K_TIMESLICE() != null)
-          isTimeslice = T
-      }
-    }
 
     var usageExtensions: ISZ[Name] = ISZ()
     if (!ocup.ruleUsageExtensionKeyword().isEmpty) {
@@ -1214,14 +1237,38 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       }
     }
 
-    return OccurrenceUsagePrefix(
-      refPrefix = refPrefix,
-      isRef = isRef,
-      isIndividual = ocup.K_INDIVIDUAL() != null,
-      isSnapshot = isSnapshot,
-      isTimeslice = isTimeslice,
-      usageExtensions = usageExtensions
-    )
+    if (nonEmpty(ocup.ruleEndUsagePrefix())) {
+      if (nonEmpty(ocup.ruleEndUsagePrefix().ruleOwnedCrossFeatureMember())) {
+        reportError(ocup.ruleEndUsagePrefix().ruleOwnedCrossFeatureMember(), "Cross features are not currently supported")
+      }
+      return OccurrenceEndUsagePrefix(EndUsage(), usageExtensions)
+    } else {
+
+      val refPrefix = visitRefPrefix(ocup.ruleBasicUsagePrefix().ruleRefPrefix())
+      val isRef = ocup.ruleBasicUsagePrefix().K_REF() != null
+
+      var isSnapshot: B = F
+      var isTimeslice: B = F
+      if (nonEmpty(ocup.rulePortionKind())) {
+        ocup.rulePortionKind() match {
+          case i: RulePortionKind1Context =>
+            assert(i.K_SNAPSHOT() != null)
+            isSnapshot = T
+          case i: RulePortionKind2Context =>
+            assert(i.K_TIMESLICE() != null)
+            isTimeslice = T
+        }
+      }
+
+      return OccurrenceBasicUsagePrefix(
+        refPrefix = refPrefix,
+        isRef = isRef,
+        isIndividual = ocup.K_INDIVIDUAL() != null,
+        isSnapshot = isSnapshot,
+        isTimeslice = isTimeslice,
+        usageExtensions = usageExtensions
+      )
+    }
   }
 
   def isEmpty(p: ParserRuleContext): B = {
@@ -2053,7 +2100,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
             handleNumeric match {
               case Some(str) =>
                 val lit = AST.Exp.LitString(str, AST.Attr(ident.posOpt))
-                return AST.Exp.StringInterpolate (sequenceId, ISZ(lit), ISZ(), toSlangTypedAttr (origin) )
+                return AST.Exp.StringInterpolate(sequenceId, ISZ(lit), ISZ(), toSlangTypedAttr(origin))
               case _ =>
                 reportError(numeric.posOpt, "Not a valid numeric")
                 return dummy

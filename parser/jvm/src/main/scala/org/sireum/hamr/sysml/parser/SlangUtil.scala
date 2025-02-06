@@ -157,7 +157,7 @@ object SlangUtil {
     }
 
     def emptyRefPrefix: RefPrefix = {
-      return RefPrefix(direction = None(), isAbstract = F, isVariation = F, isReadOnly = F, isDerived = F, isEnd = F)
+      return RefPrefix(direction = None(), isAbstract = F, isVariation = F, isReadOnly = F, isDerived = F)
     }
 
     def emptyUsagePrefix: UsagePrefix = {
@@ -180,7 +180,7 @@ object SlangUtil {
     }
 
     def emptyOccurrenceUsagePrefix: OccurrenceUsagePrefix = {
-      return OccurrenceUsagePrefix(
+      return OccurrenceBasicUsagePrefix(
         refPrefix = emptyRefPrefix,
         isRef = F,
         isIndividual = F,
