@@ -2516,6 +2516,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
     val sig = AST.MethodSig(
       purity = purity,
+      annotations = ISZ(),
       id = methodId,
       typeParams = typeParams,
       hasParams = params.nonEmpty,
