@@ -245,6 +245,40 @@ object TypeHierarchy {
           return T
         }
         return F
+      case (t1: SAST.Typed.Enum, t2: SAST.Typed.Name) =>
+        if (!poset.ancestorsOf(t1.name).contains(t2.ids)) {
+          return F
+        }
+        val (outlined, ancestors): (B, ISZ[SAST.Typed.Name]) =
+          typeMap.get(t1.name) match {
+            case Some(info: TypeInfo.AttributeDefinition) => (info.outlined, info.ancestors)
+            case Some(info: TypeInfo.EnumDefinition) => (info.outlined, info.ancestors)
+            case _ => halt("Infeasible")
+          }
+        if (!outlined) {
+          return T
+        }
+        for (ancestor <- ancestors if ancestor.ids == t2.ids) {
+          return T
+        }
+        return F
+      case (t1: SAST.Typed.Name, t2: SAST.Typed.Enum) =>
+        if (!poset.ancestorsOf(t1.ids).contains(t2.name)) {
+          return F
+        }
+        val (outlined, ancestors): (B, ISZ[SAST.Typed.Name]) =
+          typeMap.get(t1.ids) match {
+            case Some(info: TypeInfo.AttributeDefinition) => (info.outlined, info.ancestors)
+            case Some(info: TypeInfo.EnumDefinition) => (info.outlined, info.ancestors)
+            case x => halt(s"Infeasible: $x")
+          }
+        if (!outlined) {
+          return T
+        }
+        for (ancestor <- ancestors if ancestor.ids == t2.name) {
+          return T
+        }
+        return F
       case _ =>
         halt(s"TODO: $t1 vs $t2")
     }
