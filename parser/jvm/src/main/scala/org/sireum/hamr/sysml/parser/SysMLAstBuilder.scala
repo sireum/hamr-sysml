@@ -1910,17 +1910,20 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         val s = scala.collection.mutable.Stack.from[Any](visitQualifiedNameAsSlangName(i.ruleFeatureReferenceExpression().ruleFeatureReferenceMember().ruleQualifiedName()).ids.elements)
 
         if (s.size > 1) {
-          val a = s.pop()
-          val b = s.pop().asInstanceOf[AST.Id]
+          // convert sysml id stack into a slang select expression
+          while(s.size > 1) {
+            val a = s.pop()
+            val b = s.pop().asInstanceOf[AST.Id]
 
-          a match {
-            case aAsId: AST.Id =>
-              val posOpt = SlangUtil.mergePos(aAsId.attr.posOpt, b.attr.posOpt)
-              val ident = AST.Exp.Ident(id = aAsId, attr = Placeholders.emptyResolvedAttr(posOpt))
-              s.push(AST.Exp.Select(receiverOpt = Some(ident), id = b, targs = ISZ(), attr = Placeholders.emptyResolvedAttr(posOpt)))
-            case aAsSelect: AST.Exp.Select =>
-              val posOpt = SlangUtil.mergePos(aAsSelect.posOpt, b.attr.posOpt)
-              s.push(AST.Exp.Select(receiverOpt = Some(aAsSelect), id = b, targs = ISZ(), attr = Placeholders.emptyResolvedAttr(posOpt)))
+            a match {
+              case aAsId: AST.Id =>
+                val posOpt = SlangUtil.mergePos(aAsId.attr.posOpt, b.attr.posOpt)
+                val ident = AST.Exp.Ident(id = aAsId, attr = Placeholders.emptyResolvedAttr(posOpt))
+                s.push(AST.Exp.Select(receiverOpt = Some(ident), id = b, targs = ISZ(), attr = Placeholders.emptyResolvedAttr(posOpt)))
+              case aAsSelect: AST.Exp.Select =>
+                val posOpt = SlangUtil.mergePos(aAsSelect.posOpt, b.attr.posOpt)
+                s.push(AST.Exp.Select(receiverOpt = Some(aAsSelect), id = b, targs = ISZ(), attr = Placeholders.emptyResolvedAttr(posOpt)))
+            }
           }
           return s.pop().asInstanceOf[AST.Exp.Select]
         } else {
