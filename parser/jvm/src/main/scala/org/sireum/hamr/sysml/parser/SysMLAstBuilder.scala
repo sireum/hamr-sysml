@@ -76,7 +76,11 @@ object SysMLAstBuilder {
 
   val binOpsUifs: ISZ[String] = ISZ(
     "'->:'",
-    "'-->:'" // KerML has short circuit implication but provide this uif for symmetry
+    "'__>:'",
+
+    "'-->:'", // KerML has short circuit implication but provide this uif for symmetry
+    "'___>:'"
+
   )
 
   val logikaUifs: ISZ[String] = ISZ(
@@ -1487,7 +1491,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
      *
      *  NOTE: KerML does not provide a non-short circuit implication operator so a uif should be used
      *        instead, e.g.
-     *        '->:' (lhs, rhs) instead of lhs ->: rhs
+     *        '__>:' (lhs, rhs) instead of lhs __>: rhs
      */
 
     // using alt version of conditional implication as AST.Exp.BinaryOp.CondImpl results
@@ -1495,7 +1499,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
     //return SlangUtil.collapse1(lhs, AST.Exp.BinaryOp.CondImply, s)
 
-    return SlangUtil.collapse1(lhs, "-->:", s)
+    return SlangUtil.collapse1(lhs, "___>:", s)
 
   }
 
@@ -2167,11 +2171,12 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         return AST.Exp.Binary(lhs, binOp, rhs, attr, attr.posOpt)
       }
 
-      // using alt version of implies as the ligature versions do not look
-      // good in plain-text/vscode
       val op: String = uif match {
-        case string"'->:'" => "->:" // AST.Exp.BinaryOp.Imply
-        case string"'-->:'" => "-->:" // AST.Exp.BinaryOp.CondImply
+        case string"'->:'" => "__>:" // AST.Exp.BinaryOp.Imply
+        case string"'__>:'" => "__>:" // AST.Exp.BinaryOp.Imply
+
+        case string"'-->:'" => "___>:" // AST.Exp.BinaryOp.CondImply
+        case string"'___>:'" => "___>:" // AST.Exp.BinaryOp.CondImply
         case _ =>
           halt(s"Infeasible binary op uif $uif")
           "??"

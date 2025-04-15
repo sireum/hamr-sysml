@@ -102,17 +102,17 @@ class SysmlFrontEndTests extends TestSuite {
               case (Some(s), Some(d)) =>
                 Some(
                   st"""
-                      | $s ->:
+                      | $s __>:
                       |   $d""")
               case (None(), Some(d)) =>
                 Some(
                   st"""
-                      | <nil> ->:
+                      | <nil> __>:
                       |   $d""")
               case (Some(s), None()) =>
                 Some(
                   st"""
-                      | $s ->:
+                      | $s __>:
                       |   <nil>""")
               case _ => None()
             }

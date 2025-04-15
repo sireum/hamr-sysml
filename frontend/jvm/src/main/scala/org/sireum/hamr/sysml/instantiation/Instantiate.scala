@@ -384,6 +384,8 @@ object Instantiate {
                               ISZ(ir.ValueProp("Periodic"))
                             } else if (s == "Sporadic" || s == "Supported_Dispatch_Protocols.Sporadic") {
                               ISZ(ir.ValueProp("Sporadic"))
+                            } else if (s == "HAMR.Microkit_Languages.Rust") {
+                              ISZ(ir.ValueProp("Rust"))
                             } else {
                               halt(s"Unexpected property ${s}")
                             }
