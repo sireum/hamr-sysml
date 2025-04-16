@@ -1740,7 +1740,20 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
             assert(i.K_NOT() != null)
             AST.Exp.UnaryOp.Not
         }
+
         val exp = visitExtentExpression(u1.ruleExtentExpression())
+        if (op == AST.Exp.UnaryOp.Minus) {
+          exp match {
+            case f32: AST.Exp.LitF32 => return f32(value = -f32.value)
+            case f64: AST.Exp.LitF64 => return f64(value = -f64.value)
+            case r: AST.Exp.LitR => return r(value = -r.value)
+            case z: AST.Exp.LitZ => return z(value = -z.value)
+            case si@AST.Exp.StringInterpolate(_, ISZ(ls@AST.Exp.LitString(str)), _) =>
+              return (si(lits = ISZ(ls(value = s"-$str"))))
+            case _ =>
+          }
+        }
+
         return AST.Exp.Unary(op = op, exp = exp, attr = Placeholders.emptyResolvedAttr(toPosOpt(o)), opPosOpt = toPosOpt(o))
 
       case u2: RuleUnaryExpression2Context =>
