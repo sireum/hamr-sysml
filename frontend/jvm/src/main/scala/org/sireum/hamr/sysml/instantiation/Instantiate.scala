@@ -21,6 +21,8 @@ object Instantiate {
 
     var dataComponents: Map[ISZ[String], ir.Component] = Map.empty
 
+    var hasGumbo: B = F
+
     def getDefinition(t: Typed): Option[TypeInfo.DefinitionTypeInfo] = {
       t match {
         case t: Typed.Name =>
@@ -47,15 +49,22 @@ object Instantiate {
 
         dataComponents = Map.empty
         actualProcessorBindings = HashMap.empty
+        hasGumbo = F
 
         val projRoot = getPath(sysRoot.posOpt)
 
         val gumboLibraries: ISZ[ir.AnnexLib] = getGumboLibraries(projRoot.get.up)
+        hasGumbo = gumboLibraries.nonEmpty
 
-        addDatatypes(projRoot.get.up)
+        //addDatatypes(projRoot.get.up)
 
         val rootIdName = st"${sysRoot.id}_Instance".render
         val system = instantiateComponent(sysRoot, F, ISZ(rootIdName), sysRoot.posOpt)
+
+        if (hasGumbo) {
+          injectAadlBaseTypes()
+        }
+
         aadls = aadls :+ (ir.Aadl(
           components = ISZ(system),
           annexLib = gumboLibraries,
@@ -95,10 +104,6 @@ object Instantiate {
                 }
               }
         }
-      }
-
-      if (gumboLibraries.nonEmpty) {
-        injectAadlBaseTypes()
       }
 
       return gumboLibraries
@@ -187,7 +192,7 @@ object Instantiate {
             case _ =>
               getEnumerationDefinition(member.typedOpt.get) match {
                 case Some(e) =>
-                  subcomponents = subcomponents :+ processEnum(idPath :+ member.id, e)
+                  subcomponents = subcomponents :+ processEnum(e, idPath :+ member.id)
                 case _ =>
               }
           }
@@ -300,8 +305,8 @@ object Instantiate {
             for (b <- t.ast.bodyItems) {
               b match {
                 case SysmlAst.GumboAnnotation(gumbo: ir.GclSubclause) =>
+                  hasGumbo = T
                   as = as :+ ir.Annex("GUMBO", gumbo)
-                  injectAadlBaseTypes()
                 case _ =>
               }
             }
@@ -512,9 +517,9 @@ object Instantiate {
       }
     }
 
-    def processEnum(name: ISZ[String], e: TypeInfo.EnumDefinition): ir.Component = {
-      if (dataComponents.contains(name)) {
-        return dataComponents.get(name).get
+    def processEnum(e: TypeInfo.EnumDefinition, idPath: ISZ[String]): ir.Component = {
+      if (dataComponents.contains(e.name)) {
+        return dataComponents.get(e.name).get
       }
       val properties: ISZ[ir.Property] = ISZ(
         ir.Property(
@@ -528,10 +533,10 @@ object Instantiate {
       )
 
       val id: ISZ[String] =
-        if (name.nonEmpty) ISZ(ops.ISZOps(name).last)
+        if (idPath.nonEmpty) ISZ(ops.ISZOps(idPath).last)
         else ISZ()
 
-      return ir.Component(
+      val enumComponent = ir.Component(
         identifier = ir.Name(id, None()),
         category = ir.ComponentCategory.Data,
         classifier = Some(ir.Classifier(st"${(e.name, "::")}".render)),
@@ -544,6 +549,10 @@ object Instantiate {
         modes = ISZ(),
         annexes = ISZ(),
         uriFrag = "")
+
+      dataComponents = dataComponents + e.name ~> enumComponent
+
+      return enumComponent
     }
 
     def addDatatypes(projectRoot: Os.Path): Unit = {
@@ -570,9 +579,11 @@ object Instantiate {
 
       typeHierarchy.typeMap.get(typeName) match {
         case Some(p: TypeInfo.PartDefinition) =>
-          dataComponents = dataComponents + typeName ~> instantiateComponent(p, T, idPath, p.posOpt)
+          val v = instantiateComponent(p, T, idPath, p.posOpt)
+          dataComponents = dataComponents + typeName ~> v
         case Some(e: TypeInfo.EnumDefinition) =>
-          dataComponents = dataComponents + typeName ~> processEnum(idPath, e)
+          val v = processEnum(e, idPath)
+          dataComponents = dataComponents + typeName ~> v
         case _ =>
           halt(st"Infeasible: datatype ${(typeName, "::")} was not resolved".render)
       }
