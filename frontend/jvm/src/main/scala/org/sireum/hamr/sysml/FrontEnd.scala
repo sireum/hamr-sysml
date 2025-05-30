@@ -2,6 +2,7 @@
 package org.sireum.hamr.sysml
 
 import org.sireum._
+import org.sireum.hamr.codegen.common.CommonUtil.Store
 import org.sireum.hamr.codegen.common.symbols.{AadlPort, AadlThread, GclAnnexClauseInfo}
 import org.sireum.hamr.codegen.common.util.HamrCli.{CodegenHamrPlatform, CodegenLaunchCodeLanguage, CodegenNodesCodeLanguage, CodegenOption}
 import org.sireum.hamr.codegen.common.util.ModelUtil
@@ -42,13 +43,14 @@ object FrontEnd {
 
                                          val connectionReferences: HashSMap[ISZ[String], Option[Position]])
 
-  def typeCheck(par: Z, inputs: ISZ[Input], reporter: Reporter): (Option[TypeHierarchy], ISZ[ModelUtil.ModelElements]) = {
+  def typeCheck(par: Z, inputs: ISZ[Input], store: Store, reporter: Reporter): (Option[TypeHierarchy], ISZ[ModelUtil.ModelElements], Store) = {
+    var localStore = store
 
     val (thl, rep) = libraryReporter
 
     if (rep.hasError) {
       rep.printMessages()
-      return (None(), ISZ())
+      return (None(), ISZ(), localStore)
     }
 
     // TODO: pass in reporter
@@ -56,31 +58,31 @@ object FrontEnd {
     reporter.reports(reporter_.messages)
 
     if (reporter.hasError) {
-      return (None(), ISZ())
+      return (None(), ISZ(), localStore)
     }
 
     var th = TypeHierarchy.build(F, TypeHierarchy(globalNameMap, globalTypeMap, thl.typeHierarchy.poset, HashSMap.empty), reporter)
 
     if (reporter.hasError) {
-      return (Some(th), ISZ())
+      return (Some(th), ISZ(), localStore)
     }
 
     th = TypeOutliner.checkOutline(par, th, reporter)
 
     if (reporter.hasError) {
-      return (Some(th), ISZ())
+      return (Some(th), ISZ(), localStore)
     }
 
     th = TypeChecker.checkDefinitions(par, th, reporter)
 
     if (reporter.hasError) {
-      return (Some(th), ISZ())
+      return (Some(th), ISZ(), localStore)
     }
 
     val iopts = Instantiate.instantiate(topUnits, th, reporter)
 
     if (reporter.hasError) {
-      return (Some(th), ISZ())
+      return (Some(th), ISZ(), localStore)
     }
 
     iopts match {
@@ -90,19 +92,20 @@ object FrontEnd {
           val connModel = ConnectionInstantiator.instantiateConnections(model._1, reporter)
 
           if (reporter.hasError) {
-            return (Some(th), ISZ())
+            return (Some(th), ISZ(), localStore)
           }
 
-          ModelUtil.resolve(connModel, model._2, "model", baseOptions, reporter) match {
-            case Some(modelElements) =>
+          ModelUtil.resolve(connModel, model._2, "model", baseOptions, localStore, reporter) match {
+            case (Some(modelElements), s) =>
               imodels = imodels :+ modelElements
+              localStore = s
             case _ =>
           }
         }
 
-        return (Some(th), imodels)
+        return (Some(th), imodels, localStore)
       case _ =>
-        return (Some(th), ISZ())
+        return (Some(th), ISZ(), localStore)
     }
   }
 

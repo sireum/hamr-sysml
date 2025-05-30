@@ -2331,7 +2331,9 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       modifies = for (m <- listToISZ(o.ruleSlangModifies().ruleOwnedExpression())) yield visitOwnedExpression(m)
     }
 
-    val specs = for (s <- listToISZ(o.ruleSpecStatement())) yield visitSpecStatement(s).asInstanceOf[GclComputeSpec]
+    val assumes = for (a <- listToISZ(o.ruleAssumeStatement())) yield visitAssumeStatement(a)
+
+    val guarantees = for (g <- listToISZ(o.ruleGuaranteeStatement())) yield visitGuaranteeStatement(g)
 
     val cases = for (c <- listToISZ(o.ruleCaseStatementClause())) yield visitCaseStatementClause(c)
 
@@ -2341,7 +2343,8 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
     return GclCompute(
       modifies = modifies,
-      specs = specs,
+      assumes = assumes,
+      guarantees = guarantees,
       cases = cases,
       handlers = handlers,
       flows = flows,
@@ -2356,20 +2359,30 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       modifies = for (m <- listToISZ(o.ruleSlangModifies().ruleOwnedExpression())) yield visitOwnedExpression(m)
     }
 
-    val guarantees = for (g <- listToISZ(o.ruleGuaranteeStatement())) yield visitGuaranteeStatement(g)
+    val assumes = for(a <- listToISZ(o.ruleAssumeStatement())) yield visitAssumeStatement(a)
+
+    val guarantees = for(g <- listToISZ(o.ruleGuaranteeStatement())) yield visitGuaranteeStatement(g)
+
+    val cases = for(c <- listToISZ(o.ruleCaseStatementClause())) yield visitCaseStatementClause(c)
 
     return GclHandle(
       port = port,
       modifies = modifies,
+      assumes = assumes,
       guarantees = guarantees,
+      cases = cases,
       attr = toAttr(o))
   }
 
   def visitCaseStatementClause(o: RuleCaseStatementClauseContext): GclCaseStatement = {
+    val assumes: Option[Exp] =
+      if (nonEmpty(o.ruleAnonAssumeStatement().ruleOwnedExpression()))
+        Some(visitOwnedExpression(o.ruleAnonAssumeStatement().ruleOwnedExpression()))
+      else None()
     return GclCaseStatement(
       id = o.RULE_ID().string,
       descriptor = if (o.RULE_STRING_VALUE() != null) Some(SlangUtil.unquoteString(o.RULE_STRING_VALUE().string)) else None(),
-      assumes = visitOwnedExpression(o.ruleAnonAssumeStatement().ruleOwnedExpression()),
+      assumes = assumes,
       guarantees = visitOwnedExpression(o.ruleAnonGuaranteeStatement().ruleOwnedExpression()),
       attr = toAttr(o))
   }
@@ -2449,7 +2462,6 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
 
   def visitGumboSlangDefDef(o: RuleSlangDefDefContext): GclMethod = {
-    reportError(isEmpty(o.ruleSlangDefExt()), o, "Not handling def extensions yet")
 
     var typeParams: ISZ[AST.TypeParam] = ISZ()
     if (nonEmpty(o.ruleSlangTypeParams())) {

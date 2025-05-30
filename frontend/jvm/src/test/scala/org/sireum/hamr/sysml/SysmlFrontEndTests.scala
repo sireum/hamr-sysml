@@ -86,7 +86,7 @@ class SysmlFrontEndTests extends TestSuite {
   def test(inputs: ISZ[Input]): Unit = {
 
     val reporter = Reporter.create
-    val (sysmlTh, modelElements) = FrontEnd.typeCheck(par = par, inputs = inputs, reporter = reporter)
+    val (sysmlTh, modelElements, store) = FrontEnd.typeCheck(par = par, inputs = inputs, store = Map.empty, reporter = reporter)
 
     if (!reporter.hasError) {
 
