@@ -16,19 +16,19 @@ object Util {
     return (for(id <- ids) yield id.value)
   }
 
-  def getId(id: Option[SysmlAst.Identification],
+  def getId(idOpt: Option[SysmlAst.Identification],
             specializations: ISZ[SysmlAst.FeatureSpecialization],
             posOpt: Option[Position], toolKind: String, reporter: Reporter): (Option[String], Option[Position]) = {
 
-    id match {
+    idOpt match {
       case Some(id) =>
         if (id.shortName.nonEmpty) {
           // TODO
           //reporter.warn(id.shortName.get.posOpt, toolKind, "Short names are not currently supported")
         }
         id.name match {
-          case Some(id) =>
-            return (Some(id.value), id.posOpt)
+          case Some(id2) =>
+            return (Some(id2.value), id2.posOpt)
           case _ =>
             reporter.error(id.posOpt, toolKind, "Names must be provided")
         }
@@ -92,9 +92,9 @@ object Util {
     }
   }
 
-  def toSysmlTypedOpt(t: Option[AST.Typed]): Option[SAST.Typed] = {
+  def toSysmlTypedOpt(tOpt: Option[AST.Typed]): Option[SAST.Typed] = {
     val ret: Option[SAST.Typed] =
-      t match {
+      tOpt match {
         case Some(t: AST.Typed.Name) => return Some(SAST.Typed.Name(t.ids))
         case _ => None()
       }

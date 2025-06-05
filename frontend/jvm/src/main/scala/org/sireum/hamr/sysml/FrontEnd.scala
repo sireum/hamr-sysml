@@ -86,13 +86,13 @@ object FrontEnd {
     }
 
     iopts match {
-      case Some((th, models)) =>
+      case Some((th2, models)) =>
         var imodels: ISZ[ModelUtil.ModelElements] = ISZ()
         for (model <- models) {
           val connModel = ConnectionInstantiator.instantiateConnections(model._1, reporter)
 
           if (reporter.hasError) {
-            return (Some(th), ISZ(), localStore)
+            return (Some(th2), ISZ(), localStore)
           }
 
           ModelUtil.resolve(connModel, model._2, "model", baseOptions, localStore, reporter) match {
@@ -103,7 +103,7 @@ object FrontEnd {
           }
         }
 
-        return (Some(th), imodels, localStore)
+        return (Some(th2), imodels, localStore)
       case _ =>
         return (Some(th), ISZ(), localStore)
     }

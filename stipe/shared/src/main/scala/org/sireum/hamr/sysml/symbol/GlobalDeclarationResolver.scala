@@ -79,12 +79,12 @@ object GlobalDeclarationResolver {
 
             for(e <- e.enumValues) {
               getId(e.identification, posOpt) match {
-                case (Some(id), posOpt) =>
-                  if (elements.contains(id)) {
-                    reporter.error(posOpt, resolverKind, s"Redeclaration of enum value ${id}")
+                case (Some(id2), posOpt2) =>
+                  if (elements.contains(id2)) {
+                    reporter.error(posOpt2, resolverKind, s"Redeclaration of enum value ${id2}")
                   } else {
-                    elements = elements + id ~> SAST.ResolvedInfo.EnumElement(name, id, ordinal)
-                    elementPosOpts = elementPosOpts :+ posOpt
+                    elements = elements + id2 ~> SAST.ResolvedInfo.EnumElement(name, id2, ordinal)
+                    elementPosOpts = elementPosOpts :+ posOpt2
                   }
                 case _ =>
                   elementPosOpts = elementPosOpts :+ None()
@@ -500,16 +500,16 @@ object GlobalDeclarationResolver {
     return None()
   }
 
-  def getId(id: Option[SysmlAst.Identification], posOpt: Option[Position]): (Option[String], Option[Position]) = {
-    id match {
+  def getId(idOpt: Option[SysmlAst.Identification], posOpt: Option[Position]): (Option[String], Option[Position]) = {
+    idOpt match {
       case Some(id) =>
         if (id.shortName.nonEmpty) {
           // TODO
           //reporter.warn(id.shortName.get.posOpt, resolverKind, "Short names are not currently supported")
         }
         id.name match {
-          case Some(id) =>
-            return (Some(id.value), id.posOpt)
+          case Some(id2) =>
+            return (Some(id2.value), id2.posOpt)
           case _ =>
             reporter.error(id.posOpt, resolverKind, "Names must be provided")
         }

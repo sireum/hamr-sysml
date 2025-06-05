@@ -68,13 +68,13 @@ object TypeChecker {
       t match {
         case t: AST.Type.Named =>
           scope.resolveType(typeHierarchy.typeMap, Util.slangIds2string(t.name.ids)) match {
-            case Some(t: TypeInfo.PartDefinition) =>
+            case Some(ti: TypeInfo.PartDefinition) =>
               val name = AST.Name(
-                ids = for (id <- t.name) yield AST.Id(id, AST.Attr(t.posOpt)),
-                attr = AST.Attr(t.posOpt)
+                ids = for (id <- ti.name) yield AST.Id(id, AST.Attr(ti.posOpt)),
+                attr = AST.Attr(ti.posOpt)
               )
-              val typedName = AST.Typed.Name(t.name, ISZ())
-              val typedAttr = AST.TypedAttr(t.posOpt, Some(typedName))
+              val typedName = AST.Typed.Name(ti.name, ISZ())
+              val typedAttr = AST.TypedAttr(ti.posOpt, Some(typedName))
               val named = AST.Type.Named(name, ISZ(), typedAttr)
 
               return Some(named)
@@ -916,8 +916,8 @@ object TypeChecker {
           case Some(receiverType) =>
             val (newReceiver, receiverTypeOpt) = checkExp(None(), scope, receiverType, reporter)
             receiverTypeOpt match {
-              case Some(receiverType) =>
-                val t = checkSelectH(scope, receiverType, selectExp.id, reporter)
+              case Some(rcvType) =>
+                val t = checkSelectH(scope, rcvType, selectExp.id, reporter)
                 (selectExp, t._1)
               case _ =>
                 (selectExp, None())

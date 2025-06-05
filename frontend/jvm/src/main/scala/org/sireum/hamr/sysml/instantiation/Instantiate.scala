@@ -27,7 +27,7 @@ object Instantiate {
       t match {
         case t: Typed.Name =>
           typeHierarchy.typeMap.get(t.ids) match {
-            case Some(t: TypeInfo.PartDefinition) => return Some(t)
+            case Some(ti: TypeInfo.PartDefinition) => return Some(ti)
             case _ => return None()
           }
         case _ =>
@@ -83,7 +83,7 @@ object Instantiate {
               for (e <- p.packageElements) {
                 e match {
                   case GumboAnnotation(lib: GclLib) =>
-                    Util.getId(id = p.identification, specializations = ISZ(),
+                    Util.getId(idOpt = p.identification, specializations = ISZ(),
                       posOpt = p.posOpt, toolKind = Instantiate.instantiatorKey, reporter = reporter) match {
                       case (Some(id), posOpt) =>
 
@@ -607,9 +607,9 @@ object Instantiate {
       posOpt match {
         case Some(p) =>
           p.uriOpt match {
-            case Some(p) if ops.StringOps(p).startsWith("file://") =>
+            case Some(uri) if ops.StringOps(uri).startsWith("file://") =>
               // non mock library file
-              return Some(Os.Path.fromUri(p))
+              return Some(Os.Path.fromUri(uri))
             case _ => return None()
           }
         case _ => return None()

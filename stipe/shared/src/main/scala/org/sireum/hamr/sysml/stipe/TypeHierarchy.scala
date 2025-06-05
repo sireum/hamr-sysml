@@ -223,13 +223,13 @@ object TypeHierarchy {
       return T
     }
     (t1, t2) match {
-      case (t1: SAST.Typed.Name, t2: SAST.Typed.Name) =>
-        if (!poset.ancestorsOf(t1.ids).contains(t2.ids)) {
+      case (n1: SAST.Typed.Name, n2: SAST.Typed.Name) =>
+        if (!poset.ancestorsOf(n1.ids).contains(n2.ids)) {
           return F
         }
 
         val (outlined, ancestors): (B, ISZ[SAST.Typed.Name]) =
-          typeMap.get(t1.ids) match {
+          typeMap.get(n1.ids) match {
             case Some(info: TypeInfo.AllocationDefinition) => (info.outlined, info.ancestors)
             case Some(info: TypeInfo.AttributeDefinition) => (info.outlined, info.ancestors)
             case Some(info: TypeInfo.ConnectionDefinition) => (info.outlined, info.ancestors)
@@ -241,16 +241,16 @@ object TypeHierarchy {
         if (!outlined) {
           return T
         }
-        for (ancestor <- ancestors if ancestor.ids == t2.ids) {
+        for (ancestor <- ancestors if ancestor.ids == n2.ids) {
           return T
         }
         return F
-      case (t1: SAST.Typed.Enum, t2: SAST.Typed.Name) =>
-        if (!poset.ancestorsOf(t1.name).contains(t2.ids)) {
+      case (te: SAST.Typed.Enum, tn: SAST.Typed.Name) =>
+        if (!poset.ancestorsOf(te.name).contains(tn.ids)) {
           return F
         }
         val (outlined, ancestors): (B, ISZ[SAST.Typed.Name]) =
-          typeMap.get(t1.name) match {
+          typeMap.get(te.name) match {
             case Some(info: TypeInfo.AttributeDefinition) => (info.outlined, info.ancestors)
             case Some(info: TypeInfo.EnumDefinition) => (info.outlined, info.ancestors)
             case _ => halt("Infeasible")
@@ -258,16 +258,16 @@ object TypeHierarchy {
         if (!outlined) {
           return T
         }
-        for (ancestor <- ancestors if ancestor.ids == t2.ids) {
+        for (ancestor <- ancestors if ancestor.ids == tn.ids) {
           return T
         }
         return F
-      case (t1: SAST.Typed.Name, t2: SAST.Typed.Enum) =>
-        if (!poset.ancestorsOf(t1.ids).contains(t2.name)) {
+      case (tn: SAST.Typed.Name, en: SAST.Typed.Enum) =>
+        if (!poset.ancestorsOf(tn.ids).contains(en.name)) {
           return F
         }
         val (outlined, ancestors): (B, ISZ[SAST.Typed.Name]) =
-          typeMap.get(t1.ids) match {
+          typeMap.get(tn.ids) match {
             case Some(info: TypeInfo.AttributeDefinition) => (info.outlined, info.ancestors)
             case Some(info: TypeInfo.EnumDefinition) => (info.outlined, info.ancestors)
             case x => halt(s"Infeasible: $x")
@@ -275,7 +275,7 @@ object TypeHierarchy {
         if (!outlined) {
           return T
         }
-        for (ancestor <- ancestors if ancestor.ids == t2.name) {
+        for (ancestor <- ancestors if ancestor.ids == en.name) {
           return T
         }
         return F
@@ -289,11 +289,11 @@ object TypeHierarchy {
       return T
     }
     (t1, t2) match {
-      case (t1: SAST.Typed.Name, t2: SAST.Typed.Name) =>
-        if ((t1.ids == ISZ("Timing_Properties", "Period") || t1.ids == ISZ("Timing_Properties","Frame_Period") || t1.ids == ISZ("Timing_Properties","Clock_Period")) &&
-          t2.ids == ISZ("SI", "DurationUnit")) {
+      case (n1: SAST.Typed.Name, n2: SAST.Typed.Name) =>
+        if ((n1.ids == ISZ("Timing_Properties", "Period") || n1.ids == ISZ("Timing_Properties","Frame_Period") || n1.ids == ISZ("Timing_Properties","Clock_Period")) &&
+          n2.ids == ISZ("SI", "DurationUnit")) {
           return T
-        } else if ((t1.ids == ISZ("CASE_Scheduling", "Max_Domain") || t1.ids == ISZ("CASE_Scheduling", "Domain")) && t2.ids == ISZ("org", "sireum", "Z")) {
+        } else if ((n1.ids == ISZ("CASE_Scheduling", "Max_Domain") || n1.ids == ISZ("CASE_Scheduling", "Domain")) && n2.ids == ISZ("org", "sireum", "Z")) {
           return T
         }
       case _ =>
