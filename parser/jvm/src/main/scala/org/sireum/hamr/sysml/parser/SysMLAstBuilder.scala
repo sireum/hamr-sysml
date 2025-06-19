@@ -371,10 +371,10 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           else Some(visitIdentification(text.ruleIdentification()))
 
         if (nonEmpty(text.ruleGumboLibrary())) {
-          assert(text.K_REP() == null, "Not expecting 'rep' for gumbo annotations")
+          reportError(text.K_REP() == null, o, "Not expecting 'rep' for gumbo annotations")
           return GumboAnnotation(visitGumboLibrary(text.ruleGumboLibrary()))
         } else if (nonEmpty(text.ruleGumboSubclause())) {
-          assert(text.K_REP() == null, "Not expecting 'rep' for gumbo annotations")
+          reportError(text.K_REP() == null, o, "Not expecting 'rep' for gumbo annotations")
           return GumboAnnotation(visitGumboSubclause(text.ruleGumboSubclause()))
         } else {
           return TextualRepresentation(
@@ -386,8 +386,8 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         }
 
       case i4: RuleAnnotatingElement4Context =>
-        val dummy = i4.ruleMetadataUsage()
-        halt("Not yet handling metadata annotations")
+        reportError(o, "Metadata usages are not currently supported")
+        return SlangUtil.Placeholders.AnnotatingElementPlaceholder
 
       case x =>
         halt(s"Not expecting this annotating element $x")
@@ -846,6 +846,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         case r2: RuleAllocationUsageDeclaration2Context =>
           reportError(r2, "Not currently handling RuleAllocationUsageDeclaration2Context")
           (None(), ISZ(), None())
+
         case _ => halt("Infeasible")
       }
 
@@ -868,7 +869,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
   private def visitConnectorEnd(context: RuleConnectorEndContext): ConnectorEnd = {
     if (nonEmpty(context.ruleName())) {
-      halt("Need to see an example of this")
+      reportError(context.ruleName(), "Rule name is not currently handled for connector ends")
     }
 
     val ref: ISZ[Name] = context.ruleOwnedReferenceSubsetting() match {
@@ -1019,8 +1020,8 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
   private def visitOccurrenceDefinitionPrefix(occurrenceDef: RuleOccurrenceDefinitionPrefixContext): OccurrenceDefinitionPrefix = {
 
-    reportError(occurrenceDef.ruleLifeClassMembership() == null, occurrenceDef.ruleLifeClassMembership(),
-      "Life Classes are not currently supported")
+    reportError(occurrenceDef.ruleEmptyMultiplicityMember() == null, occurrenceDef.ruleEmptyMultiplicityMember(),
+      "'individual' keyword is not currently supported")
     reportError(occurrenceDef.ruleDefinitionExtensionKeyword().isEmpty, occurrenceDef,
       "Extension definitions are not currently supported")
 
@@ -1223,11 +1224,10 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
     return RefPrefix(
       direction = direction,
+      isDerived = context.K_DERIVED() != null,
       isAbstract = context.K_ABSTRACT() != null,
       isVariation = context.K_VARIATION() != null,
-      isReadOnly = context.K_READONLY() != null,
-      isDerived = context.K_DERIVED() != null
-    )
+      isConstant = context.K_CONSTANT() != null)
   }
 
   // ruleOccurrenceUsagePrefix: (ruleEndUsagePrefix | ruleBasicUsagePrefix 'individual'? rulePortionKind?) ruleUsageExtensionKeyword*;
@@ -1904,15 +1904,18 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   }
 
   private def visitArgumentList(al: RuleArgumentListContext): AST.Exp = {
-    halt("todo")
+    reportError(al, "Argument lists are not currently supported")
+    return SlangUtil.Placeholders.emptyExp
   }
 
   private def visitFunctionReferenceExpression(fre: RuleFunctionReferenceExpressionContext): AST.Exp = {
-    halt("todo")
+    reportError(fre, "Function reference expressions are not currently handled")
+    return SlangUtil.Placeholders.emptyExp
   }
 
   private def visitReferenceTyping(context: RuleReferenceTypingContext): AST.Exp = {
-    halt("todo")
+    reportError(context, "Reference typing are not currently handled")
+    return SlangUtil.Placeholders.emptyExp
   }
 
   private def visitBaseExpression(o: RuleBaseExpressionContext): AST.Exp = {
@@ -1955,11 +1958,19 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         return visitInvocationExpression(i.ruleInvocationExpression())
 
       case i: RuleBaseExpression6Context =>
-        return visitBodyExpression(i.ruleBodyExpression())
+        return visitConstructorExpression(i.ruleConstructorExpression())
 
       case i: RuleBaseExpression7Context =>
+        return visitBodyExpression(i.ruleBodyExpression())
+
+      case i: RuleBaseExpression8Context =>
         return visitSequenceExpression(i.ruleSequenceExpression())
     }
+  }
+
+  private def visitConstructorExpression(o: SysMLv2Parser.RuleConstructorExpressionContext): AST.Exp = {
+    reportError(o, "Constructor expressions are not currently supported")
+    return SlangUtil.Placeholders.emptyExp
   }
 
   private def visitSequenceExpression(o: RuleSequenceExpressionContext): AST.Exp = {
@@ -1973,12 +1984,14 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   }
 
   private def visitBodyExpression(o: RuleBodyExpressionContext): AST.Exp = {
-    halt("")
+    reportError(o, "Body expressions are not currently supported")
+    return SlangUtil.Placeholders.emptyExp
   }
 
   private def visitInvocationExpression(o: RuleInvocationExpressionContext): AST.Exp = {
     if (nonEmpty(o.ruleArgumentList().ruleNamedArgumentList())) {
-      halt("todo")
+      reportError(o, "Named arguments lists are not currently supported")
+      return SlangUtil.Placeholders.emptyExp
       /*
       return AST.Exp.InvokeNamed (
         receiverOpt = ???,
@@ -1988,8 +2001,8 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         attr = toSlangResolvedAttr(o))
        */
     } else {
-      val (receiverOpt, ident): (Option[Exp], AST.Exp.Ident) = o.ruleOwnedFeatureTyping() match {
-        case i: RuleOwnedFeatureTyping1Context =>
+      val (receiverOpt, ident): (Option[Exp], AST.Exp.Ident) = o.ruleInstantiatedTypeMember() match {
+        case i: RuleInstantiatedTypeMember1Context =>
           val name = visitQualifiedNameAsSlangName(i.ruleQualifiedName())
           val ids = ops.ISZOps(name.ids)
 
@@ -2004,8 +2017,9 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
             attr = AST.ResolvedAttr(posOpt = ids.last.attr.posOpt, resOpt = None(), typedOpt = None()))
           (receiver, ident)
 
-        case i: RuleOwnedFeatureTyping2Context =>
-          halt("Need and example of an invocation expression where the name is a chain")
+        case i: RuleInstantiatedTypeMember2Context =>
+          reportError(o, "Owned feature chains are are not currently supported for invocation expressions")
+          return SlangUtil.Placeholders.emptyExp
       }
       var args: ISZ[Exp] = ISZ()
       if (nonEmpty(o.ruleArgumentList().rulePositionalArgumentList())) {
@@ -2215,7 +2229,8 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   }
 
   def visitMetadataAccessExpression(o: RuleMetadataAccessExpressionContext): AST.Exp = {
-    halt("")
+    reportError(o, "Metadata access expressions are not currently supported")
+    return SlangUtil.Placeholders.emptyExp
   }
 
   def visitLiteralExpression(o: RuleLiteralExpressionContext): AST.Exp = {
@@ -2260,7 +2275,8 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
             }
             return AST.Exp.LitF64(value = F64(s"$num.$decimal").get, attr = toSlangAttr(i))
           case i: RuleRealValue2Context =>
-            halt("???")
+            reportError(o, "Exponents are not currently supported")
+            return SlangUtil.Placeholders.emptyExp
         }
 
       case i: RuleLiteralExpression5Context =>
@@ -2271,7 +2287,8 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   }
 
   private def visitNullExpression(o: RuleNullExpressionContext): AST.Exp = {
-    halt("")
+    reportError(o, "Null expressions are not currently supported")
+    return SlangUtil.Placeholders.emptyExp
   }
 
   def visitGumboLibrary(o: SysMLv2Parser.RuleGumboLibraryContext): GclLib = {

@@ -157,7 +157,7 @@ object SlangUtil {
     }
 
     def emptyRefPrefix: RefPrefix = {
-      return RefPrefix(direction = None(), isAbstract = F, isVariation = F, isReadOnly = F, isDerived = F)
+      return RefPrefix(direction = None(), isDerived = F, isAbstract = F, isVariation = F, isConstant = F)
     }
 
     def emptyUsagePrefix: UsagePrefix = {
@@ -202,6 +202,10 @@ object SlangUtil {
           definitionBodyItems = ISZ(),
           tipeOpt = None(),
           attr = SAST.ResolvedAttr(None(), None(), None())))
+    }
+
+    def AnnotatingElementPlaceholder: AnnotatingElement = {
+      return Comment(visibility = Visibility.Public, identification = None(), abouts = ISZ(), locale = None(), comment = "TODO", attr = SAST.Attr(None()))
     }
   }
 
