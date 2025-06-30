@@ -95,7 +95,13 @@ object FrontEnd {
             return (Some(th2), ISZ(), localStore)
           }
 
-          ModelUtil.resolve(connModel, model._2, "model", baseOptions, localStore, reporter) match {
+          val r = ModelUtil.resolve(connModel, model._2, "model", baseOptions, localStore, reporter)
+
+          if (reporter.hasError) {
+            return (Some(th2), ISZ(), localStore)
+          }
+
+          r match {
             case (Some(modelElements), s) =>
               imodels = imodels :+ modelElements
               localStore = s

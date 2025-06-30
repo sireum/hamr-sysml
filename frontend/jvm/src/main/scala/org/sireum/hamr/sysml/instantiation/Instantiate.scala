@@ -91,7 +91,18 @@ object Instantiate {
                         var methods: ISZ[GclMethod] = ISZ()
                         for (m <- lib.methods) {
                           val scope = Scope.Global(ISZ(id), ISZ(), ISZ(id))
-                          methods = methods :+ TypeChecker.resolveMethod(m, scope, typeHierarchy, reporter)
+                          val rmethod = TypeChecker.resolveMethod(m, scope, typeHierarchy, reporter)
+                          methods = methods :+ rmethod
+
+                          for (p <- rmethod.method.sig.params) {
+                            val t1 =  p.tipe.typedOpt.get.asInstanceOf[AST.Typed.Name].ids
+                            val d1 = processDatatype(t1, ISZ())
+                            assert(d1.nonEmpty, s"Type $t1 not resolved for library method ${m.method.sig.id.value}'s ${p.id.value} param")
+                          }
+
+                          val t2 = rmethod.method.sig.returnType.typedOpt.get.asInstanceOf[AST.Typed.Name].ids
+                          val d2 = processDatatype(t2, ISZ())
+                          assert(d2.nonEmpty, s"Return type $t2 not resolved for library method ${m.method.sig.id.value}")
                         }
 
                         gumboLibraries = gumboLibraries :+ lib(
@@ -306,6 +317,25 @@ object Instantiate {
               b match {
                 case SysmlAst.GumboAnnotation(gumbo: ir.GclSubclause) =>
                   hasGumbo = T
+
+                  for (m <- gumbo.methods) {
+                    for (p <- m.method.sig.params) {
+                      val t1 = p.tipe.typedOpt.get.asInstanceOf[AST.Typed.Name].ids
+                      val d1 = processDatatype(t1, ISZ())
+                      assert(d1.nonEmpty, s"Type $t1 not resolved for subclause method ${m.method.sig.id.value}'s ${p.id.value} param")
+                    }
+
+                    val t2 = m.method.sig.returnType.typedOpt.get.asInstanceOf[AST.Typed.Name].ids
+                    val d2 = processDatatype(t2, ISZ())
+                    assert(d2.nonEmpty, s"Return type $t2 not resolved for subclause method ${m.method.sig.id.value}")
+                  }
+
+                  for (s <- gumbo.state) {
+                    val t3 = ops.StringOps(ops.StringOps(s.classifier).replaceAllLiterally("::", "!")).split(c => c == '!')
+                    val d3 = processDatatype(t3, ISZ())
+                    assert(d3.nonEmpty, s"Type ${t3} not resolved for state var ${s.name}")
+                  }
+
                   as = as :+ ir.Annex("GUMBO", gumbo)
                 case _ =>
               }
@@ -572,18 +602,24 @@ object Instantiate {
       }
     }
 
-    def processDatatype(typeName: ISZ[String], idPath: ISZ[String]): Unit = {
-      if (dataComponents.contains(typeName) || !isDatatypeH(typeName)) {
-        return
+    def processDatatype(typeName: ISZ[String], idPath: ISZ[String]): Option[ir.Component] = {
+      if (dataComponents.contains(typeName)) {
+        return dataComponents.get(typeName)
+      }
+
+      if (!isDatatypeH(typeName)) {
+        return None()
       }
 
       typeHierarchy.typeMap.get(typeName) match {
         case Some(p: TypeInfo.PartDefinition) =>
           val v = instantiateComponent(p, T, idPath, p.posOpt)
           dataComponents = dataComponents + typeName ~> v
+          return Some(v)
         case Some(e: TypeInfo.EnumDefinition) =>
           val v = processEnum(e, idPath)
           dataComponents = dataComponents + typeName ~> v
+          return Some(v)
         case _ =>
           halt(st"Infeasible: datatype ${(typeName, "::")} was not resolved".render)
       }
