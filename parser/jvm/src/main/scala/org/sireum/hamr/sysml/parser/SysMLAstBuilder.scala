@@ -2365,6 +2365,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       cases = cases,
       handlers = handlers,
       flows = flows,
+      gumboTables = ISZ(), // gumbo tables not yet supported for sysmlv2.
       attr = toAttr(o))
   }
 
