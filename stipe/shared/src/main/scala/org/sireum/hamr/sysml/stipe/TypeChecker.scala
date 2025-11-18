@@ -2,11 +2,10 @@
 package org.sireum.hamr.sysml.stipe
 
 import org.sireum._
-import org.sireum.hamr.ir.SysmlAst.{BinaryConnectorPart, GumboAnnotation, OccurrenceBasicUsagePrefix, RedefinitionsSpecialization, SubsettingsSpecialization, TypingsSpecialization}
+import org.sireum.hamr.ir.SysmlAst.{BinaryConnectorPart, OccurrenceBasicUsagePrefix, RedefinitionsSpecialization, SubsettingsSpecialization, TypingsSpecialization}
 import org.sireum.hamr.ir.{GclLib, GclMethod, GclStateVar, GclSubclause, ResolvedInfo, SysmlAst, Typed}
 import org.sireum.hamr.{ir => SAST}
-import org.sireum.hamr.sysml.symbol.Resolver.NameMap
-import org.sireum.hamr.sysml.symbol.Resolver.QName
+import org.sireum.hamr.sysml.symbol.Resolver.{NameMap, QName, resolverKind}
 import org.sireum.hamr.sysml.symbol.{Info, Scope, TypeInfo, Util}
 import org.sireum.lang.ast.Exp
 import org.sireum.lang.{ast => AST}
@@ -90,7 +89,7 @@ object TypeChecker {
 
               return Some(named)
             case _ =>
-              reporter.error(t.posOpt, TypeChecker.typeCheckerKind, "Only expecting type to resolve to a part or enumeration definitions")
+              reportError(t.posOpt, s"Unable to resolve type: ${t.string}", reporter)
               return None()
           }
         case _ =>
@@ -102,7 +101,7 @@ object TypeChecker {
       resolveType(p.tipe) match {
         case Some(t) => params = params :+ p(tipe = t)
         case _ =>
-          reporter.error(p.id.attr.posOpt, TypeChecker.typeCheckerKind, "Could not resolve the parameter type")
+          reportError(p.id.attr.posOpt, "Could not resolve the parameter type", reporter)
           params = params :+ p
       }
     }
@@ -110,13 +109,32 @@ object TypeChecker {
     val returnType: AST.Type = resolveType(m.method.sig.returnType) match {
       case Some(rt) => rt
       case _ =>
-        reporter.error(m.method.sig.returnType.posOpt, TypeChecker.typeCheckerKind, "Could not resolve methods return type")
+        reportError(m.method.sig.returnType.posOpt, s"Could not resolve methods return type: ${m.method.sig.returnType.string}", reporter)
         m.method.sig.returnType
     }
 
     return m(method = m.method(sig = m.method.sig(params = params, returnType = returnType)))
   }
 
+  def reportWarnCond(cond: B, posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    if (!cond) {
+      reportWarn(posOpt, message, reporter)
+    }
+  }
+
+  def reportWarn(posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    reporter.warn(posOpt, typeCheckerKind, s"TypeChecker Warning: $message")
+  }
+
+  def reportErrorCond(cond: B, posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    if (!cond) {
+      reportError(posOpt, message, reporter)
+    }
+  }
+
+  def reportError(posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    reporter.error(posOpt, typeCheckerKind, s"TypeChecker Error: $message")
+  }
 }
 
 @datatype class TypeChecker(val typeHierarchy: TypeHierarchy,
@@ -179,7 +197,9 @@ object TypeChecker {
   }
 
   def checkAttributeDefinition(info: TypeInfo.AttributeDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message]) @pure = {
-    assert(info.outlined, st"${(info.name, "::")} is not outline".render)
+    if (!info.outlined) {
+      assume(T)
+    }
     val reporter = Reporter.create
 
     var scope = Scope.Local.create(info.scope)
@@ -241,7 +261,7 @@ object TypeChecker {
               newMembers.partUsages.get(partId.ids(partId.ids.lastIndex).value) match {
                 case Some(p) => return Some(p)
                 case _ =>
-                  reporter.error(connEnd.resOpt.posOpt, TypeChecker.typeCheckerKind, s"'$partId' is not a valid part usage")
+                  TypeChecker.reportError(connEnd.resOpt.posOpt, s"'$partId' is not a valid part usage", reporter)
                   return None()
               }
             }
@@ -287,13 +307,13 @@ object TypeChecker {
                           halt("Infeasible")
                       }
                     case x =>
-                      reporter.error(receiver.posOpt, TypeChecker.typeCheckerKind, "Could not resolve the receiver's type")
+                      TypeChecker.reportError(receiver.posOpt, "Could not resolve the receiver's type", reporter)
                       return None()
                   }
                 } else if (connEnd.reference.size == 1) {
                   newMembers.portUsages
                 } else {
-                  reporter.error(connEnd.resOpt.posOpt, typeCheckerKind, "Tunneled connections are not possible in AADL so they are currently unsupported")
+                  TypeChecker.reportError(connEnd.resOpt.posOpt, "Tunneled connections are not possible in AADL so they are currently unsupported", reporter)
                   HashSMap.empty
                 }
 
@@ -301,7 +321,7 @@ object TypeChecker {
               ports.get(portId) match {
                 case Some(p) => return Some(p)
                 case _ =>
-                  reporter.error(connEnd.resOpt.posOpt, TypeChecker.typeCheckerKind, s"'$portId' is not a valid port usage")
+                  TypeChecker.reportError(connEnd.resOpt.posOpt, s"'$portId' is not a valid port usage", reporter)
                   return None()
               }
             }
@@ -419,7 +439,7 @@ object TypeChecker {
           referenceUsages = referenceUsages + id.get ~> bInfo(ast = nast)
 
         case x: SAST.SysmlAst.UsageElement if x.commonUsageElements.identification.nonEmpty =>
-          reporter.error(x.posOpt, TypeChecker.typeCheckerKind, s"Need to handle : $x")
+          TypeChecker.reportError(x.posOpt, s"Need to handle : $x", reporter)
 
         case _ =>
 
@@ -493,7 +513,7 @@ object TypeChecker {
                                   parentUsage.ast.commonUsageElements.attr.typedOpt match {
                                     case Some(t2) =>
                                       if (!typeHierarchy.isSubType(redefiningType.tpe, t2)) {
-                                        reporter.error(redefinedTypeName.posOpt, TypeChecker.typeCheckerKind, s"${redefiningType.tpe} is not a subtype of $t2")
+                                        TypeChecker.reportError(redefinedTypeName.posOpt, s"${redefiningType.tpe} is not a subtype of $t2", reporter)
                                         None()
                                       } else {
                                         Some(SAST.Type.Named(
@@ -506,19 +526,19 @@ object TypeChecker {
                                       halt("Infeasible: parent usages must have been typed by now")
                                   }
                                 case _ =>
-                                  reporter.error(redefinedTypeName.posOpt, TypeChecker.typeCheckerKind, st"Could not resolve type name '${(Util.ids2string(redefinedTypeName.ids), "::")}''".render)
+                                  TypeChecker.reportError(redefinedTypeName.posOpt, st"Could not resolve type name '${(Util.ids2string(redefinedTypeName.ids), "::")}''".render, reporter)
                                   None()
                               }
                             case _ =>
-                              reporter.error(redefinedTypeName.posOpt, TypeChecker.typeCheckerKind, st"Could not resolve redefined name ${(Util.ids2string(redefinedTypeName.ids), "::")}".render)
+                              TypeChecker.reportError(redefinedTypeName.posOpt, st"Could not resolve redefined name ${(Util.ids2string(redefinedTypeName.ids), "::")}".render, reporter)
                               None()
                           }
                         case _ =>
-                          reporter.error(info.posOpt, TypeChecker.typeCheckerKind, s"Currently expecting a redefinition to be followed by a single typing specialization")
+                          TypeChecker.reportError(info.posOpt, s"Currently expecting a redefinition to be followed by a single typing specialization", reporter)
                           None()
                       }
                     case _ =>
-                      reporter.error(ru.attr.posOpt, TypeChecker.typeCheckerKind, "Expecting at most a redefinition to be followed by a single typing specialization")
+                      TypeChecker.reportError(ru.attr.posOpt, "Expecting at most a redefinition to be followed by a single typing specialization", reporter)
                       None()
                   }
                 }
@@ -545,11 +565,10 @@ object TypeChecker {
 
               info.resOpt
             case Some(_) =>
-              reporter.error(posOpt, TypeChecker.typeCheckerKind,
-                "Expecting usage redefinitions to be typed by an existing usage")
+              TypeChecker.reportError(posOpt, "Expecting usage redefinitions to be typed by an existing usage", reporter)
               None()
             case x =>
-              reporter.error(posOpt, TypeChecker.typeCheckerKind, s"Couldn't resolve $id")
+              TypeChecker.reportError(posOpt, s"Couldn't resolve $id", reporter)
               None()
           }
 
@@ -603,6 +622,7 @@ object TypeChecker {
                         ISZ(attributeUsageScope), ru.definitionBodyItems, reporter)
 
                       ru = ru(
+                        featureValue = fvalue,
                         definitionBodyItems = newBodyItems,
                         attr = ru.attr(typedOpt = typedOpt, resOpt = resOpt))
 
@@ -610,27 +630,23 @@ object TypeChecker {
                     case Some(pd: TypeInfo.EnumDefinition) =>
 
                       if (ru.definitionBodyItems.nonEmpty) {
-                        reporter.error(ru.attr.posOpt, TypeChecker.typeCheckerKind,
-                          "Not expecting an attribute typed by an enum definition to have body items")
+                        TypeChecker.reportError(ru.attr.posOpt, "Not expecting an attribute typed by an enum definition to have body items", reporter)
                       }
 
                       ru = ru(attr = ru.attr(typedOpt = typedOpt, resOpt = resOpt))
                       return ru
                     case x =>
-                      reporter.error(ru.attr.posOpt, TypeChecker.typeCheckerKind,
-                        "Usages must be typed by definitions")
+                      TypeChecker.reportError(ru.attr.posOpt, "Usages must be typed by definitions", reporter)
                   }
                 case _ =>
-                  reporter.error(ru.attr.posOpt, TypeChecker.typeCheckerKind,
-                    s"Usages must be typed")
+                  TypeChecker.reportError(ru.attr.posOpt, s"Usages must be typed", reporter)
               }
             case _ =>
           }
           return u
 
         case x =>
-          reporter.error(item.posOpt, TypeChecker.typeCheckerKind,
-            "Usages must currently must have an identification or be a redefinition")
+          TypeChecker.reportError(item.posOpt, "Usages must currently must have an identification or be a redefinition", reporter)
           return u
       }
     }
@@ -646,7 +662,7 @@ object TypeChecker {
             return item(commonUsageElements = update(item.commonUsageElements))
 
           case _ =>
-            reporter.error(item.posOpt, TypeChecker.typeCheckerKind, "Only binary connections are currently supported")
+            TypeChecker.reportError(item.posOpt, "Only binary connections are currently supported", reporter)
             return item(commonUsageElements = update(item.commonUsageElements))
         }
 
@@ -667,7 +683,7 @@ object TypeChecker {
             return item(commonUsageElements = update(item.commonUsageElements))
 
           case _ =>
-            reporter.error(item.posOpt, TypeChecker.typeCheckerKind, "Only binary connections are currently supported")
+            TypeChecker.reportError(item.posOpt, "Only binary connections are currently supported", reporter)
             return item(commonUsageElements = update(item.commonUsageElements))
         }
 
@@ -699,8 +715,7 @@ object TypeChecker {
         }
         item.occurrenceUsagePrefix match {
           case obup: OccurrenceBasicUsagePrefix if obup.refPrefix.direction.isEmpty =>
-            reporter.error(item.posOpt, TypeChecker.typeCheckerKind,
-              "Port direction must be supplied at the port usage level")
+            TypeChecker.reportError(item.posOpt, "Port direction must be supplied at the port usage level", reporter)
           case _ =>
         }
         return item(commonUsageElements = update(item.commonUsageElements))
@@ -713,7 +728,7 @@ object TypeChecker {
             case Some(t: TypeInfo.PartDefinition) => state = state :+ s (classifier = st"${(t.name, "::")}".render)
             case Some(e: TypeInfo.EnumDefinition) => state = state :+ s(classifier = st"${(e.name, "::")}".render)
             case _ =>
-              reporter.error(s.posOpt, TypeChecker.typeCheckerKind, "Only expecting part or enumeration definition for state var type")
+              TypeChecker.reportError(s.posOpt, "Only expecting part or enumeration definition for state var type", reporter)
               state = state :+ s
           }
         }
@@ -726,9 +741,12 @@ object TypeChecker {
 
         halt("Infeasible: gumbo libraries can only appear at the package level")
 
+      case d: SysmlAst.Documentation =>
+
+        return item
+
       case x =>
-        reporter.error(item.posOpt, TypeChecker.typeCheckerKind,
-          s"Need to handle body item $x")
+        TypeChecker.reportError(item.posOpt, s"Need to handle body item $x", reporter)
         return x
     }
   }
@@ -766,7 +784,7 @@ object TypeChecker {
         println(st"${(typeHierarchy.nameMap.keys, "\n")}".render)
         halt(s"TODO $id $x")
     }
-    reporter.error(id.attr.posOpt, TypeChecker.typeCheckerKind, s"Could not resolve '${id.value}'")
+    TypeChecker.reportError(id.attr.posOpt, s"Could not resolve '${id.value}'", reporter)
     return (None(), None())
   }
 
@@ -782,12 +800,23 @@ object TypeChecker {
     }
 
     def errAccess(t: SAST.Typed): Unit = {
-      reporter.error(ident.attr.posOpt, TypeChecker.typeCheckerKind, s"'$id' is not a member of type '$t'.")
+      TypeChecker.reportError(ident.attr.posOpt, s"'$id' is not a member of type '$t'.", reporter)
     }
 
     receiverTyped match {
       case receiverType: SAST.Typed.Name =>
-        halt(s"TODO $receiverType $id ${ident.attr.posOpt}")
+        typeHierarchy.nameMap.get(receiverType.ids) match {
+          case Some(info: Info.EnumDefinition) =>
+            info.elements.get(id) match {
+              case Some(res) =>
+                return (info.elementTypedOpt, Some(res))
+              case _ =>
+                errAccess(receiverType)
+                return noResult
+            }
+          case _ =>
+            halt(s"Unexpected situations while type checking: ${(receiverType.ids, "::")}::${id}")
+        }
 
       case receiverType: SAST.Typed.Enum =>
         typeHierarchy.nameMap.get(receiverType.name) match {
@@ -806,10 +835,7 @@ object TypeChecker {
         val r = checkInfoOpt(None(), typeHierarchy.nameMap.get(receiverType.name :+ id), ident.attr.posOpt, reporter)
         if (r._1.isEmpty) {
           val tt = typeHierarchy.typeMap.get(receiverType.name :+ id)
-          reporter.error(
-            ident.attr.posOpt, TypeChecker.typeCheckerKind,
-            st"'$id' is not a member of package '${(receiverType.name, ".")}'.".render
-          )
+          TypeChecker.reportError(ident.attr.posOpt, st"'$id' is not a member of package '${(receiverType.name, ".")}'.".render, reporter)
         }
         return (r._1, r._2)
       case _ =>
@@ -868,23 +894,40 @@ object TypeChecker {
                       checkExp(None(), scope, rhs, reporter) match {
                         case (rhsr, Some(rhst)) =>
                           if (lhst != rhst) {
-                            reporter.error(invokeExp.posOpt, TypeChecker.typeCheckerKind,
-                              s"Incompatible types for range construction '$lhst' .. '$rhst'.")
+                            TypeChecker.reportError(invokeExp.posOpt,
+                              s"Incompatible types for range construction '$lhst' .. '$rhst'.", reporter)
                             return (invokeExp, None())
                           }
                           return (invokeExp(args = ISZ(lhsr, rhsr)), Some(rhst))
                         case _ =>
-                          reporter.error(lhs.posOpt, TypeChecker.typeCheckerKind, "Could not resolve type of right expression.")
+                          TypeChecker.reportError(lhs.posOpt, "Could not resolve type of right expression.", reporter)
                           return (invokeExp, None())
                       }
                     case _ =>
-                      reporter.error(lhs.posOpt, TypeChecker.typeCheckerKind, "Could not resolve type of left expression.")
+                      TypeChecker.reportError(lhs.posOpt, "Could not resolve type of left expression.", reporter)
                       return (invokeExp, None())
                   }
 
                 case _ => halt("Infeasible")
               }
-            case x => halt(s"TODO: need to handle UIF $x")
+            case UIF.SysmlUnitExpression =>
+              assert (invokeExp.args.size == 2, "Only expecting a base expression and its unit expression")
+              val baseExp = invokeExp.args(0)
+              val unitExp = invokeExp.args(1)
+              checkExp(None(), scope, baseExp, reporter) match {
+                case (baseExpR, Some(baseExpT)) =>
+                  checkExp(None(), scope, unitExp, reporter) match {
+                    case (unitExpR, Some(unitExpT)) =>
+                      return (invokeExp(args = ISZ(baseExpR, unitExpR)), Some(unitExpT))
+                    case _ =>
+                      TypeChecker.reportError(baseExp.posOpt, s"Could not resolve type of unit expression ${unitExp.prettyST.render}.", reporter)
+                      return (invokeExp, None())
+                  }
+                case _ =>
+                  TypeChecker.reportError(baseExp.posOpt, "Could not resolve type of base expression.", reporter)
+                  return (invokeExp, None())
+              }
+            case x => halt(s"TODO: need to handle UIF ${invokeExp.prettyST.render}")
           }
 
         case _ =>
@@ -906,8 +949,29 @@ object TypeChecker {
       if (typedOpt.isEmpty) {
         return (newExp.asExp, typedOpt)
       }
-      // TODO: convert to ref??
-      return (newExp.asExp, typedOpt)
+
+      return (newIdentExp(attr = newIdentExp.attr(
+        resOpt = Util.toSlangResolvedOpt(resOpt),
+        typedOpt = Util.toSlangTypedOpt(typedOpt))), typedOpt)
+    }
+
+    def checkBinary(binary: AST.Exp.Binary): (AST.Exp, Option[SAST.Typed]) = {
+      val SI_Duration_Unit = SAST.Typed.Name(ISZ("SI", "DurationUnit"))
+      val SI_Unit_Prefix = SAST.Typed.Name(ISZ("SI", "UnitPrefix"))
+
+      val lhs = checkExp(None(), scope, binary.left, reporter)
+
+      val rhs = checkExp(None(), scope, binary.right, reporter)
+
+      (lhs, rhs) match {
+        case ((lhsR, Some(lhsT: SAST.Typed.Name)), (rhsR, Some(rhsT: SAST.Typed.Name))) =>
+          if ((lhsT == SI_Duration_Unit && rhsT == SI_Unit_Prefix) || (lhsT == SI_Unit_Prefix && rhsT == SI_Duration_Unit)) {
+            return (binary, Some(SI_Duration_Unit))
+          }
+        case _ =>
+      }
+
+      return (binary, None())
     }
 
     def checkSelect(selectExp: AST.Exp.Select): (AST.Exp, Option[SAST.Typed]) = {
@@ -942,6 +1006,7 @@ object TypeChecker {
     def checkExpH(): (AST.Exp, Option[SAST.Typed]) = {
       exp match {
         case exp: AST.Exp.Select => return checkSelect(exp)
+        case exp: AST.Exp.Binary => return checkBinary(exp)
         case exp: AST.Exp.Ident => return checkIdent(exp)
         case exp: AST.Exp.Invoke => return checkInvoke(exp)
         case exp: AST.Exp.LitB => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
@@ -953,7 +1018,7 @@ object TypeChecker {
         case exp: AST.Exp.LitZ => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
         case _ =>
           //halt(s"TODO $exp")
-          reporter.error(exp.posOpt, TypeChecker.typeCheckerKind, s"checkExpH $exp")
+          TypeChecker.reportError(exp.posOpt, s"checkExpH $exp", reporter)
           return (exp, None())
       }
     }
@@ -970,7 +1035,7 @@ object TypeChecker {
               !typeHierarchy.isSubType(expected, t)) {
 
               if (!typeHierarchy.mimicSysml(expected, t)) {
-                reporter.error(exp.posOpt, TypeChecker.typeCheckerKind, st"Expecting type '${Util.printTyped(expected)}' but '${Util.printTyped(t)}' found.".render)
+                TypeChecker.reportError(exp.posOpt, st"Expecting type '${Util.printTyped(expected)}' but '${Util.printTyped(t)}' found.".render, reporter)
               }
             }
           case _ =>

@@ -6,6 +6,7 @@ import org.sireum.hamr.ir
 import org.sireum.hamr.ir.SysmlAst.{GumboAnnotation, OccurrenceBasicUsagePrefix, OccurrenceEndUsagePrefix, OccurrenceUsagePrefix}
 import org.sireum.hamr.ir.util.AadlUtil
 import org.sireum.hamr.ir._
+import org.sireum.hamr.sysml.parser.UIF
 import org.sireum.hamr.sysml.stipe.{TypeChecker, TypeHierarchy}
 import org.sireum.hamr.sysml.symbol.{Info, Scope, TypeInfo, Util}
 import org.sireum.lang.{ast => AST}
@@ -96,13 +97,21 @@ object Instantiate {
 
                           for (p <- rmethod.method.sig.params) {
                             val t1 =  p.tipe.typedOpt.get.asInstanceOf[AST.Typed.Name].ids
-                            val d1 = processDatatype(t1, ISZ())
-                            assert(d1.nonEmpty, s"Type $t1 not resolved for library method ${m.method.sig.id.value}'s ${p.id.value} param")
+                            processDatatype(t1, ISZ()) match {
+                              case Some(x) =>
+                              case _ =>
+                                reporter.error(p.id.attr.posOpt, Instantiate.instantiatorKey,
+                                  s"Unable to resolve parameter's type: ${p.id.value}")
+                            }
                           }
 
                           val t2 = rmethod.method.sig.returnType.typedOpt.get.asInstanceOf[AST.Typed.Name].ids
-                          val d2 = processDatatype(t2, ISZ())
-                          assert(d2.nonEmpty, s"Return type $t2 not resolved for library method ${m.method.sig.id.value}")
+                          processDatatype(t2, ISZ()) match {
+                            case Some(x) =>
+                            case _ =>
+                              reporter.error(m.posOpt, Instantiate.instantiatorKey,
+                                s"Unable to resolve method's return type")
+                          }
                         }
 
                         gumboLibraries = gumboLibraries :+ lib(
@@ -425,21 +434,56 @@ object Instantiate {
                               halt(s"Unexpected property ${s}")
                             }
                           case f: AST.Exp.Invoke =>
-                            val value = f.ident.id.value
-                            val inPs: R =
-                              if (value == "picosecond" || value == "ps") {
-                                R(f.args(0).string).get
-                              } else if (value == "nanosecond" || value == "ns") {
-                                R(f.args(0).string).get * R("1.0E3").get
-                              } else if (value == "microsecond" || value == "us") {
-                                R(f.args(0).string).get * R("1.0E6").get
-                              } else if (value == "millisecond" || value == "ms") {
-                                R(f.args(0).string).get * R("1.0E9").get
-                              } else {
-                                halt(s"Unexpected uif: $value")
+                            if (UIF.isUif(f.ident.id.value)) {
+                              f.ident.id.value match {
+                                case UIF.SysmlUnitExpression =>
+                                  assert (f.args.size == 2, s"Expecting the base exp and its unit exp: ${f.args}")
+                                  val baseExp = f.args(0)
+                                  val unitExp = f.args(1)
+                                  unitExp match {
+                                    case i: AST.Exp.Ref if i.resOpt.nonEmpty =>
+                                      i.resOpt.get match {
+                                        case v: AST.ResolvedInfo.Var =>
+                                          val value: R = v owner match {
+                                            case (ISZ("SI")) =>
+                                              if (v.id == "s" || v.id == "seconds") {
+                                                R(baseExp.string).get * R("1.0E12").get
+                                              } else {
+                                                halt(s"Need to handle $v")
+                                              }
+                                            case (ISZ("Time_Units")) =>
+                                              if (v.id == "ps" || v.id == "picoseconds") {
+                                                R(baseExp.string).get
+                                              } else if (v.id == "ns" || v.id == "nanoseconds") {
+                                                R(baseExp.string).get * R("1.0E3").get
+                                              } else if (v.id == "us" || v.id == "microseconds") {
+                                                R(baseExp.string).get * R("1.06").get
+                                              } else if (v.id == "ms" || v.id == "milliseconds") {
+                                                R(baseExp.string).get * R("1.0E9").get
+                                              } else if (v.id == "s" || v.id == "seconds") {
+                                                R(baseExp.string).get * R("1.0E12").get
+                                              } else {
+                                                halt(s"Unexpected duration unit ${v.id}")
+                                              }
+                                            case x =>
+                                              halt(x)
+                                          }
+                                          ISZ(ir.UnitProp(value = value.string, unit = Some("ps")))
+                                        case x =>
+                                          halt(s"Expected unit exp to resolve to a var: $x")
+                                      }
+                                    case x =>
+                                      halt(s"Expected a resolved Ref for the unit exp: $x")
+                                  }
+                                case x =>
+                                  reporter.error(f.posOpt, Instantiate.instantiatorKey, s"Wasn't expecting UIF: $x")
+                                  return ISZ()
                               }
+                            } else {
+                              reporter.error(f.posOpt, Instantiate.instantiatorKey, s"Unable function: ${f.ident.id.value}")
+                              return ISZ()
+                            }
 
-                            ISZ(ir.UnitProp(value = inPs.string, unit = Some("ps")))
                           case l: AST.Exp.LitZ =>
                             ISZ(ir.UnitProp(value = l.value.string, unit = None()))
                           case x =>

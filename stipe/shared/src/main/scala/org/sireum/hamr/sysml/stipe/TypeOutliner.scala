@@ -5,6 +5,7 @@ import org.sireum._
 import org.sireum.hamr.ir.SysmlAst.{TypingsSpecialization, Visibility}
 import org.sireum.hamr.{ir => SAST}
 import org.sireum.hamr.ir.{Type, TypedAttr}
+import org.sireum.hamr.sysml.stipe.TypeOutliner.reportError
 import org.sireum.hamr.sysml.symbol.Resolver.{QName, TypeMap, addBuiltIns}
 import org.sireum.hamr.sysml.symbol.{Info, Scope, TypeInfo, Util}
 import org.sireum.message.{Message, Position, Reporter}
@@ -69,6 +70,9 @@ object TypeOutliner {
             }
           case ti: TypeInfo.AttributeDefinition =>
             if (!ti.outlined) {
+              if(ti.id == "Subprogram_Call_Protocol") {
+                assume(T)
+              }
               val po = parentsOutlined(ti.name, th.typeMap)
               if (po) {
                 jobs = jobs :+ (() => to.outlineAttributeDefinition(ti))
@@ -139,6 +143,26 @@ object TypeOutliner {
     outlineDefinitions()
 
     return th
+  }
+
+  def reportWarnCond(cond: B, posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    if (!cond) {
+      reportWarn(posOpt, message, reporter)
+    }
+  }
+
+  def reportWarn(posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    reporter.warn(posOpt, TypeChecker.typeCheckerKind, s"TypeOutliner Warning: $message")
+  }
+
+  def reportErrorCond(cond: B, posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    if (!cond) {
+      reportError(posOpt, message, reporter)
+    }
+  }
+
+  def reportError(posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    reporter.error(posOpt, TypeChecker.typeCheckerKind, s"TypeOutliner Error: $message")
   }
 }
 
@@ -297,11 +321,11 @@ object TypeOutliner {
         map.get(id) match {
           case Some(otherInfo) =>
             if (name != owner) {
-              reporter.error(posOpt, TypeChecker.typeCheckerKind,
-                st"Cannot inherit $id because it has been previously inherited from ${(otherInfo.owner, "::")}.".render)
+              TypeOutliner.reportError(posOpt,
+                st"Cannot inherit $id because it has been previously inherited from ${(otherInfo.owner, "::")}.".render, reporter)
             } else {
-              reporter.error(posOpt, TypeChecker.typeCheckerKind,
-                s"Cannot inherit $id because it has been previously declared")
+              TypeOutliner.reportError(posOpt,
+                s"Cannot inherit $id because it has been previously declared", reporter)
             }
             return F
           case _ =>
@@ -322,8 +346,8 @@ object TypeOutliner {
       val owner = allocationUsage.owner
       val id = allocationUsage.id
       if (allocationUsage.ast.commonUsageElements.visibility != Visibility.Public) {
-        reporter.error(allocationUsage.ast.posOpt, TypeChecker.typeCheckerKind,
-          "Currently only supporting public visibilities")
+        TypeOutliner.reportError(allocationUsage.ast.posOpt,
+          "Currently only supporting public visibilities", reporter)
       }
       if (checkInherit(id, owner, posOpt)) {
         allocationUsages = allocationUsages + id ~> allocationUsage
@@ -333,8 +357,8 @@ object TypeOutliner {
       val owner = attributeUsage.owner
       val id = attributeUsage.id
       if (attributeUsage.ast.commonUsageElements.visibility != Visibility.Public) {
-        reporter.error(attributeUsage.ast.posOpt, TypeChecker.typeCheckerKind,
-          "Currently only supporting public visibilities")
+        TypeOutliner.reportError(attributeUsage.ast.posOpt,
+          "Currently only supporting public visibilities", reporter)
       }
       if (checkInherit(id, owner, posOpt)) {
         attributeUsages = attributeUsages + id ~> attributeUsage
@@ -344,8 +368,8 @@ object TypeOutliner {
       val owner = connectionUsage.owner
       val id = connectionUsage.id
       if (connectionUsage.ast.commonUsageElements.visibility != Visibility.Public) {
-        reporter.error(connectionUsage.ast.posOpt, TypeChecker.typeCheckerKind,
-          "Currently only supporting public visibilities")
+        TypeOutliner.reportError(connectionUsage.ast.posOpt,
+          "Currently only supporting public visibilities", reporter)
       }
       if (checkInherit(id, owner, posOpt)) {
         connectionUsages = connectionUsages + id ~> connectionUsage
@@ -355,8 +379,8 @@ object TypeOutliner {
       val owner = itemUsage.owner
       val id = itemUsage.id
       if (itemUsage.ast.commonUsageElements.visibility != Visibility.Public) {
-        reporter.error(itemUsage.ast.posOpt, TypeChecker.typeCheckerKind,
-          "Currently only supporting public visibilities")
+        TypeOutliner.reportError(itemUsage.ast.posOpt,
+          "Currently only supporting public visibilities", reporter)
       }
       if (checkInherit(id, owner, posOpt)) {
         itemUsages = itemUsages + id ~> itemUsage
@@ -366,8 +390,8 @@ object TypeOutliner {
       val owner = partUsage.owner
       val id = partUsage.id
       if (partUsage.ast.commonUsageElements.visibility != Visibility.Public) {
-        reporter.error(partUsage.ast.posOpt, TypeChecker.typeCheckerKind,
-          "Currently only supporting public visibilities")
+        TypeOutliner.reportError(partUsage.ast.posOpt,
+          "Currently only supporting public visibilities", reporter)
       }
       if (checkInherit(id, owner, posOpt)) {
         partUsages = partUsages + id ~> partUsage
@@ -377,8 +401,8 @@ object TypeOutliner {
       val owner = portUsage.owner
       val id = portUsage.id
       if (portUsage.ast.commonUsageElements.visibility != Visibility.Public) {
-        reporter.error(portUsage.ast.posOpt, TypeChecker.typeCheckerKind,
-          "Currently only supporting public visibilities")
+        TypeOutliner.reportError(portUsage.ast.posOpt,
+          "Currently only supporting public visibilities", reporter)
       }
       if (checkInherit(id, owner, posOpt)) {
         portUsages = portUsages + id ~> portUsage
@@ -388,8 +412,8 @@ object TypeOutliner {
       val owner = referenceUsage.owner
       val id = referenceUsage.id
       if (referenceUsage.ast.commonUsageElements.visibility != Visibility.Public) {
-        reporter.error(referenceUsage.ast.posOpt, TypeChecker.typeCheckerKind,
-          "Currently only supporting public visibilities")
+        TypeOutliner.reportError(referenceUsage.ast.posOpt,
+          "Currently only supporting public visibilities", reporter)
       }
       if (checkInherit(id, owner, posOpt)) {
         referenceUsages = referenceUsages + id ~> referenceUsage
@@ -614,6 +638,10 @@ object TypeOutliner {
                 ownerPos: Option[Position],
                 specializations: ISZ[SAST.SysmlAst.FeatureSpecialization],
                 local: Scope.Local): Option[Type]= {
+      if (owner == "PLACEHOLDER") {
+        return None()
+      }
+
       val tipeOpt: Option[Type] = {
         specializations match {
           case ISZ(TypingsSpecialization(ISZ(name))) =>
@@ -621,12 +649,12 @@ object TypeOutliner {
             // SysmlAST.Name of the the thing being specialized?
             Some(SAST.Type.Named(name = name, attr = TypedAttr(name.posOpt, None())))
           case ISZ() =>
-            reporter.error(ownerPos, TypeChecker.typeCheckerKind,
-              s"Usage members must be typed by a usage definition")
+            TypeOutliner.reportError(ownerPos,
+              s"Usage members must be typed by a usage definition", reporter)
             None()
           case x =>
-            reporter.error(ownerPos, TypeChecker.typeCheckerKind,
-              s"Usage members currently can only have a single typing specialization but ${x.size} found")
+            TypeOutliner.reportError(ownerPos,
+              s"Usage members currently can only have a single typing specialization but ${x.size} found", reporter)
             None()
         }
       }
@@ -644,7 +672,7 @@ object TypeOutliner {
       val ast = aInfo.ast
       val id = aInfo.id
       if (isDeclared(id)) {
-        reporter.error(ast.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
+        TypeOutliner.reportError(ast.posOpt, s"Cannot redeclare $id.", reporter)
       }
       // NOTE: this is bit different than slang as usage like entities (e.g. vars)
       // will have their tipeOpt field populated during AST building. For sysml
@@ -665,7 +693,7 @@ object TypeOutliner {
       val ast = aInfo.ast
       val id = aInfo.id
       if (isDeclared(id)) {
-        reporter.error(ast.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
+        TypeOutliner.reportError(ast.posOpt, s"Cannot redeclare $id.", reporter)
       }
       // NOTE: this is bit different than slang as usage like entities (e.g. vars)
       // will have their tipeOpt field populated during AST building. For sysml
@@ -686,7 +714,7 @@ object TypeOutliner {
       val ast = cInfo.ast
       val id = cInfo.id
       if (isDeclared(id)) {
-        reporter.error(ast.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
+        TypeOutliner.reportError(ast.posOpt, s"Cannot redeclare $id.", reporter)
       }
       // NOTE: this is bit different than slang as usage like entities (e.g. vars)
       // will have their tipeOpt field populated during AST building. For sysml
@@ -707,7 +735,7 @@ object TypeOutliner {
       val ast = iInfo.ast
       val id = iInfo.id
       if (isDeclared(id)) {
-        reporter.error(ast.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
+        TypeOutliner.reportError(ast.posOpt, s"Cannot redeclare $id.", reporter)
       }
       // NOTE: this is bit different than slang as usage like entities (e.g. vars)
       // will have their tipeOpt field populated during AST building. For sysml
@@ -728,7 +756,7 @@ object TypeOutliner {
       val ast = pInfo.ast
       val id = pInfo.id
       if (isDeclared(id)) {
-        reporter.error(ast.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
+        TypeOutliner.reportError(ast.posOpt, s"Cannot redeclare $id.", reporter)
       }
       // NOTE: this is bit different than slang as usage like entities (e.g. vars)
       // will have their tipeOpt field populated during AST building. For sysml
@@ -749,7 +777,7 @@ object TypeOutliner {
       val ast = pInfo.ast
       val id = pInfo.id
       if (isDeclared(id)) {
-        reporter.error(ast.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
+        TypeOutliner.reportError(ast.posOpt, s"Cannot redeclare $id.", reporter)
       }
       // NOTE: this is bit different than slang as usage like entities (e.g. vars)
       // will have their tipeOpt field populated during AST building. For sysml
@@ -770,7 +798,7 @@ object TypeOutliner {
       val ast = pInfo.ast
       val id = pInfo.id
       if (isDeclared(id)) {
-        reporter.error(ast.posOpt, TypeChecker.typeCheckerKind, s"Cannot redeclare $id.")
+        TypeOutliner.reportError(ast.posOpt, s"Cannot redeclare $id.", reporter)
       }
       // NOTE: this is bit different than slang as usage like entities (e.g. vars)
       // will have their tipeOpt field populated during AST building. For sysml

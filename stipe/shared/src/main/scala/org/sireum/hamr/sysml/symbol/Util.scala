@@ -62,9 +62,11 @@ object Util {
       return None()
     }
     r.get match {
-      case SAST.ResolvedInfo.Package(name) => halt("")
-      case SAST.ResolvedInfo.Enum(name) => halt("")
-      case SAST.ResolvedInfo.EnumElement(owner, name, ordinal) => halt("")
+      case SAST.ResolvedInfo.Package(name) => return None()
+      case SAST.ResolvedInfo.Enum(name) =>
+        return Some(AST.ResolvedInfo.Enum(name = name))
+      case SAST.ResolvedInfo.EnumElement(owner, name, ordinal) =>
+        return Some(AST.ResolvedInfo.EnumElement(owner = owner, name = name, ordinal = ordinal))
       case SAST.ResolvedInfo.AllocationUsage(owner, name) =>
         return Some(AST.ResolvedInfo.Var(isInObject = T, isSpec = F, isVal = T, owner = owner, id = name))
       case SAST.ResolvedInfo.AttributeUsage(owner, name) =>
@@ -84,10 +86,13 @@ object Util {
 
   def toSlangTypedOpt(t: Option[SAST.Typed]): Option[AST.Typed] = {
     t match {
-      case Some(SAST.Typed.Package(name)) => halt("")
+      case Some(SAST.Typed.Package(name)) =>
+        return Some(AST.Typed.Name(ids = name, args = ISZ()))
+        //halt(s"Don't know how to convert the following to Slang: ${t}")
       case Some(SAST.Typed.Name(ids)) =>
         return Some(AST.Typed.Name(ids = ids, args = ISZ()))
-      case Some(SAST.Typed.Enum(name)) => halt("")
+      case Some(SAST.Typed.Enum(name)) =>
+        return Some(AST.Typed.Enum(name))
       case x => halt("")
     }
   }

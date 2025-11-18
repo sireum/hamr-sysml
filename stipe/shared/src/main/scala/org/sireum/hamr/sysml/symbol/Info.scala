@@ -522,6 +522,28 @@ object TypeInfo {
     @strictpure override def tpe: Typed = typedOpt.get
   }
 
+  @datatype class InterfaceDefinition(val owner: ISZ[String],
+                                      val id: String,
+                                      val outlined: B,
+                                      val typeChecked: B,
+                                      val ancestors: ISZ[SAST.Typed.Name],
+                                      val members: TypeInfo.Members,
+                                      val scope: Scope.Global,
+                                      val ast: SAST.SysmlAst.InterfaceDefinition) extends DefinitionTypeInfo {
+
+    val typedOpt: Option[SAST.Typed] = Some(SAST.Typed.Name(name))
+
+    @pure override def name: ISZ[String] = {
+      return owner :+ id
+    }
+
+    @pure override def posOpt: Option[Position] = {
+      return ast.attr.posOpt
+    }
+
+    @strictpure override def tpe: Typed = typedOpt.get
+  }
+
   @datatype class ConnectionDefinition(val owner: ISZ[String],
                                        val id: String,
                                        val outlined: B,

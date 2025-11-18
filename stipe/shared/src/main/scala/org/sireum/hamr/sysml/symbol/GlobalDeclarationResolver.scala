@@ -8,7 +8,25 @@ import org.sireum.hamr.sysml.symbol.Resolver._
 import org.sireum.message.{Position, Reporter}
 
 object GlobalDeclarationResolver {
+  def reportWarnCond(cond: B, posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    if (!cond) {
+      reportWarn(posOpt, message, reporter)
+    }
+  }
 
+  def reportWarn(posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    reporter.warn(posOpt, resolverKind, s"GlobalDeclarationResolver Warning: $message")
+  }
+
+  def reportErrorCond(cond: B, posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    if (!cond) {
+      reportError(posOpt, message, reporter)
+    }
+  }
+
+  def reportError(posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    reporter.error(posOpt, resolverKind, s"GlobalDeclarationResolver Error: $message")
+  }
 }
 
 @record class GlobalDeclarationResolver(var globalNameMap: NameMap, var globalTypeMap: TypeMap, val reporter: Reporter) {
@@ -81,7 +99,7 @@ object GlobalDeclarationResolver {
               getId(e.identification, posOpt) match {
                 case (Some(id2), posOpt2) =>
                   if (elements.contains(id2)) {
-                    reporter.error(posOpt2, resolverKind, s"Redeclaration of enum value ${id2}")
+                    GlobalDeclarationResolver.reportError(posOpt2, s"Redeclaration of enum value ${id2}", reporter)
                   } else {
                     elements = elements + id2 ~> SAST.ResolvedInfo.EnumElement(name, id2, ordinal)
                     elementPosOpts = elementPosOpts :+ posOpt2
@@ -130,11 +148,11 @@ object GlobalDeclarationResolver {
             }
 
             if (e.subClassifications.nonEmpty) {
-              reporter.warn(e.subClassifications(0).attr.posOpt, resolverKind, "Enum subclassifications are not currently handled")
+              GlobalDeclarationResolver.reportWarn(e.subClassifications(0).attr.posOpt, "Enum subclassifications are not currently handled", reporter)
             }
 
             if (e.annotations.nonEmpty) {
-              reporter.warn(e.annotations(0).posOpt, resolverKind, "Annotation attached to enums are not currently handled")
+              GlobalDeclarationResolver.reportWarn(e.annotations(0).posOpt, "Annotation attached to enums are not currently handled", reporter)
             }
 
           case _ =>
@@ -179,6 +197,31 @@ object GlobalDeclarationResolver {
               entity = "port definition",
               name = name,
               info = TypeInfo.PortDefinition(
+                owner = currentName,
+                id = id,
+                outlined = F,
+                typeChecked = F,
+                ancestors = ISZ(),
+                members = members,
+                scope = sc,
+                ast = e),
+              posOpt = e.posOpt
+            )
+          case _ =>
+        }
+
+      case e: SysmlAst.InterfaceDefinition =>
+        getId(e.identification, e.posOpt) match {
+          case (Some(id), posOpt) =>
+            val name = currentName :+ id
+            val sc = scope(packageName, currentImports, name)
+
+            val members: TypeInfo.Members = resolveMembers(name, sc, e.bodyItems)
+
+            declareType(
+              entity = "connection definition",
+              name = name,
+              info = TypeInfo.InterfaceDefinition(
                 owner = currentName,
                 id = id,
                 outlined = F,
@@ -297,7 +340,7 @@ object GlobalDeclarationResolver {
       case e: SysmlAst.AnnotatingElement =>
         e match {
           case c: SysmlAst.Comment if (c.abouts.nonEmpty) =>
-            reporter.warn(e.posOpt, resolverKind, "Need to resolve comment 'abouts'")
+            GlobalDeclarationResolver.reportWarn(e.posOpt, "Need to resolve comment 'abouts'", reporter)
 
           case g @ SysmlAst.GumboAnnotation(lib: GclLib) =>
 
@@ -313,7 +356,7 @@ object GlobalDeclarationResolver {
         }
 
       case x =>
-        reporter.warn(x.posOpt, resolverKind, s"Need to handle ${x}")
+        GlobalDeclarationResolver.reportWarn(x.posOpt, s"Need to handle ${x}", reporter)
     }
   }
 
@@ -332,7 +375,7 @@ object GlobalDeclarationResolver {
         else F
       }
       if (declared) {
-        reporter.error(posOpt, resolverKind, s"Member $id has been previously declared.")
+        GlobalDeclarationResolver.reportError(posOpt, s"Member $id has been previously declared.", reporter)
       }
     }
 
@@ -421,7 +464,7 @@ object GlobalDeclarationResolver {
           }
         case ast: SysmlAst.AnnotatingElement => // do nothing
         case i =>
-          reporter.warn(i.posOpt, resolverKind, s"Need to handle member: ${i}")
+          GlobalDeclarationResolver.reportWarn(i.posOpt, s"Need to handle member: ${i}", reporter)
       }
     }
 
@@ -445,13 +488,13 @@ object GlobalDeclarationResolver {
 
     globalNameMap.get(name) match {
       case Some(_) if !isEnumOrPackage =>
-        reporter.error(posOpt, resolverKind, s"Cannot declare $entity type $name because the name has already been declared previously as a name")
+        GlobalDeclarationResolver.reportError(posOpt, s"Cannot declare $entity type $name because the name has already been declared previously as a name", reporter)
       case _ =>
     }
 
     globalTypeMap.get(name) match {
       case Some(_) =>
-        reporter.error(posOpt, resolverKind, s"Cannot declare $entity type $name because the name has already been declared previously as a type")
+        GlobalDeclarationResolver.reportError(posOpt, s"Cannot declare $entity type $name because the name has already been declared previously as a type", reporter)
       case _ =>
         globalTypeMap = globalTypeMap + name ~> info
     }
@@ -465,15 +508,15 @@ object GlobalDeclarationResolver {
     assert(name == info.name)
     globalNameMap.get(name) match {
       case Some(_) =>
-        reporter.error(posOpt, resolverKind, s"Cannot declare $entity because the name has already been declared previously")
+        GlobalDeclarationResolver.reportError(posOpt, s"Cannot declare $entity because the name has already been declared previously", reporter)
       case _ => globalNameMap = globalNameMap + name ~> info
     }
   }
 
   def declarePackage(name: ISZ[String], posOpt: Option[Position]): Unit = {
     globalNameMap.get(name) match {
-      case Some(_: Info.Package) => reporter.error(posOpt, resolverKind, "Cannot declare package because it has been previously declared")
-      case Some(_) => reporter.error(posOpt, resolverKind, "Cannot declare package because the has has already been used for a non-package entity")
+      case Some(_: Info.Package) => GlobalDeclarationResolver.reportError(posOpt, "Cannot declare package because it has been previously declared", reporter)
+      case Some(_) => GlobalDeclarationResolver.reportError(posOpt, "Cannot declare package because the has has already been used for a non-package entity", reporter)
       case _ =>
         globalNameMap = globalNameMap + name ~> Info.Package(
           name, Some(SAST.Typed.Package(name)), Some(SAST.ResolvedInfo.Package(name)))
@@ -485,7 +528,7 @@ object GlobalDeclarationResolver {
     val (name, posOpt) = getId(p.identification, p.posOpt)
 
     if (name.isEmpty) {
-      reporter.error(posOpt, resolverKind, "Packages must have full names")
+      GlobalDeclarationResolver.reportError(posOpt, "Packages must have full names", reporter)
     } else {
 
       val currName = parentPackages :+ name.get
@@ -511,7 +554,7 @@ object GlobalDeclarationResolver {
           case Some(id2) =>
             return (Some(id2.value), id2.posOpt)
           case _ =>
-            reporter.error(id.posOpt, resolverKind, "Names must be provided")
+            GlobalDeclarationResolver.reportError(id.posOpt, "Names must be provided", reporter)
         }
       case _ =>
     }

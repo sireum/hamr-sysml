@@ -2,7 +2,7 @@ package Data_Invariants {
     part def Temperature :> AADL::Data;
 
     part def Temperature_i :> Temperature {
-        part degrees : Base_Types::Float_64;
+        part degrees : Base_Types::Data_Float_64;
 
         language "GUMBO" /*{
               // data invariant

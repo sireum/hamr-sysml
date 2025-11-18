@@ -165,18 +165,29 @@ object SlangUtil {
         isRef = F, usageExtensions = ISZ())
     }
 
-    def NonOccurrenceUsageElementPlaceholder: NonOccurrenceUsageElement = {
+    def isNonOccurrenceUsageElementPlaceholder(o: NonOccurrenceUsageElement): B = {
+      o match {
+        case AttributeUsage(_, c: CommonUsageElements) =>
+          c.identification match {
+            case Some(Identification(_, Some(Id("PLACEHOLDER")))) => return T
+            case _ => return F
+          }
+        case _ => return F
+      }
+    }
+
+    def NonOccurrenceUsageElementPlaceholder(r: SAST.ResolvedAttr): NonOccurrenceUsageElement = {
       return AttributeUsage(
         prefix = emptyUsagePrefix,
 
         commonUsageElements = CommonUsageElements(
           visibility = Visibility.Public,
-          identification = None(),
+          identification = Some(Identification(shortName = None(), name = Some(Id("PLACEHOLDER", SAST.Attr(None()))), attr = SAST.Attr(None()))),
           specializations = ISZ(),
           featureValue = None(),
           definitionBodyItems = ISZ(),
           tipeOpt = None(),
-          attr = SAST.ResolvedAttr(None(), None(), None())))
+          attr = r))
     }
 
     def emptyOccurrenceUsagePrefix: OccurrenceUsagePrefix = {
@@ -190,18 +201,29 @@ object SlangUtil {
       )
     }
 
-    def OccurrenceUsageElementPlaceholder: OccurrenceUsageElement = {
+    def isOccurrenceUsageElementPlaceholder(o: OccurrenceUsageElement): B = {
+      o match {
+        case ItemUsage(_, c: CommonUsageElements) =>
+          c.identification match {
+            case Some(Identification(_, Some(Id("PLACEHOLDER")))) => return T
+            case _ => return F
+          }
+        case _ => return F
+      }
+    }
+
+    def OccurrenceUsageElementPlaceholder(r: SAST.ResolvedAttr): OccurrenceUsageElement = {
       return ItemUsage(
         occurrenceUsagePrefix = emptyOccurrenceUsagePrefix,
 
         commonUsageElements = CommonUsageElements(
           visibility = Visibility.Public,
-          identification = None(),
+          identification = Some(Identification(shortName = None(), name = Some(Id("PLACEHOLDER", SAST.Attr(None()))), attr = SAST.Attr(None()))),
           specializations = ISZ(),
           featureValue = None(),
           definitionBodyItems = ISZ(),
           tipeOpt = None(),
-          attr = SAST.ResolvedAttr(None(), None(), None())))
+          attr = r))
     }
 
     def AnnotatingElementPlaceholder: AnnotatingElement = {

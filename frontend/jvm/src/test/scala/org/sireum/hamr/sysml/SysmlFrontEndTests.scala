@@ -12,74 +12,107 @@ class SysmlFrontEndTests extends TestSuite {
   val verbose: B = F
 
   val resourceDir: Os.Path = Os.path(implicitly[sourcecode.File].value).up.up.up.up.up.up / "resources"
-  val omgDir = resourceDir / "models" / "sysmlv2-models" / "omg"
-  val aadl_library = omgDir / "aadl.library"
-  val omg_models = omgDir / "models"
-  //val sysmlLibrary = resourceDir / "models" / "sysml.library"
-  val sysmlLibrary = omgDir / "mock.sysml.library"
 
-  val omgDefs = for (s <- ISZ(
-    "AADL.sysml",
-    "AADL_Project.sysml",
-    "Base_Types.sysml",
-    "Deployment_Properties.sysml",
-    "Thread_Properties.sysml",
-    "Timing_Properties.sysml")) yield toInput(aadl_library / s)
+  val sysmlv2ModelsDir: Os.Path = resourceDir / "models" / "sysmlv2-models"
 
-  val propertySets = for (s <- ISZ(
-    "CASE_Scheduling.sysml")) yield toInput(omgDir / "aadl.property.sets" / s)
+  val sysmlv2Models: String = "https://github.com/santoslab/sysmlv2-models.git"
+
+  val w_aadl_sysml_workspace: Os.Path = resourceDir / "models" / "aadl-sysml-workspace"
+
+  val w_aadlSysmlLibDir: Os.Path = w_aadl_sysml_workspace / "aadl.library"
+  val w_hamrContributionsDir: Os.Path = w_aadl_sysml_workspace / "aadl.property.sets"
+  val w_hamrModelsDir: Os.Path = w_aadl_sysml_workspace / "models"
+  val w_internal_models = w_aadl_sysml_workspace / "internal"
+
+  val internalModels = resourceDir / "models" / "internal"
+
+  //val omgAadlLibraryOrigPath: Os.Path = sysmlv2ModelsPath / "sysml-aadl-libraries" / "aadl.library"
+  //val omgAadlLibraryCurr: String = "https://github.com/Systems-Modeling/AADL-Library.git"
+
+  if (!sysmlv2ModelsDir.exists) {
+    println(s"Cloning $sysmlv2Models to $sysmlv2ModelsDir")
+    proc"git clone --rec -b v2 $sysmlv2Models ${sysmlv2ModelsDir.name}".at(sysmlv2ModelsDir.up).runCheck()
+  }
+
+  w_aadl_sysml_workspace.mkdir()
+
+  if (!w_aadlSysmlLibDir.exists) {
+    val dest = sysmlv2ModelsDir / "sysml-aadl-libraries" / "aadl.library"
+    println(s"Linking $w_aadlSysmlLibDir to $dest")
+    w_aadlSysmlLibDir.mklink(dest)
+  }
+
+  if (!w_hamrContributionsDir.exists) {
+    val dest = sysmlv2ModelsDir / "sysml-aadl-libraries" / "aadl.property.sets"
+    println(s"Linking $w_hamrContributionsDir to $dest")
+    w_hamrContributionsDir.mklink(dest)
+  }
+
+  if (!w_hamrModelsDir.exists) {
+    val dest = sysmlv2ModelsDir / "models"
+    println(s"Linking $w_hamrModelsDir to $dest")
+    w_hamrModelsDir.mklink(dest)
+  }
+
+  if (!w_internal_models.exists) {
+    val dest = internalModels
+    println(s"Linking $w_internal_models to $dest")
+    w_internal_models.mklink(dest)
+  }
+
+  val omgDefs: ISZ[Input] = for (s <- Os.Path.walk(w_aadlSysmlLibDir, T, T, p => p.ext == string"sysml")) yield toInput(s)
+
+  val hamrContribution: ISZ[Input] = for (s <- Os.Path.walk(w_hamrContributionsDir, T, T, p => p.ext == string"sysml")) yield toInput(s)
 
   def toInput(o: Os.Path): Input = {
     return Input(content = o.read, fileUri = Some(o.toUri))
   }
 
-  "temp-control-case-omg" in {
-    val root = omg_models / "temp-control-case-omg"
-    val files = Os.Path.walk(root, F, F, x => x.up.name != string"aadl.library" && x.ext.native == "sysml")
-    println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = omgDefs ++ propertySets ++ (for(r <- files) yield toInput(r))
-    test(inputs)
-  }
-
-  "temp-control-mixed-hybrid-omg" in {
-    val root = omg_models / "temp-control-mixed-hybrid-omg" / "sysml"
+  "temp-control-mixed" in {
+    val root = w_hamrModelsDir / "temp-control" / "sysml-temp-control-mixed"
     val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
     println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = omgDefs ++ propertySets ++ (for(r <- files) yield toInput(r))
+    val inputs: ISZ[Input] = omgDefs ++ hamrContribution ++ (for (r <- files) yield toInput(r))
     test(inputs)
   }
 
-  "temp-control-periodic-hybrid-omg" in {
-    val root = omg_models / "temp-control-periodic-hybrid-omg" / "sysml"
+  "temp-control-mixed-sel4-camkes" in {
+    val root = w_hamrModelsDir / "temp-control" / "sysml-temp-control-mixed-sel4-camkes"
     val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
     println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = omgDefs ++ propertySets ++ (for(r <- files) yield toInput(r))
+    val inputs: ISZ[Input] = omgDefs ++ hamrContribution ++ (for (r <- files) yield toInput(r))
     test(inputs)
   }
 
-  "rts-hybrid-omg" in {
-    val root = omg_models / "rts-hybrid-omg" / "sysml"
+  "temp-control-periodic" in {
+    val root = w_hamrModelsDir / "temp-control" / "sysml-temp-control-periodic"
     val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
     println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = omgDefs ++ propertySets ++ (for(r <- files) yield toInput(r))
+    val inputs: ISZ[Input] = omgDefs ++ hamrContribution ++ (for (r <- files) yield toInput(r))
     test(inputs)
   }
 
-  "isolette-hybrid-omg" in {
-    val root = omg_models / "isolette-hybrid-omg"
+  "rts" in {
+    val root = w_hamrModelsDir / "sysml-rts"
     val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
     println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = omgDefs ++ propertySets ++ (for(r <- files) yield toInput(r))
+    val inputs: ISZ[Input] = omgDefs ++ hamrContribution ++ (for (r <- files) yield toInput(r))
     test(inputs)
   }
 
-  val gumbo_models: Os.Path = resourceDir / "models" / "internal" / "gumbo"
+  "isolette" in {
+    val root = w_hamrModelsDir / "sysml-isolette"
+    val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
+    println(s"Resolving: ${root.toUri}")
+    val inputs: ISZ[Input] = omgDefs ++ hamrContribution ++ (for (r <- files) yield toInput(r))
+    test(inputs)
+  }
 
   "data-invariants" in {
-    val root = gumbo_models / "data-invariants"
+    val root = w_internal_models / "gumbo" / "data-invariants"
     val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
     println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = omgDefs ++ propertySets ++ (for(r <- files) yield toInput(r))
+    val inputs: ISZ[Input] = omgDefs ++ hamrContribution ++ (for (r <- files) yield toInput(r))
     test(inputs)
   }
 
@@ -134,7 +167,7 @@ class SysmlFrontEndTests extends TestSuite {
 
     if (reporter.hasError) {
       reporter.printMessages()
-      assert (F)
+      assert(F)
     }
     if (verbose && reporter.messages.nonEmpty) {
       reporter.printMessages()

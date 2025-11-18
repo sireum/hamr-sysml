@@ -21,7 +21,7 @@ object TypeHierarchy {
           scope.resolveType(typeMap, name) match {
             case Some(ti) => name = ti.name
             case _ =>
-              reporter.error(t.name.posOpt, resolverKind, st"Could not resolve type named '${(name, "::")}'.'".render)
+              reportError(t.name.posOpt, st"Could not resolve type named '${(name, "::")}'.'".render, reporter)
           }
           return SAST.Typed.Name(name)
       }
@@ -33,7 +33,7 @@ object TypeHierarchy {
         val typed = resolveType(scope, parent)
         typed match {
           case typed: SAST.Typed.Name => r = r :+ typed
-          case _ => reporter.error(posOpt, resolverKind, "Expected a named type")
+          case _ => reportError(posOpt, "Expected a named type", reporter)
         }
       }
       return r
@@ -52,7 +52,7 @@ object TypeHierarchy {
               name = parentName,
               attr = SAST.TypedAttr(parentName.posOpt, Some(typed)))
           case _ =>
-            reporter.error(posOpt, TypeHierarchy.resolverKind, st"Could not resolve type named '${(pName, "::")}'".render)
+            reportError(posOpt, st"Could not resolve type named '${(pName, "::")}'".render, reporter)
         }
       }
       return ret
@@ -114,6 +114,22 @@ object TypeHierarchy {
               poset = r.poset.addParents(typed.ids, parentTypeNames),
               typeMap = r.typeMap + info.name ~> info(ast = info.ast(parents = parentsNameds)))
           }
+        case info: TypeInfo.InterfaceDefinition =>
+          if (!info.outlined || force) {
+            val typed = typedInfo(info)
+
+            //val parents = resolveTypeNameds(info.posOpt, info.scope, info.ast.parents)
+            //val parentTypeNames = for(p <- parents) yield p.ids
+            //r = r(poset = r.poset.addParents(typed.ids, parentTypeNames))
+
+            val parentsNameds: ISZ[Type.Named] = getParentTypes(info.ast.subClassifications, info.scope, info.posOpt)
+            val parents: ISZ[SAST.Typed.Name] = resolveTypeNameds(info.posOpt, info.scope, parentsNameds)
+            val parentTypeNames: ISZ[ISZ[String]] = for (p <- parents) yield p.ids
+            r = r(
+              poset = r.poset.addParents(typed.ids, parentTypeNames),
+              typeMap = r.typeMap + info.name ~> info(ast = info.ast(
+                parents = parentsNameds)))
+          }
         case info: TypeInfo.AttributeDefinition =>
           if (!info.outlined || force) {
             val typed = typedInfo(info)
@@ -148,7 +164,7 @@ object TypeHierarchy {
             r = r(poset = r.poset.addNode(typed.ids))
           }
         case x =>
-          reporter.warn(x.posOpt, resolverKind, s"Need to handle $x")
+          reportWarn(x.posOpt, s"Need to handle $x", reporter)
       }
     }
 
@@ -168,10 +184,11 @@ object TypeHierarchy {
       case info: TypeInfo.AttributeDefinition => return SAST.Typed.Name(info.name)
       case info: TypeInfo.ConnectionDefinition => return SAST.Typed.Name(info.name)
       case info: TypeInfo.EnumDefinition => return SAST.Typed.Name(info.name)
+      case info: TypeInfo.InterfaceDefinition => return SAST.Typed.Name(info.name)
       case info: TypeInfo.PartDefinition => return SAST.Typed.Name(info.name)
       case info: TypeInfo.PortDefinition => return SAST.Typed.Name(info.name)
       case _ =>
-        halt("")
+        halt(s"Wasn't expecting: ${info}")
     }
   }
 
@@ -180,12 +197,34 @@ object TypeHierarchy {
     val p = f(r._1)
     return (p._1, r._2 ++ p._2)
   }
+
+
+  def reportWarnCond(cond: B, posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    if (!cond) {
+      reportWarn(posOpt, message, reporter)
+    }
+  }
+
+  def reportWarn(posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    reporter.warn(posOpt, resolverKind, s"TypeHierarchy Warning: $message")
+  }
+
+  def reportErrorCond(cond: B, posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    if (!cond) {
+      reportError(posOpt, message, reporter)
+    }
+  }
+
+  def reportError(posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    reporter.error(posOpt, resolverKind, s"TypeHierarchy Error: $message")
+  }
 }
 
 @datatype class TypeHierarchy(val nameMap: NameMap,
                               val typeMap: TypeMap,
                               val poset: Poset[QName],
                               val aliases: HashSMap[QName, SAST.Typed]) {
+
   def checkCyclic(reporter: Reporter): Unit = {
     // TODO
     //reporter.warn(None(), TypeHierarchy.resolverKind, "Need to implement checkCyclic")
@@ -208,8 +247,8 @@ object TypeHierarchy {
               checkTyped(tipe.posOpt, typed, reporter)
               return Some(tipe(attr = tipe.attr(typedOpt = Some(typed))))
             case _ =>
-              reporter.error(tipe.posOpt, TypeChecker.typeCheckerKind,
-                st"Could not find a type named ${(name, "::")}.".render)
+              TypeHierarchy.reportError(tipe.posOpt,
+                st"Could not find a type named ${(name, "::")}.".render, reporter)
               return None()
           }
       }
@@ -294,6 +333,8 @@ object TypeHierarchy {
           n2.ids == ISZ("SI", "DurationUnit")) {
           return T
         } else if ((n1.ids == ISZ("CASE_Scheduling", "Max_Domain") || n1.ids == ISZ("CASE_Scheduling", "Domain")) && n2.ids == ISZ("org", "sireum", "Z")) {
+          return T
+        } else if (n1.ids == ISZ("Memory_Properties", "Data_Size") && n2.ids == ISZ("SI", "StorageCapacityUnit")) {
           return T
         }
       case _ =>
