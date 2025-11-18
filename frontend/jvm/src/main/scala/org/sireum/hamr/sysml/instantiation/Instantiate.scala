@@ -444,7 +444,7 @@ object Instantiate {
                                     case i: AST.Exp.Ref if i.resOpt.nonEmpty =>
                                       i.resOpt.get match {
                                         case v: AST.ResolvedInfo.Var =>
-                                          val value: R = v owner match {
+                                          val value: R = v.owner match {
                                             case (ISZ("SI")) =>
                                               if (v.id == "s" || v.id == "seconds") {
                                                 R(baseExp.string).get * R("1.0E12").get
@@ -466,7 +466,8 @@ object Instantiate {
                                                 halt(s"Unexpected duration unit ${v.id}")
                                               }
                                             case x =>
-                                              halt(x)
+                                              reporter.error(unitExp.posOpt, Instantiate.instantiatorKey, "Unit expressions must be SI::s, SI::seconds, or any attribute from Time_Units")
+                                              r"-1"
                                           }
                                           ISZ(ir.UnitProp(value = value.string, unit = Some("ps")))
                                         case x =>

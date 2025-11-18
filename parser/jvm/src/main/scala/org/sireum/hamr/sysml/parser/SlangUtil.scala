@@ -167,7 +167,7 @@ object SlangUtil {
 
     def isNonOccurrenceUsageElementPlaceholder(o: NonOccurrenceUsageElement): B = {
       o match {
-        case AttributeUsage(_, c: CommonUsageElements) =>
+        case AttributeUsage(_, c) =>
           c.identification match {
             case Some(Identification(_, Some(Id("PLACEHOLDER")))) => return T
             case _ => return F
@@ -203,7 +203,7 @@ object SlangUtil {
 
     def isOccurrenceUsageElementPlaceholder(o: OccurrenceUsageElement): B = {
       o match {
-        case ItemUsage(_, c: CommonUsageElements) =>
+        case ItemUsage(_, c) =>
           c.identification match {
             case Some(Identification(_, Some(Id("PLACEHOLDER")))) => return T
             case _ => return F
