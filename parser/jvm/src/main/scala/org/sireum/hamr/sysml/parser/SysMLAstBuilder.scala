@@ -901,7 +901,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
       case i2: RuleOccurrenceUsageElement2Context =>
         val elem = i2.ruleBehaviorUsageElement()
-        reportWarn(elem, "Not currently supporting behavior usages")
+        //reportWarn(elem, "Not currently supporting behavior usages")
         return Placeholders.OccurrenceUsageElementPlaceholder(toResolvedAttr(i2))
     }
   }
@@ -910,7 +910,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     o match {
       case i1: RuleInterfaceOccurrenceUsageElement1Context =>
         val elem = i1.ruleDefaultInterfaceEnd()
-        reportWarn(elem, "Interface end usages are currently ignored")
+        //reportWarn(elem, "Interface end usages are currently ignored")
         return Placeholders.OccurrenceUsageElementPlaceholder(toResolvedAttr(i1))
 
       case i2: RuleInterfaceOccurrenceUsageElement2Context =>
@@ -932,7 +932,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
           case su14: RuleStructureUsageElement14Context =>
             val elem = su14.ruleFlowUsage()
-            reportWarn(su14, "Interface flow usages are currently ignored")
+            //reportWarn(su14, "Interface flow usages are currently ignored")
             return Placeholders.OccurrenceUsageElementPlaceholder(toResolvedAttr(su14))
 
           case x =>
@@ -942,7 +942,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
       case i3: RuleInterfaceOccurrenceUsageElement3Context =>
         val elem = i3.ruleBehaviorUsageElement()
-        reportWarn(elem, "Interface behavior usages are currently ignored")
+        //reportWarn(elem, "Interface behavior usages are currently ignored")
         return Placeholders.OccurrenceUsageElementPlaceholder(toResolvedAttr(i3))
     }
   }
@@ -1080,7 +1080,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         visitOwnedFeatureChain(s2.ruleOwnedFeatureChain())
     }
 
-    reportWarn(isEmpty(context.ruleOwnedCrossMultiplicityMember()), context, "Multiplicities are currently ignored")
+    //reportWarn(isEmpty(context.ruleOwnedCrossMultiplicityMember()), context, "Multiplicities are currently ignored")
 
     return ConnectorEnd(reference = ref, tipeOpt = None(), resOpt = toResolvedAttr(context))
   }
@@ -1122,17 +1122,17 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
       case i3: RuleInterfaceNonOccurrenceUsageElement3Context =>
         val enumUsage = i3.ruleEnumerationUsage()
-        reportWarn(enumUsage, "Need to handle interface non-occurrence enum usages")
+        //reportWarn(enumUsage, "Need to handle interface non-occurrence enum usages")
         return Placeholders.NonOccurrenceUsageElementPlaceholder(toResolvedAttr(i3))
 
       case i4: RuleInterfaceNonOccurrenceUsageElement4Context =>
         val bindingConnector = i4.ruleBindingConnectorAsUsage()
-        reportWarn(bindingConnector, "Need to handle interface non-occurrence binding connectors")
+        //reportWarn(bindingConnector, "Need to handle interface non-occurrence binding connectors")
         return Placeholders.NonOccurrenceUsageElementPlaceholder(toResolvedAttr(i4))
 
       case i5: RuleInterfaceNonOccurrenceUsageElement5Context =>
         val successionUsage = i5.ruleSuccessionAsUsage()
-        reportError(successionUsage, "Need to handle interface non-occurrence succession usages")
+        //reportError(successionUsage, "Need to handle interface non-occurrence succession usages")
         return Placeholders.NonOccurrenceUsageElementPlaceholder(toResolvedAttr(i5))
     }
   }
@@ -1150,22 +1150,22 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
       case i4: RuleNonOccurrenceUsageElement4Context =>
         val enumUsage = i4.ruleEnumerationUsage()
-        reportWarn(enumUsage, "Need to handle non-occurrence enum usages")
+        //reportWarn(enumUsage, "Need to handle non-occurrence enum usages")
         return Placeholders.NonOccurrenceUsageElementPlaceholder(toResolvedAttr(i4))
 
       case i5: RuleNonOccurrenceUsageElement5Context =>
         val bindingConnector = i5.ruleBindingConnectorAsUsage()
-        reportWarn(bindingConnector, "Need to handle non-occurrence binding connectors")
+        //reportWarn(bindingConnector, "Need to handle non-occurrence binding connectors")
         return Placeholders.NonOccurrenceUsageElementPlaceholder(toResolvedAttr(i5))
 
       case i6: RuleNonOccurrenceUsageElement6Context =>
         val successionUsage = i6.ruleSuccessionAsUsage()
-        reportError(successionUsage, "Need to handle non-occurrence succession usages")
+        //reportError(successionUsage, "Need to handle non-occurrence succession usages")
         return Placeholders.NonOccurrenceUsageElementPlaceholder(toResolvedAttr(i6))
 
       case i7: RuleNonOccurrenceUsageElement7Context =>
         val extendedUsage = i7.ruleExtendedUsage()
-        reportError(extendedUsage, "Need to handle non-occurrence extended usages")
+        //reportError(extendedUsage, "Need to handle non-occurrence extended usages")
         return Placeholders.NonOccurrenceUsageElementPlaceholder(toResolvedAttr(i7))
     }
   }
@@ -1359,7 +1359,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
               ret = ret :+ visitFeatureSpecialization(i)
             case i: RuleMultiplicityPartContext =>
               val mult = visitMultiplicityPart(i)
-              reportWarn(i, "Currently ignoring multiplicities")
+              //reportWarn(i, "Currently ignoring multiplicities")
           }
         }
 
