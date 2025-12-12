@@ -49,6 +49,11 @@ object SysMLAstBuilder {
       "s32",
       "s64",
 
+      "i8",
+      "i16",
+      "i32",
+      "i64",
+
       "n",
       "n8",
       "n16",
@@ -2441,8 +2446,15 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           if (ops.ISZOps(numeric_interpolates).contains(sequenceId)) {
             handleNumeric match {
               case Some(str) =>
+                val sub: String = sequenceId match {
+                  case string"i8" => "s8"
+                  case string"i16" => "s16"
+                  case string"i32" => "s32"
+                  case string"i64" => "s64"
+                  case x => x
+                }
                 val lit = AST.Exp.LitString(str, AST.Attr(ident.posOpt))
-                return AST.Exp.StringInterpolate(sequenceId, ISZ(lit), ISZ(), toSlangTypedAttr(origin))
+                return AST.Exp.StringInterpolate(sub, ISZ(lit), ISZ(), toSlangTypedAttr(origin))
               case _ =>
                 reportError(numeric.posOpt, "Not a valid numeric")
                 return dummy
@@ -2541,6 +2553,13 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     return SlangUtil.Placeholders.emptyExp
   }
 
+  /** ruleLiteralExpression:
+    * ruleLiteralBoolean #ruleLiteralExpression1
+    * | ruleLiteralString #ruleLiteralExpression2
+    * | ruleLiteralInteger #ruleLiteralExpression3
+    * | ruleLiteralReal #ruleLiteralExpression4
+    * | ruleLiteralInfinity #ruleLiteralExpression5;
+    */
   def visitLiteralExpression(o: RuleLiteralExpressionContext): AST.Exp = {
     o match {
       case i: RuleLiteralExpression1Context =>

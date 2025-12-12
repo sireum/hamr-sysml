@@ -320,9 +320,18 @@ object Instantiate {
 
           val properties_ : ISZ[ir.Property] = processProperties(t) ++ getActualProcessorBindings(idPath)
 
+          var bodyItems: ISZ[SysmlAst.DefinitionBodyItem] = t.ast.bodyItems
+          for(ancestor <- t.ancestors) {
+            typeHierarchy.typeMap.get(ancestor.ids) match {
+              case Some(parent: TypeInfo.PartDefinition) =>
+                bodyItems = bodyItems ++ parent.ast.bodyItems
+              case _ =>
+            }
+          }
+
           val annexes_ : ISZ[ir.Annex] = {
             var as: ISZ[ir.Annex] = ISZ()
-            for (b <- t.ast.bodyItems) {
+            for (b <- bodyItems) {
               b match {
                 case SysmlAst.GumboAnnotation(gumbo: ir.GclSubclause) =>
                   hasGumbo = T
@@ -412,99 +421,113 @@ object Instantiate {
 
     def processProperties(ti: TypeInfo.PartDefinition): ISZ[ir.Property] = {
       var props: ISZ[ir.Property] = ISZ()
-      for (b <- ti.ast.bodyItems) {
-        b match {
-          case a: SysmlAst.AttributeUsage if a.commonUsageElements.featureValue.nonEmpty =>
-            a.commonUsageElements.attr.typedOpt match {
-              case Some(n: Typed.Name) =>
-                typeHierarchy.typeMap.get(n.ids) match {
-                  case Some(typed) =>
-                    if (typeHierarchy.poset.isChildOf(ISZ("AADL", "Property"), typed.name)) {
-                      val propertyValues: ISZ[ir.PropertyValue] = {
-                        a.commonUsageElements.featureValue.get.exp match {
-                          case sel: AST.Exp.Select =>
-                            val s = sel.string
-                            if (s == "Periodic" || s == "Supported_Dispatch_Protocols.Periodic") {
-                              ISZ(ir.ValueProp("Periodic"))
-                            } else if (s == "Sporadic" || s == "Supported_Dispatch_Protocols.Sporadic") {
-                              ISZ(ir.ValueProp("Sporadic"))
-                            } else if (s == "HAMR.Microkit_Languages.Rust") {
-                              ISZ(ir.ValueProp("Rust"))
-                            } else {
-                              halt(s"Unexpected property ${s}")
+
+      for (m <- ti.members.attributeUsages.values) {
+        m.ast.commonUsageElements.attr.typedOpt match {
+          case Some(n: Typed.Name) =>
+            typeHierarchy.typeMap.get(n.ids) match {
+              case Some(typed) =>
+                if (typeHierarchy.poset.isChildOf(ISZ("AADL", "Property"), typed.name) &&
+                  m.ast.commonUsageElements.featureValue.nonEmpty &&
+                  InstantiateUtil.isHandledProperty(typed.name)) {
+
+                  val propertyValues: ISZ[ir.PropertyValue] = {
+                    m.ast.commonUsageElements.featureValue.get.exp match {
+                      case sel: AST.Exp.Select =>
+                        sel.resOpt match {
+                          case Some(v: AST.ResolvedInfo.EnumElement) =>
+                            ISZ(ir.ValueProp(v.name))
+                          case Some(v: AST.ResolvedInfo.Var) =>
+                            typeHierarchy.nameMap.get(v.owner :+ v.id) match {
+                              case Some(i: Info.AttributeUsage) =>
+                                i.ast.commonUsageElements.featureValue match {
+                                  case Some(fv) =>
+                                    fv.exp match {
+                                      case z: AST.Exp.LitZ => ISZ(ir.UnitProp(z.value.string, None()))
+                                      case _ =>
+                                        halt(s"Need to handle ${fv.exp.string}")
+                                    }
+                                  case _ =>
+                                    reporter.error(m.posOpt, Instantiate.instantiatorKey, "Attribute requires a feature value")
+                                    ISZ(ir.ValueProp("INVALID"))
+                                }
+                              case x =>
+                                halt(s"Infeasible: attribute usages can only refer to other attribute usages but found $x")
                             }
-                          case f: AST.Exp.Invoke =>
-                            if (UIF.isUif(f.ident.id.value)) {
-                              f.ident.id.value match {
-                                case UIF.SysmlUnitExpression =>
-                                  assert (f.args.size == 2, s"Expecting the base exp and its unit exp: ${f.args}")
-                                  val baseExp = f.args(0)
-                                  val unitExp = f.args(1)
-                                  unitExp match {
-                                    case i: AST.Exp.Ref if i.resOpt.nonEmpty =>
-                                      i.resOpt.get match {
-                                        case v: AST.ResolvedInfo.Var =>
-                                          val value: R = v.owner match {
-                                            case (ISZ("SI")) =>
-                                              if (v.id == "s" || v.id == "seconds") {
-                                                R(baseExp.string).get * R("1.0E12").get
-                                              } else {
-                                                halt(s"Need to handle $v")
-                                              }
-                                            case (ISZ("Time_Units")) =>
-                                              if (v.id == "ps" || v.id == "picoseconds") {
-                                                R(baseExp.string).get
-                                              } else if (v.id == "ns" || v.id == "nanoseconds") {
-                                                R(baseExp.string).get * R("1.0E3").get
-                                              } else if (v.id == "us" || v.id == "microseconds") {
-                                                R(baseExp.string).get * R("1.06").get
-                                              } else if (v.id == "ms" || v.id == "milliseconds") {
-                                                R(baseExp.string).get * R("1.0E9").get
-                                              } else if (v.id == "s" || v.id == "seconds") {
-                                                R(baseExp.string).get * R("1.0E12").get
-                                              } else {
-                                                halt(s"Unexpected duration unit ${v.id}")
-                                              }
-                                            case x =>
-                                              reporter.error(unitExp.posOpt, Instantiate.instantiatorKey, "Unit expressions must be SI::s, SI::seconds, or any attribute from Time_Units")
-                                              r"-1"
+                          case x =>
+                            halt(s"Unexpected select: $sel: $x")
+                        }
+                      case f: AST.Exp.Invoke =>
+                        if (UIF.isUif(f.ident.id.value)) {
+                          f.ident.id.value match {
+                            case UIF.SysmlUnitExpression =>
+                              assert (f.args.size == 2, s"Expecting the base exp and its unit exp: ${f.args}")
+                              val baseExp = f.args(0)
+                              val unitExp = f.args(1)
+                              unitExp match {
+                                case i: AST.Exp.Ref if i.resOpt.nonEmpty =>
+                                  i.resOpt.get match {
+                                    case v: AST.ResolvedInfo.Var =>
+                                      val value: R = v.owner match {
+                                        case (ISZ("SI")) =>
+                                          if (v.id == "s" || v.id == "seconds") {
+                                            R(baseExp.string).get * R("1.0E12").get
+                                          } else {
+                                            halt(s"Need to handle $v")
                                           }
-                                          ISZ(ir.UnitProp(value = value.string, unit = Some("ps")))
+                                        case (ISZ("HAMR", "Time_Units")) =>
+                                          if (v.id == "ps" || v.id == "picoseconds") {
+                                            R(baseExp.string).get
+                                          } else if (v.id == "ns" || v.id == "nanoseconds") {
+                                            R(baseExp.string).get * R("1.0E3").get
+                                          } else if (v.id == "us" || v.id == "microseconds") {
+                                            R(baseExp.string).get * R("1.06").get
+                                          } else if (v.id == "ms" || v.id == "milliseconds") {
+                                            R(baseExp.string).get * R("1.0E9").get
+                                          } else if (v.id == "s" || v.id == "seconds") {
+                                            R(baseExp.string).get * R("1.0E12").get
+                                          } else {
+                                            halt(s"Unexpected duration unit ${v.id}")
+                                          }
                                         case x =>
-                                          halt(s"Expected unit exp to resolve to a var: $x")
+                                          reporter.error(unitExp.posOpt, Instantiate.instantiatorKey, st"Unit expressions must be SI::s, or any attribute from HAMR::Time_Units.  Found ${(v.owner, "::")}::${v.id}".render)
+                                          r"-1"
                                       }
+                                      ISZ(ir.UnitProp(value = value.string, unit = Some("ps")))
                                     case x =>
-                                      halt(s"Expected a resolved Ref for the unit exp: $x")
+                                      halt(s"Expected unit exp to resolve to a var: $x")
                                   }
                                 case x =>
-                                  reporter.error(f.posOpt, Instantiate.instantiatorKey, s"Wasn't expecting UIF: $x")
-                                  return ISZ()
+                                  reporter.printMessages()
+                                  halt(s"Expected a resolved Ref for the unit exp: $x ${unitExp.posOpt}")
                               }
-                            } else {
-                              reporter.error(f.posOpt, Instantiate.instantiatorKey, s"Unable function: ${f.ident.id.value}")
+                            case x =>
+                              reporter.error(f.posOpt, Instantiate.instantiatorKey, s"Wasn't expecting UIF: $x")
                               return ISZ()
-                            }
-
-                          case l: AST.Exp.LitZ =>
-                            ISZ(ir.UnitProp(value = l.value.string, unit = None()))
-                          case x =>
-                            val t = x
-                            halt(s"Unexpected expression: $x")
+                          }
+                        } else {
+                          reporter.error(f.posOpt, Instantiate.instantiatorKey, s"Unable function: ${f.ident.id.value}")
+                          return ISZ()
                         }
-                      }
-                      props = props :+ ir.Property(
-                        name = ir.Name(name = ISZ(st"${(typed.name, "::")}".render), pos = b.posOpt),
-                        propertyValues = propertyValues,
-                        appliesTo = ISZ())
+
+                      case l: AST.Exp.LitZ =>
+                        ISZ(ir.UnitProp(value = l.value.string, unit = None()))
+                      case x =>
+                        val t = x
+                        halt(s"Unexpected expression: $x")
                     }
-                  case _ =>
+                  }
+                  val v = ir.Property(
+                    name = ir.Name(name = ISZ(st"${(typed.name, "::")}".render), pos = m.posOpt),
+                    propertyValues = propertyValues,
+                    appliesTo = ISZ())
+                  props = props :+ v
                 }
-              case x =>
+              case _ =>
             }
-          case _ =>
+          case x =>
         }
       }
-
       return props
     }
 

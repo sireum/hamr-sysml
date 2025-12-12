@@ -160,5 +160,22 @@ object InstantiateUtil {
 
     return systemRoots
   }
+
+  @pure def isHandledProperty(name: ISZ[String]): B = {
+    name match {
+      case ISZ("CASE_Scheduling", "Domain") => return T
+
+      case ISZ("HAMR", "Microkit_Language") => return T
+
+      case ISZ("Thread_Properties", "Dispatch_Protocol") => return T
+
+      case ISZ("Timing_Properties", "Clock_Period") => return T
+      case ISZ("Timing_Properties", "Frame_Period") => return T
+
+      case ISZ("Timing_Properties", "Period") => return T
+
+      case _ => return F
+    }
+  }
 }
 

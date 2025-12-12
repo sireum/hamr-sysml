@@ -7,4 +7,6 @@ standard library package MeasurementReferences {
 	}
 
 	attribute def DerivedUnit { }
+
+	attribute def TensorMeasurementReference {}
  }

@@ -149,7 +149,6 @@ object TypeChecker {
 
     val usages: ISZ[SAST.SysmlAst.DefinitionBodyItem] =
       for(u <- info.ast.packageElements.filter(p => p.isInstanceOf[SysmlAst.UsageElement])) yield u.asInstanceOf[SysmlAst.DefinitionBodyItem]
-    assert(usages.nonEmpty)
 
     val newBodyItems = checkBodyItems(ISZ(scope), usages, reporter)
 
@@ -244,9 +243,51 @@ object TypeChecker {
     var scope = Scope.Local.create(info.scope)
     scope = addMembersToScope(info.members, scope)
 
-    val newBodyItems = checkBodyItems(ISZ(scope), info.ast.bodyItems, reporter)
+    val inheritedAllocationUsages: ISZ[SysmlAst.DefinitionBodyItem] = (for (p <- info.members.allocationUsages.values) yield p.ast)
+    val inheritedAttributesUsages: ISZ[SysmlAst.DefinitionBodyItem] = (for (p <- info.members.attributeUsages.values) yield p.ast)
+    val inheritedConnectionUsages: ISZ[SysmlAst.DefinitionBodyItem] = (for (p <- info.members.connectionUsages.values) yield p.ast)
+    val inheritedItemUsages: ISZ[SysmlAst.DefinitionBodyItem] = (for (p <- info.members.itemUsages.values) yield p.ast)
+    val inheritedPartUsages: ISZ[SysmlAst.DefinitionBodyItem] = (for (p <- info.members.partUsages.values) yield p.ast)
+    val inheritedPortsUsages: ISZ[SysmlAst.DefinitionBodyItem] = (for(p <- info.members.portUsages.values) yield p.ast)
+    val inheritedReferencesUsages: ISZ[SysmlAst.DefinitionBodyItem] = (for (p <- info.members.referenceUsages.values) yield p.ast)
 
-    val newMembers: TypeInfo.Members = updateMembers(newBodyItems, info.members, reporter)
+    val memberItems =
+      inheritedAllocationUsages ++
+        inheritedAttributesUsages ++
+        inheritedConnectionUsages ++
+        inheritedItemUsages ++
+        inheritedPartUsages ++
+        inheritedPortsUsages ++
+        inheritedReferencesUsages //++
+        //info.ast.bodyItems
+
+    val bodyASTs = info.ast.bodyItems
+
+    // see tipe.TypeChecker.checkAdt ... val newStmts = checkStmts(...)
+    val newMemberASTs = checkBodyItems(ISZ(scope), memberItems, reporter)
+    // update original members
+    var newMemberItems = updateMembers(newMemberASTs, info.members, reporter)
+
+
+    val inheritedAttributeUsagesIdLessASTs: ISZ[SysmlAst.DefinitionBodyItem] = (for(a <- info.members.attributeUsagesIdLess) yield a.ast)
+    val newAttributeUsagesIdLess = checkBodyItems(ISZ(scope), inheritedAttributeUsagesIdLessASTs, reporter).asInstanceOf[ISZ[SAST.SysmlAst.AttributeUsage]]
+    for (a <- newAttributeUsagesIdLess) {
+      assert (a.commonUsageElements.identification.isEmpty)
+      a.commonUsageElements.attr.resOpt match {
+        case Some(i: ResolvedInfo.AttributeUsage) =>
+          newMemberItems = newMemberItems(attributeUsages = newMemberItems.attributeUsages + i.name ~>
+            Info.AttributeUsage(
+              owner = i.owner, id = i.name, hasId = T, scope = scope, ast = a))
+        case _ =>
+      }
+    }
+
+    newMemberItems = newMemberItems(attributeUsagesIdLess = ISZ())
+
+    // replace original members if this part def redefines it
+    val newBodyASTs = checkBodyItems(ISZ(scope), bodyASTs, reporter)
+    val newMembers: TypeInfo.Members = updateMembers(newBodyASTs, newMemberItems, reporter)
+
 
     val allocationUsages: HashSMap[String, Info.AllocationUsage] = {
       var cus = newMembers.allocationUsages
@@ -344,9 +385,10 @@ object TypeChecker {
     val xm = newMembers(
       allocationUsages = allocationUsages,
       connectionUsages = connectionsUsages)
+
     val newInfo = info(
       typeChecked = T,
-      ast = info.ast(bodyItems = newBodyItems),
+      ast = info.ast(bodyItems = newBodyASTs),
       members = xm
     )
     return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), reporter.messages)
@@ -395,6 +437,7 @@ object TypeChecker {
 
     var allocationUsages: HashSMap[String, Info.AllocationUsage] = origMembers.allocationUsages
     var attributeUsages: HashSMap[String, Info.AttributeUsage] = origMembers.attributeUsages
+    val attributeUsagesIdLess: ISZ[Info.AttributeUsage]= origMembers.attributeUsagesIdLess
     var connectionUsages: HashSMap[String, Info.ConnectionUsage] = origMembers.connectionUsages
     var itemUsages: HashSMap[String, Info.ItemUsage] = origMembers.itemUsages
     var partUsages: HashSMap[String, Info.PartUsage] = origMembers.partUsages
@@ -448,6 +491,7 @@ object TypeChecker {
     return TypeInfo.Members(
       allocationUsages = allocationUsages,
       attributeUsages = attributeUsages,
+      attributeUsagesIdLess = attributeUsagesIdLess,
       connectionUsages = connectionUsages,
       itemUsages = itemUsages,
       partUsages = partUsages,
@@ -464,17 +508,13 @@ object TypeChecker {
       return checkBodyItem(scope, bodyItems(i), reporter)
     }
 
-    val size = bodyItems.size //- 1
-    for (i <- 0 until size ) {//if !reporter.hasError) {
+    val size = bodyItems.size
+    for (i <- 0 until size ) {
       newBodyItems = newBodyItems :+ checkBodyItemH(i)
     }
 
     if (reporter.hasError) {
       return newBodyItems ++ ops.ISZOps(bodyItems).slice(newBodyItems.size, bodyItems.size)
-    }
-
-    if (size < 0) {
-      return newBodyItems
     }
 
     return newBodyItems
@@ -491,7 +531,7 @@ object TypeChecker {
             case Some(info: Info.UsageInfo) =>
               if (u.identification.isEmpty) {
                 assert (u.specializations.nonEmpty, "expecting a redefinition")
-                assert (u.attr.resOpt.isEmpty, "how did this get resolved")
+                assert (u.attr.resOpt.isEmpty, s"how did this get resolved: ${u.attr.resOpt.get.qname}")
 
                 val tipeOpt: Option[SAST.Type] = {
                   u.specializations match {
@@ -591,7 +631,6 @@ object TypeChecker {
 
           val (fvalue, tOpt): (Option[SAST.SysmlAst.FeatureValue], Option[SAST.Typed]) = ru.featureValue match {
             case Some(fv) =>
-              assert (fv.isBound |^ fv.isInitial)
               var tc = this // slang uses this to change the type checkers ModeContext
               if (fv.isBound) {
                 // TODO
@@ -667,10 +706,6 @@ object TypeChecker {
         }
 
       case item: SysmlAst.AttributeUsage =>
-        item.commonUsageElements.attr.resOpt match {
-          case Some(_: SAST.ResolvedInfo.AttributeUsage) => return item
-          case _ =>
-        }
         return item(commonUsageElements = update(item.commonUsageElements))
 
       case item: SysmlAst.ConnectionUsage =>
@@ -781,8 +816,7 @@ object TypeChecker {
     infoOpt match {
       case Some(info) => return checkInfo(Some(scope), info, id.attr.posOpt, reporter)
       case x =>
-        println(st"${(typeHierarchy.nameMap.keys, "\n")}".render)
-        halt(s"TODO $id $x")
+        reportError(id.attr.posOpt, s"Could not resolve '${id.value}'.", reporter)
     }
     TypeChecker.reportError(id.attr.posOpt, s"Could not resolve '${id.value}'", reporter)
     return (None(), None())
@@ -981,8 +1015,14 @@ object TypeChecker {
             val (newReceiver, receiverTypeOpt) = checkExp(None(), scope, receiverType, reporter)
             receiverTypeOpt match {
               case Some(rcvType) =>
-                val t = checkSelectH(scope, rcvType, selectExp.id, reporter)
-                (selectExp, t._1)
+                val (typedOpt, resOpt) = checkSelectH(scope, rcvType, selectExp.id, reporter)
+                (selectExp(
+                  receiverOpt = Some(newReceiver),
+                  attr = selectExp.attr(
+                    resOpt = Util.toSlangResolvedOpt(resOpt),
+                    typedOpt = Util.toSlangTypedOpt(typedOpt)
+                  )),
+                  typedOpt)
               case _ =>
                 (selectExp, None())
             }
@@ -990,7 +1030,12 @@ object TypeChecker {
             val (typedOpt, resOpt) = checkId(scope, selectExp.id, reporter)
             // TODO can't do this since we sysml has its own resolutions
             // (selectExp(targs = newTargs, attr = selectExp.attr(typedOpt = typedOpt, resOpt = resOpt)), typedOpt, typeArgs)
-            (selectExp, typedOpt)
+            (selectExp(
+              attr = selectExp.attr(
+                resOpt = Util.toSlangResolvedOpt(resOpt),
+                typedOpt =Util.toSlangTypedOpt(typedOpt)
+              )),
+              typedOpt)
         }
       }
 
@@ -1009,19 +1054,22 @@ object TypeChecker {
         case exp: AST.Exp.Binary => return checkBinary(exp)
         case exp: AST.Exp.Ident => return checkIdent(exp)
         case exp: AST.Exp.Invoke => return checkInvoke(exp)
-        case exp: AST.Exp.LitB => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
+        //case exp: AST.Exp.LitB => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
+        case exp: AST.Exp.LitB => return (exp, Some(SAST.Typed.Name(ISZ("ScalarValues", "Boolean"))))
         case exp: AST.Exp.LitC => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
         case exp: AST.Exp.LitF32 => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
         case exp: AST.Exp.LitF64 => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
         case exp: AST.Exp.LitR => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
         case exp: AST.Exp.LitString => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
-        case exp: AST.Exp.LitZ => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
+        //case exp: AST.Exp.LitZ => return (exp, Util.toSysmlTypedOpt(exp.typedOpt))
+        case exp: AST.Exp.LitZ => return (exp, Some(SAST.Typed.Name(ISZ("ScalarValues", "Integer"))))
         case _ =>
           //halt(s"TODO $exp")
           TypeChecker.reportError(exp.posOpt, s"checkExpH $exp", reporter)
           return (exp, None())
       }
     }
+
     val r = checkExpH()
     r._2 match {
       case Some(t) =>

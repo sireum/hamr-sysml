@@ -301,6 +301,7 @@ object Info {
 
   @datatype class AttributeUsage(val owner: ISZ[String],
                                  val id: String,
+                                 val hasId: B,
                                  val scope: Scope,
                                  val ast: SAST.SysmlAst.AttributeUsage) extends UsageInfo {
 
@@ -611,11 +612,12 @@ object TypeInfo {
   }
 
   object Members {
-    @strictpure def empty: Members = Members(HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty)
+    @strictpure def empty: Members = Members(HashSMap.empty, HashSMap.empty, ISZ(), HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty)
   }
 
   @datatype class Members(val allocationUsages: HashSMap[String, Info.AllocationUsage],
                           val attributeUsages: HashSMap[String, Info.AttributeUsage],
+                          val attributeUsagesIdLess: ISZ[Info.AttributeUsage],
                           val connectionUsages: HashSMap[String, Info.ConnectionUsage],
                           val itemUsages: HashSMap[String, Info.ItemUsage],
                           val partUsages: HashSMap[String, Info.PartUsage],
@@ -624,6 +626,7 @@ object TypeInfo {
     @strictpure def isEmpty: B =
       allocationUsages.isEmpty &&
         attributeUsages.isEmpty &&
+        attributeUsagesIdLess.isEmpty &&
         connectionUsages.isEmpty &&
         itemUsages.isEmpty &&
         partUsages.isEmpty &&

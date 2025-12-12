@@ -328,6 +328,7 @@ object GlobalDeclarationResolver {
               info = Info.AttributeUsage(
                 owner = packageName,
                 id = id,
+                hasId = T,
                 scope = sc,
                 ast = e(commonUsageElements =
                   e.commonUsageElements(attr = e.commonUsageElements.attr(
@@ -363,6 +364,7 @@ object GlobalDeclarationResolver {
   def resolveMembers(owner: IS[Z, String], scope: Scope, items: ISZ[SysmlAst.DefinitionBodyItem]): TypeInfo.Members = {
     var allocationUsages = HashSMap.empty[String, Info.AllocationUsage]
     var attributeUsages = HashSMap.empty[String, Info.AttributeUsage]
+    var attributeUsagesIdLess = ISZ[Info.AttributeUsage]()
     var connectionUsages = HashSMap.empty[String, Info.ConnectionUsage]
     var itemUsages = HashSMap.empty[String, Info.ItemUsage]
     var partUsages = HashSMap.empty[String, Info.PartUsage]
@@ -404,10 +406,11 @@ object GlobalDeclarationResolver {
             case (Some(id), posOpt) =>
               checkId(id, posOpt)
               attributeUsages = attributeUsages +
-                id ~> Info.AttributeUsage(owner = owner, id = id, scope = scope,
+                id ~> Info.AttributeUsage(owner = owner, id = id, hasId = T, scope = scope,
                   ast = ast(commonUsageElements = update(ast.commonUsageElements, id)))
             case x =>
-              //reporter.warn(ast.posOpt, resolverKind, s"How to handle usages without identification")
+              attributeUsagesIdLess = attributeUsagesIdLess :+
+                Info.AttributeUsage(owner = owner, id = "ID_LESS", hasId = F, scope = scope, ast = ast)
           }
         case ast: SysmlAst.ConnectionUsage =>
           getId(ast.commonUsageElements.identification, ast.posOpt) match {
@@ -471,6 +474,7 @@ object GlobalDeclarationResolver {
     return TypeInfo.Members(
       allocationUsages = allocationUsages,
       attributeUsages = attributeUsages,
+      attributeUsagesIdLess = attributeUsagesIdLess,
       connectionUsages = connectionUsages,
       itemUsages = itemUsages,
       partUsages = partUsages,

@@ -5,9 +5,8 @@ import org.sireum._
 import org.sireum.hamr.ir.SysmlAst.{TypingsSpecialization, Visibility}
 import org.sireum.hamr.{ir => SAST}
 import org.sireum.hamr.ir.{Type, TypedAttr}
-import org.sireum.hamr.sysml.stipe.TypeOutliner.reportError
 import org.sireum.hamr.sysml.symbol.Resolver.{QName, TypeMap, addBuiltIns}
-import org.sireum.hamr.sysml.symbol.{Info, Scope, TypeInfo, Util}
+import org.sireum.hamr.sysml.symbol.{Info, Scope, TypeInfo}
 import org.sireum.message.{Message, Position, Reporter}
 
 object TypeOutliner {
@@ -70,9 +69,6 @@ object TypeOutliner {
             }
           case ti: TypeInfo.AttributeDefinition =>
             if (!ti.outlined) {
-              if(ti.id == "Subprogram_Call_Protocol") {
-                assume(T)
-              }
               val po = parentsOutlined(ti.name, th.typeMap)
               if (po) {
                 jobs = jobs :+ (() => to.outlineAttributeDefinition(ti))
@@ -310,6 +306,7 @@ object TypeOutliner {
                               reporter: Reporter): (TypeInfo.Members, ISZ[SAST.Typed.Name], ISZ[SAST.Type.Named]) = {
     var allocationUsages = info.allocationUsages
     var attributeUsages = info.attributeUsages
+    var attributeUsagesIdLess = info.attributeUsagesIdLess
     var connectionUsages = info.connectionUsages
     var itemUsages = info.itemUsages
     var partUsages = info.partUsages
@@ -360,8 +357,12 @@ object TypeOutliner {
         TypeOutliner.reportError(attributeUsage.ast.posOpt,
           "Currently only supporting public visibilities", reporter)
       }
-      if (checkInherit(id, owner, posOpt)) {
-        attributeUsages = attributeUsages + id ~> attributeUsage
+      if (attributeUsage.hasId) {
+        if (checkInherit(id, owner, posOpt)) {
+          attributeUsages = attributeUsages + id ~> attributeUsage
+        }
+      } else {
+        attributeUsagesIdLess = attributeUsagesIdLess :+ attributeUsage
       }
     }
     def inheritConnectionUsages(connectionUsage: Info.ConnectionUsage, posOpt: Option[Position]): Unit = {
@@ -451,6 +452,9 @@ object TypeOutliner {
                   for (parentAttributeUsage <- parentAllocDef.members.attributeUsages.values) {
                     inheritAttributeUsages(parentAttributeUsage, posOpt)
                   }
+                  for (parentAttributeUsageIdLess <- parentAllocDef.members.attributeUsagesIdLess) {
+                    inheritAttributeUsages(parentAttributeUsageIdLess, posOpt)
+                  }
                   for (parentConnectionUsage <- parentAllocDef.members.connectionUsages.values) {
                     inheritConnectionUsages(parentConnectionUsage, posOpt)
                   }
@@ -479,6 +483,9 @@ object TypeOutliner {
                   }
                   for (parentAttributeUsage <- parentAttrDef.members.attributeUsages.values) {
                     inheritAttributeUsages(parentAttributeUsage, posOpt)
+                  }
+                  for (parentAttributeUsageIdLess <- parentAttrDef.members.attributeUsagesIdLess) {
+                    inheritAttributeUsages(parentAttributeUsageIdLess, posOpt)
                   }
                   for (parentConnectionUsage <- parentAttrDef.members.connectionUsages.values) {
                     inheritConnectionUsages(parentConnectionUsage, posOpt)
@@ -509,6 +516,9 @@ object TypeOutliner {
                   }
                   for (parentAttributeUsage <- parentConnDef.members.attributeUsages.values) {
                     inheritAttributeUsages(parentAttributeUsage, posOpt)
+                  }
+                  for (parentAttributeUsageIdLess <- parentConnDef.members.attributeUsagesIdLess) {
+                    inheritAttributeUsages(parentAttributeUsageIdLess, posOpt)
                   }
                   for (parentConnectionUsage <- parentConnDef.members.connectionUsages.values) {
                     inheritConnectionUsages(parentConnectionUsage, posOpt)
@@ -546,6 +556,9 @@ object TypeOutliner {
                   for (parentAttributeUsage <- parentPartDef.members.attributeUsages.values) {
                     inheritAttributeUsages(parentAttributeUsage, posOpt)
                   }
+                  for (parentAttributeUsageIdLess <- parentPartDef.members.attributeUsagesIdLess) {
+                    inheritAttributeUsages(parentAttributeUsageIdLess, posOpt)
+                  }
                   for (parentConnectionUsage <- parentPartDef.members.connectionUsages.values) {
                     inheritConnectionUsages(parentConnectionUsage, posOpt)
                   }
@@ -574,6 +587,9 @@ object TypeOutliner {
                   }
                   for (parentAttributeUsage <- parentPortDef.members.attributeUsages.values) {
                     inheritAttributeUsages(parentAttributeUsage, posOpt)
+                  }
+                  for (parentAttributeUsageIdLess <- parentPortDef.members.attributeUsagesIdLess) {
+                    inheritAttributeUsages(parentAttributeUsageIdLess, posOpt)
                   }
                   for (parentConnectionUsage <- parentPortDef.members.connectionUsages.values) {
                     inheritConnectionUsages(parentConnectionUsage, posOpt)
@@ -604,6 +620,7 @@ object TypeOutliner {
     return (TypeInfo.Members(
       allocationUsages = allocationUsages,
       attributeUsages = attributeUsages,
+      attributeUsagesIdLess = attributeUsagesIdLess,
       connectionUsages = connectionUsages,
       itemUsages = itemUsages,
       partUsages = partUsages,
@@ -616,6 +633,7 @@ object TypeOutliner {
   def outlineMembers(info: TypeInfo.Members, scope: Scope.Local, reporter: Reporter): TypeInfo.Members = {
     var allocationUsages = HashSMap.empty[String, Info.AllocationUsage]
     var attributeUsages = HashSMap.empty[String, Info.AttributeUsage]
+    var attributeUsagesIdLess = info.attributeUsagesIdLess
     var connectionUsages = HashSMap.empty[String, Info.ConnectionUsage]
     var itemUsages = HashSMap.empty[String, Info.ItemUsage]
     var partUsages = HashSMap.empty[String, Info.PartUsage]
@@ -846,6 +864,7 @@ object TypeOutliner {
     return TypeInfo.Members(
       allocationUsages = allocationUsages,
       attributeUsages = attributeUsages,
+      attributeUsagesIdLess = attributeUsagesIdLess,
       connectionUsages = connectionUsages,
       itemUsages = itemUsages,
       partUsages = partUsages,
