@@ -13,15 +13,15 @@ standard library package Quantities {
 		*/
 	}
 
-		attribute def QuantityPowerFactor {
-    		//doc
-    		/*
-    		 * Representation of a quantity power factor, being the combination of a quantity and an exponent.
-    		 *
-    		 * A sequence of QuantityPowerFactors for the baseQuantities of a SystemOfQuantities define the QuantityDimension of a scalar quantity.
-    		 */
+	attribute def QuantityPowerFactor {
+    	//doc
+    	/*
+    	 * Representation of a quantity power factor, being the combination of a quantity and an exponent.
+    	 *
+    	 * A sequence of QuantityPowerFactors for the baseQuantities of a SystemOfQuantities define the QuantityDimension of a scalar quantity.
+    	 */
 
-    		attribute quantity: Quantities::ScalarQuantityValue[1];
-    		attribute exponent: ScalarValues::Real[1];
-    	}
+    	attribute quantity: Quantities::ScalarQuantityValue[1];
+    	attribute exponent: ScalarValues::Real[1];
+    }
 }

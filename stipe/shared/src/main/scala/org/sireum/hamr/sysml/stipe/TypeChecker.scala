@@ -66,7 +66,7 @@ object TypeChecker {
     def resolveType(t: AST.Type): Option[AST.Type] = {
       t match {
         case t: AST.Type.Named =>
-          scope.resolveType(typeHierarchy.typeMap, Util.slangIds2string(t.name.ids)) match {
+          scope.resolveType(typeHierarchy, Util.slangIds2string(t.name.ids)) match {
             case Some(ti: TypeInfo.PartDefinition) =>
               val name = AST.Name(
                 ids = for (id <- ti.name) yield AST.Id(id, AST.Attr(ti.posOpt)),
@@ -258,35 +258,37 @@ object TypeChecker {
         inheritedItemUsages ++
         inheritedPartUsages ++
         inheritedPortsUsages ++
-        inheritedReferencesUsages //++
-        //info.ast.bodyItems
-
-    val bodyASTs = info.ast.bodyItems
+        inheritedReferencesUsages
 
     // see tipe.TypeChecker.checkAdt ... val newStmts = checkStmts(...)
     val newMemberASTs = checkBodyItems(ISZ(scope), memberItems, reporter)
     // update original members
-    var newMemberItems = updateMembers(newMemberASTs, info.members, reporter)
+    var newMembers = updateMembers(newMemberASTs, info.members, reporter)
 
+    // process gumbo annotations
+    val gumboAnnotationASTs = info.ast.bodyItems.filter(p => p.isInstanceOf[SysmlAst.GumboAnnotation])
+    val gumboAnnotationASTsUpdated = checkBodyItems(ISZ(scope), gumboAnnotationASTs, reporter)
+    newMembers = updateMembers(gumboAnnotationASTs, newMembers, reporter)
 
+    // type check any inherited refined usages
     val inheritedAttributeUsagesIdLessASTs: ISZ[SysmlAst.DefinitionBodyItem] = (for(a <- info.members.attributeUsagesIdLess) yield a.ast)
     val newAttributeUsagesIdLess = checkBodyItems(ISZ(scope), inheritedAttributeUsagesIdLessASTs, reporter).asInstanceOf[ISZ[SAST.SysmlAst.AttributeUsage]]
     for (a <- newAttributeUsagesIdLess) {
       assert (a.commonUsageElements.identification.isEmpty)
       a.commonUsageElements.attr.resOpt match {
         case Some(i: ResolvedInfo.AttributeUsage) =>
-          newMemberItems = newMemberItems(attributeUsages = newMemberItems.attributeUsages + i.name ~>
+          newMembers = newMembers(attributeUsages = newMembers.attributeUsages + i.name ~>
             Info.AttributeUsage(
               owner = i.owner, id = i.name, hasId = T, scope = scope, ast = a))
         case _ =>
       }
     }
 
-    newMemberItems = newMemberItems(attributeUsagesIdLess = ISZ())
+    val updatedASTs = newMemberASTs ++ gumboAnnotationASTsUpdated
 
-    // replace original members if this part def redefines it
-    val newBodyASTs = checkBodyItems(ISZ(scope), bodyASTs, reporter)
-    val newMembers: TypeInfo.Members = updateMembers(newBodyASTs, newMemberItems, reporter)
+    // remove the old unresolved refined usages
+    newMembers = newMembers(attributeUsagesIdLess = ISZ())
+
 
 
     val allocationUsages: HashSMap[String, Info.AllocationUsage] = {
@@ -338,7 +340,7 @@ object TypeChecker {
                 if (connEnd.reference.size == 2) {
                   val receiver = connEnd.reference(0)
                   assert(receiver.ids.size == 1)
-                  scope.resolveName(typeHierarchy.nameMap, Util.ids2string(receiver.ids)) match {
+                  scope.resolveName(typeHierarchy, Util.ids2string(receiver.ids)) match {
                     case Some(ipu: Info.PartUsage) =>
                       val typedName = ipu.typedOpt.get.asInstanceOf[Typed.Name]
                       typeHierarchy.typeMap.get(typedName.ids) match {
@@ -388,7 +390,7 @@ object TypeChecker {
 
     val newInfo = info(
       typeChecked = T,
-      ast = info.ast(bodyItems = newBodyASTs),
+      ast = info.ast(bodyItems = updatedASTs),
       members = xm
     )
     return (th: TypeHierarchy) => (th(typeMap = th.typeMap + info.name ~> newInfo), reporter.messages)
@@ -527,7 +529,7 @@ object TypeChecker {
       Util.getId(u.identification, u.specializations, u.attr.posOpt, TypeChecker.typeCheckerKind, reporter) match {
         case (Some(id), posOpt) =>
           var ru = u
-          val resOpt: Option[SAST.ResolvedInfo] = scope.resolveName(typeHierarchy.nameMap, ISZ(id)) match {
+          val resOpt: Option[SAST.ResolvedInfo] = scope.resolveName(typeHierarchy, ISZ(id)) match {
             case Some(info: Info.UsageInfo) =>
               if (u.identification.isEmpty) {
                 assert (u.specializations.nonEmpty, "expecting a redefinition")
@@ -546,9 +548,9 @@ object TypeChecker {
                     case ISZ(_, ts:TypingsSpecialization) =>
                       ts.names match {
                         case ISZ(redefinedTypeName) =>
-                          scope.resolveName(typeHierarchy.nameMap, ISZ(id)) match {
+                          scope.resolveName(typeHierarchy, ISZ(id)) match {
                             case Some(parentUsage : Info.UsageInfo) =>
-                              scope.resolveType(typeHierarchy.typeMap, Util.ids2string(redefinedTypeName.ids)) match {
+                              scope.resolveType(typeHierarchy, Util.ids2string(redefinedTypeName.ids)) match {
                                 case Some(redefiningType) =>
                                   parentUsage.ast.commonUsageElements.attr.typedOpt match {
                                     case Some(t2) =>
@@ -608,7 +610,7 @@ object TypeChecker {
               TypeChecker.reportError(posOpt, "Expecting usage redefinitions to be typed by an existing usage", reporter)
               None()
             case x =>
-              TypeChecker.reportError(posOpt, s"Couldn't resolve $id", reporter)
+              TypeChecker.reportError(posOpt, s"Could not resolve the id $id", reporter)
               None()
           }
 
@@ -759,7 +761,7 @@ object TypeChecker {
         var state = ISZ[GclStateVar]()
         for (s <- sc.state) {
           val classifier = ops.StringOps(ops.StringOps(s.classifier).replaceAllLiterally("::", "%")).split(c => c == '%')
-          scope.resolveType(typeHierarchy.typeMap, classifier) match {
+          scope.resolveType(typeHierarchy, classifier) match {
             case Some(t: TypeInfo.PartDefinition) => state = state :+ s (classifier = st"${(t.name, "::")}".render)
             case Some(e: TypeInfo.EnumDefinition) => state = state :+ s(classifier = st"${(e.name, "::")}".render)
             case _ =>
@@ -812,14 +814,13 @@ object TypeChecker {
 
   def checkId(scope: Scope, id: AST.Id, reporter: Reporter): (Option[SAST.Typed], Option[SAST.ResolvedInfo]) = {
     val nid = ISZ(id.value)
-    val infoOpt = scope.resolveName(typeHierarchy.nameMap, nid)
+    val infoOpt = scope.resolveName(typeHierarchy, nid)
     infoOpt match {
       case Some(info) => return checkInfo(Some(scope), info, id.attr.posOpt, reporter)
       case x =>
-        reportError(id.attr.posOpt, s"Could not resolve '${id.value}'.", reporter)
+        reportError(id.attr.posOpt, s"Could not resolve id '${id.value}'.", reporter)
+        return (None(), None())
     }
-    TypeChecker.reportError(id.attr.posOpt, s"Could not resolve '${id.value}'", reporter)
-    return (None(), None())
   }
 
 
@@ -849,7 +850,8 @@ object TypeChecker {
                 return noResult
             }
           case _ =>
-            halt(s"Unexpected situations while type checking: ${(receiverType.ids, "::")}::${id}")
+            reportError(ident.attr.posOpt, st"Could not resolve ${(receiverType.ids, "::")}::${id}".render, reporter)
+            return noResult
         }
 
       case receiverType: SAST.Typed.Enum =>
@@ -990,17 +992,21 @@ object TypeChecker {
     }
 
     def checkBinary(binary: AST.Exp.Binary): (AST.Exp, Option[SAST.Typed]) = {
-      val SI_Duration_Unit = SAST.Typed.Name(ISZ("SI", "DurationUnit"))
-      val SI_Unit_Prefix = SAST.Typed.Name(ISZ("SI", "UnitPrefix"))
-
       val lhs = checkExp(None(), scope, binary.left, reporter)
 
       val rhs = checkExp(None(), scope, binary.right, reporter)
 
       (lhs, rhs) match {
         case ((lhsR, Some(lhsT: SAST.Typed.Name)), (rhsR, Some(rhsT: SAST.Typed.Name))) =>
-          if ((lhsT == SI_Duration_Unit && rhsT == SI_Unit_Prefix) || (lhsT == SI_Unit_Prefix && rhsT == SI_Duration_Unit)) {
-            return (binary, Some(SI_Duration_Unit))
+          if (lhsT == rhsT){
+            return (binary, Some(rhsT))
+          }
+          val measureReferencesUnitPrefix = ISZ("MeasurementReferences", "UnitPrefix")
+          if(lhsT.ids == measureReferencesUnitPrefix && rhsT.ids != measureReferencesUnitPrefix) {
+            return (binary, Some(rhsT))
+          }
+          if(lhsT.ids != measureReferencesUnitPrefix && rhsT.ids == measureReferencesUnitPrefix) {
+            return (binary, Some(lhsT))
           }
         case _ =>
       }

@@ -46,7 +46,7 @@ object FrontEnd {
   def typeCheck(par: Z, inputs: ISZ[Input], store: Store, reporter: Reporter): (Option[TypeHierarchy], ISZ[ModelUtil.ModelElements], Store) = {
     var localStore = store
 
-    val (thl, rep) = libraryReporter
+    val (thl, rep) = libraryReporter(par)
 
     if (rep.hasError) {
       rep.printMessages()
@@ -229,15 +229,15 @@ object FrontEnd {
     return integrationConstraints
   }
 
-  def libraryReporter: (TypeChecker, Reporter) = {
+  def libraryReporter(par: Z) : (TypeChecker, Reporter) = {
     val initNameMap: NameMap = HashSMap.empty
     val initTypeMap: TypeMap = HashSMap.empty
 
     val (reporter, _, nameMap, typeMap) =
-      parseAndGloballyResolve(0, for (f <- Sysmlv2Library.files) yield Input(f._2, f._1), initNameMap, initTypeMap)
+      parseAndGloballyResolve(par, for (f <- Sysmlv2Library.files) yield Input(f._2, f._1), initNameMap, initTypeMap)
     val th =
       TypeHierarchy.build(F, TypeHierarchy(nameMap, typeMap, Poset.empty, HashSMap.empty), reporter)
-    val thOutlined = TypeOutliner.checkOutline(0, th, reporter)
+    val thOutlined = TypeOutliner.checkOutline(par, th, reporter)
     val tc = TypeChecker(thOutlined, ISZ())
     val r = (tc, reporter)
     return r

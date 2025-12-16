@@ -35,6 +35,7 @@ object InstantiateUtil {
     "Boolean",
 
     "Integer",
+
     "Integer_8",
     "Integer_16",
     "Integer_32",
@@ -165,7 +166,7 @@ object InstantiateUtil {
     name match {
       case ISZ("CASE_Scheduling", "Domain") => return T
 
-      case ISZ("HAMR", "Microkit_Language") => return T
+      case ISZ("HAMR", "Implementation_Language") => return T
 
       case ISZ("Thread_Properties", "Dispatch_Protocol") => return T
 

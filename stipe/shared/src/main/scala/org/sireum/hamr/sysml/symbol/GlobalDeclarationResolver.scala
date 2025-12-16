@@ -51,7 +51,8 @@ object GlobalDeclarationResolver {
         //reporter.warn(a.posOpt, resolverKind, "Not currently resolving aliases")
 
       case p: SysmlAst.Package =>
-        declarePackageName(p, packageName) match {
+        val imports = p.packageElements.filter(p => p.isInstanceOf[SysmlAst.Import]).asInstanceOf[ISZ[SysmlAst.Import]]
+        declarePackageName(p, imports, packageName) match {
           case Some(info) =>
             packageName = info.name()
             currentName = packageName
@@ -517,17 +518,17 @@ object GlobalDeclarationResolver {
     }
   }
 
-  def declarePackage(name: ISZ[String], posOpt: Option[Position]): Unit = {
+  def declarePackage(name: ISZ[String], imports: ISZ[SysmlAst.Import], posOpt: Option[Position]): Unit = {
     globalNameMap.get(name) match {
       case Some(_: Info.Package) => GlobalDeclarationResolver.reportError(posOpt, "Cannot declare package because it has been previously declared", reporter)
       case Some(_) => GlobalDeclarationResolver.reportError(posOpt, "Cannot declare package because the has has already been used for a non-package entity", reporter)
       case _ =>
         globalNameMap = globalNameMap + name ~> Info.Package(
-          name, Some(SAST.Typed.Package(name)), Some(SAST.ResolvedInfo.Package(name)))
+          name, imports, Some(SAST.Typed.Package(name)), Some(SAST.ResolvedInfo.Package(name)))
     }
   }
 
-  def declarePackageName(p: SysmlAst.Package, parentPackages: ISZ[String]): Option[Info.Package] = {
+  def declarePackageName(p: SysmlAst.Package, imports: ISZ[SysmlAst.Import], parentPackages: ISZ[String]): Option[Info.Package] = {
 
     val (name, posOpt) = getId(p.identification, p.posOpt)
 
@@ -537,7 +538,7 @@ object GlobalDeclarationResolver {
 
       val currName = parentPackages :+ name.get
 
-      declarePackage(currName, posOpt)
+      declarePackage(currName, imports, posOpt)
 
       globalNameMap.get(currName) match {
         case Some(info: Info.Package) => return Some(info)

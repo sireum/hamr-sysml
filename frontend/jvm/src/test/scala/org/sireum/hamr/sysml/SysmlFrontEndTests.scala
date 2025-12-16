@@ -31,7 +31,7 @@ class SysmlFrontEndTests extends TestSuite {
 
   if (!sysmlv2ModelsDir.exists) {
     println(s"Cloning $sysmlv2Models to $sysmlv2ModelsDir")
-    proc"git clone --rec -b v2 $sysmlv2Models ${sysmlv2ModelsDir.name}".at(sysmlv2ModelsDir.up).runCheck()
+    proc"git clone --rec $sysmlv2Models ${sysmlv2ModelsDir.name}".at(sysmlv2ModelsDir.up).runCheck()
   }
 
   w_aadl_sysml_workspace.mkdir()
@@ -66,6 +66,14 @@ class SysmlFrontEndTests extends TestSuite {
 
   def toInput(o: Os.Path): Input = {
     return Input(content = o.read, fileUri = Some(o.toUri))
+  }
+
+  "gumbo-structs-arrays" in {
+    val root = w_hamrModelsDir / "temp-control" / "sysml-temp-control-mixed"
+    val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
+    println(s"Resolving: ${root.toUri}")
+    val inputs: ISZ[Input] = omgDefs ++ hamrContribution ++ (for (r <- files) yield toInput(r))
+    test(inputs)
   }
 
   "temp-control-mixed" in {

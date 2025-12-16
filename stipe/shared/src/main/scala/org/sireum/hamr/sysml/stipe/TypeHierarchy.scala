@@ -18,7 +18,7 @@ object TypeHierarchy {
       t match {
         case t: SAST.Type.Named =>
           var name = Util.ids2string(t.name.ids)
-          scope.resolveType(typeMap, name) match {
+          scope.resolveType(init, name) match {
             case Some(ti) => name = ti.name
             case _ =>
               reportError(t.name.posOpt, st"Could not resolve type named '${(name, "::")}'.'".render, reporter)
@@ -45,7 +45,7 @@ object TypeHierarchy {
       var ret: ISZ[Type.Named] = ISZ()
       for (parentName <- parentNames) {
         val pName = Util.ids2string(parentName.ids)
-        scope.resolveType(r.typeMap, pName) match {
+        scope.resolveType(r, pName) match {
           case Some(parentType) =>
             val typed = SAST.Typed.Name(parentType.name)
             ret = ret :+ Type.Named(
@@ -241,7 +241,8 @@ object TypeHierarchy {
         case tipe: SAST.Type.Named =>
 
           val name = Util.ids2string(tipe.name.ids)
-          scope.resolveType(typeMap, name) match {
+
+          scope.resolveType(this, name) match {
             case Some(ti) =>
               val typed = SAST.Typed.Name(ti.name)
               checkTyped(tipe.posOpt, typed, reporter)
@@ -263,6 +264,13 @@ object TypeHierarchy {
     }
     (t1, t2) match {
       case (n1: SAST.Typed.Name, n2: SAST.Typed.Name) =>
+        if (n1.ids == Util.Base__Anything
+          ||n2.ids == Util.Base__Anything
+          || poset.ancestorsOf(n1.ids).contains(Util.Base__Anything)
+          || poset.ancestorsOf(n2.ids).contains(Util.Base__Anything)) {
+          return T
+        }
+
         if (!poset.ancestorsOf(n1.ids).contains(n2.ids)) {
           return F
         }
@@ -329,8 +337,12 @@ object TypeHierarchy {
     }
     (t1, t2) match {
       case (n1: SAST.Typed.Name, n2: SAST.Typed.Name) =>
-        if ((n1.ids == ISZ("Timing_Properties", "Period") || n1.ids == ISZ("Timing_Properties","Frame_Period") || n1.ids == ISZ("Timing_Properties","Clock_Period")) &&
-          n2.ids == ISZ("SI", "DurationUnit")) {
+        if ((
+          n1.ids == ISZ("Timing_Properties", "Period") ||
+            n1.ids == ISZ("Timing_Properties","Frame_Period") ||
+            n1.ids == ISZ("Timing_Properties","Clock_Period") ||
+            n1.ids == ISZ("AADL_Project", "Time")) &&
+          n2.ids == ISZ("ISQBase", "DurationUnit")) {
           return T
         } else if ((n1.ids == ISZ("CASE_Scheduling", "Max_Domain") || n1.ids == ISZ("CASE_Scheduling", "Domain")) && n2.ids == ISZ("org", "sireum", "Z")) {
           return T

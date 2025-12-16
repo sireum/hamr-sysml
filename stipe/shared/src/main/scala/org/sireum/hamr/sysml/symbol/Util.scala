@@ -8,6 +8,10 @@ import org.sireum.hamr.ir.{SysmlAst, Typed}
 import org.sireum.message.{Position, Reporter}
 
 object Util {
+
+  // Base::Anything is the ultimate root type of the type system.
+  val Base__Anything: ISZ[String] = ISZ("Base", "Anything")
+
   def ids2string(ids: ISZ[SysmlAst.Id]): ISZ[String] = {
     return (for(id <- ids) yield id.value)
   }
@@ -88,12 +92,11 @@ object Util {
     t match {
       case Some(SAST.Typed.Package(name)) =>
         return Some(AST.Typed.Name(ids = name, args = ISZ()))
-        //halt(s"Don't know how to convert the following to Slang: ${t}")
       case Some(SAST.Typed.Name(ids)) =>
         return Some(AST.Typed.Name(ids = ids, args = ISZ()))
       case Some(SAST.Typed.Enum(name)) =>
         return Some(AST.Typed.Enum(name))
-      case x => halt("")
+      case x => return None()
     }
   }
 
