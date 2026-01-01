@@ -24,19 +24,14 @@ class SysmlFrontEndTests extends TestSuite {
 
   val w_hamrModelsDir: Os.Path = w_aadl_sysml_workspace / "models"
 
-  val w_internal_models = w_aadl_sysml_workspace / "internal"
+  val w_internal_models: Os.Path = w_aadl_sysml_workspace / "internal"
 
-  val internalModels = resourceDir / "models" / "internal"
+  val internalModels: Os.Path = resourceDir / "models" / "internal"
 
   if (!sysmlv2ModelsDir.exists) {
     println(s"Cloning $sysmlv2Models to $sysmlv2ModelsDir")
     proc"git clone --rec $sysmlv2Models ${sysmlv2ModelsDir.name}".at(sysmlv2ModelsDir.up).runCheck()
-  } else {
-    proc"git pull --rec".at(sysmlv2ModelsDir.up).runCheck()
   }
-
-  // check out the main/master branch for each submodule
-  Os.proc(ISZ[String]("bash", "-c", "git submodule foreach 'git checkout main 2>/dev/null || git checkout master 2>/dev/null'")).at(sysmlv2ModelsDir).runCheck()
 
   w_aadl_sysml_workspace.mkdir()
 
