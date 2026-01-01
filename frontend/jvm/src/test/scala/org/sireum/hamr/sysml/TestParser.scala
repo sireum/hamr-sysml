@@ -10,7 +10,7 @@ class TestParser extends TestSuite {
 
   TestUtil.fetchSysmlLibrary(resourceDir)
 
-  for (f <- Os.Path.walk(resourceDir / "models", F, F, p => p.ext.native == "sysml" || p.ext.native == "kerml")) {
+  for (f <- Os.Path.walk(resourceDir / "models", T, T, p => p.ext.native == "sysml" || p.ext.native == "kerml")) {
     registerTest(resourceDir.relativize(f).toString) {
       val reporter = Reporter.create
       println(s"Parsing ${f.toUri}")
