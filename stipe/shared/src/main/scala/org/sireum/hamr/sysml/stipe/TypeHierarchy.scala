@@ -346,7 +346,7 @@ object TypeHierarchy {
           return T
         } else if ((n1.ids == ISZ("CASE_Scheduling", "Max_Domain") || n1.ids == ISZ("CASE_Scheduling", "Domain")) && n2.ids == ISZ("org", "sireum", "Z")) {
           return T
-        } else if (n1.ids == ISZ("Memory_Properties", "Data_Size") && n2.ids == ISZ("SI", "StorageCapacityUnit")) {
+        } else if (n1.ids == ISZ("Memory_Properties", "Data_Size") && n2.ids == ISZ("ISQInformation", "StorageCapacityUnit")) {
           return T
         }
       case _ =>

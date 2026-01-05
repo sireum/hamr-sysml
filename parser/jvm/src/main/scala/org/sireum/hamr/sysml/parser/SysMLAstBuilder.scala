@@ -729,7 +729,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     val isBound = context.OP_EQ() != null
     val isInitial = context.OP_COLON_EQ() != null
     val isDefault = context.K_DEFAULT() != null
-    val exp = visitOwnedExpression(context.ruleOwnedExpression())
+    val exp = visitExpression(context.ruleOwnedExpression())
     return FeatureValue(
       isBound = isBound,
       isInitial = isInitial,
@@ -1302,7 +1302,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     def visitRange(r: RuleMultiplicityRangeContext): ISZ[AST.Exp] = {
       def helper(c: RuleMultiplicityExpressionMemberContext): AST.Exp = {
         if (nonEmpty(c.ruleLiteralExpression())) {
-          return visitLiteralExpression(c.ruleLiteralExpression())
+          return visitExpression(c.ruleLiteralExpression())
         } else {
           assert (nonEmpty(c.ruleFeatureReferenceExpression()))
           val n = visitQualifiedNameAsSlangName(c.ruleFeatureReferenceExpression().ruleFeatureReferenceMember().ruleQualifiedName())
@@ -1759,38 +1759,46 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     }
   }
 
-  def visitOwnedExpression(o: SysMLv2Parser.RuleOwnedExpressionContext): AST.Exp = {
-    o.ruleConditionalExpression() match {
-      case e1: RuleConditionalExpression1Context =>
-        return visitNullCoalescingExpression(e1.ruleNullCoalescingExpression())
 
-      case e2: RuleConditionalExpression2Context =>
-        assert(nonEmpty(e2.ruleConditionalOperator()))
-        assert(e2.ruleOwnedExpressionReference().size == 2)
 
-        val cond = visitNullCoalescingExpression(e2.ruleNullCoalescingExpression())
-        val thenExp = visitOwnedExpression(e2.ruleOwnedExpressionReference(0).ruleOwnedExpressionMember().ruleOwnedExpression())
-        val elseExp = visitOwnedExpression(e2.ruleOwnedExpressionReference(1).ruleOwnedExpressionMember().ruleOwnedExpression())
+  def visitExpression(o: ParserRuleContext): AST.Exp = {
+    return visitExpressionH(o, F)
+  }
 
-        return Exp.If(cond = cond, thenExp = thenExp, elseExp = elseExp, attr = Placeholders.emptyTypedAttr)
+  def visitExpressionH(o: ParserRuleContext, isGumboExpression: B): AST.Exp = {
+
+    def visitOwnedExpression(o: SysMLv2Parser.RuleOwnedExpressionContext): AST.Exp = {
+      o.ruleConditionalExpression() match {
+        case e1: RuleConditionalExpression1Context =>
+          return visitNullCoalescingExpression(e1.ruleNullCoalescingExpression())
+
+        case e2: RuleConditionalExpression2Context =>
+          assert(nonEmpty(e2.ruleConditionalOperator()))
+          assert(e2.ruleOwnedExpressionReference().size == 2)
+
+          val cond = visitNullCoalescingExpression(e2.ruleNullCoalescingExpression())
+          val thenExp = visitOwnedExpression(e2.ruleOwnedExpressionReference(0).ruleOwnedExpressionMember().ruleOwnedExpression())
+          val elseExp = visitOwnedExpression(e2.ruleOwnedExpressionReference(1).ruleOwnedExpressionMember().ruleOwnedExpression())
+
+          return Exp.If(cond = cond, thenExp = thenExp, elseExp = elseExp, attr = Placeholders.emptyTypedAttr)
+      }
     }
-  }
 
-  def visitNullCoalescingExpression(o: RuleNullCoalescingExpressionContext): AST.Exp = {
-    reportError(o.ruleNullCoalescingOperator().isEmpty, o, "Null coalescing expressions are not currently supported")
+    def visitNullCoalescingExpression(o: RuleNullCoalescingExpressionContext): AST.Exp = {
+      reportError(o.ruleNullCoalescingOperator().isEmpty, o, "Null coalescing expressions are not currently supported")
 
-    return visitImpliesExpression(o.ruleImpliesExpression())
-  }
+      return visitImpliesExpression(o.ruleImpliesExpression())
+    }
 
-  // ruleImpliesExpression: ruleOrExpression ( ruleImpliesOperator ruleOrExpressionReference)*;
-  private def visitImpliesExpression(o: RuleImpliesExpressionContext): AST.Exp = {
-    // TODO it appears KerML only supports short circuit implications
+    // ruleImpliesExpression: ruleOrExpression ( ruleImpliesOperator ruleOrExpressionReference)*;
+    def visitImpliesExpression(o: RuleImpliesExpressionContext): AST.Exp = {
+      // TODO it appears KerML only supports short circuit implications
 
-    val lhs = visitOrExpression(o.ruleOrExpression())
+      val lhs = visitOrExpression(o.ruleOrExpression())
 
-    val s = Stack(for (oe <- listToISZ(o.ruleOrExpressionReference())) yield visitOrExpression(oe.ruleOrExpressionMember().ruleOrExpression()))
+      val s = Stack(for (oe <- listToISZ(o.ruleOrExpressionReference())) yield visitOrExpression(oe.ruleOrExpressionMember().ruleOrExpression()))
 
-    /* 7.4.9.2 Operator Expressions
+      /* 7.4.9.2 Operator Expressions
      *   ...
      *   ... the ... and implication (implies) operators all correspond to control functions in which
      *   their second operand is only evaluated depending on a certain condition of the value of their
@@ -1801,511 +1809,523 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
      *        '__>:' (lhs, rhs) instead of lhs __>: rhs
      */
 
-    // using alt version of conditional implication as AST.Exp.BinaryOp.CondImpl results
-    // in "___>.:" (minus the .) in plain-text/VSCode since ligatures are not supported
+      // using alt version of conditional implication as AST.Exp.BinaryOp.CondImpl results
+      // in "___>.:" (minus the .) in plain-text/VSCode since ligatures are not supported
 
-    //return SlangUtil.collapse1(lhs, AST.Exp.BinaryOp.CondImply, s)
+      //return SlangUtil.collapse1(lhs, AST.Exp.BinaryOp.CondImply, s)
 
-    return SlangUtil.collapse1(lhs, "___>:", s)
+      return SlangUtil.collapse1(lhs, "___>:", s)
 
-  }
-
-  // ruleOrExpression: ruleXorExpression ( (ruleOrOperator ruleXorExpression | ruleConditionalOrOperator ruleXorExpressionReference))*;
-  private def visitOrExpression(o: RuleOrExpressionContext): AST.Exp = {
-    assert(o.getChild(0).isInstanceOf[RuleXorExpressionContext])
-    val lhs = visitXorExpression(o.ruleXorExpression(0))
-
-    var s = Stack.empty[(String, AST.Exp)]
-    var i = 1
-    while (i < o.getChildCount) {
-      o.getChild(i) match {
-        case isLogicalOr: RuleOrOperatorContext =>
-          s = s.push(AST.Exp.BinaryOp.Or, visitXorExpression(o.getChild(i + 1).asInstanceOf[SysMLv2Parser.RuleXorExpressionContext]))
-        case isCondOr: RuleConditionalOrOperatorContext =>
-          s = s.push(AST.Exp.BinaryOp.CondOr, visitXorExpression(o.getChild(i + 1).asInstanceOf[RuleXorExpressionReferenceContext].ruleXorExpressionMember().ruleXorExpression()))
-      }
-      i = i + 2
     }
 
-    return SlangUtil.collapse2(lhs, s)
-  }
+    // ruleOrExpression: ruleXorExpression ( (ruleOrOperator ruleXorExpression | ruleConditionalOrOperator ruleXorExpressionReference))*;
+    def visitOrExpression(o: RuleOrExpressionContext): AST.Exp = {
+      assert(o.getChild(0).isInstanceOf[RuleXorExpressionContext])
+      val lhs = visitXorExpression(o.ruleXorExpression(0))
 
-  // ruleXorExpression: ruleAndExpression ( ruleXorOperator ruleAndExpression)*;
-  private def visitXorExpression(o: RuleXorExpressionContext): AST.Exp = {
-    val exprs = ops.ISZOps(listToISZ(o.ruleAndExpression()))
-    val lhs = visitAndExpression(exprs.first)
-
-    val s = Stack(for (e <- exprs.tail) yield visitAndExpression(e))
-
-    return SlangUtil.collapse1(lhs, AST.Exp.BinaryOp.Xor, s)
-  }
-
-  private def visitAndExpression(o: RuleAndExpressionContext): AST.Exp = {
-    assert(o.getChild(0).isInstanceOf[RuleEqualityExpressionContext])
-    val lhs = visitEqualityExpression(o.ruleEqualityExpression(0))
-
-    var s = Stack.empty[(String, AST.Exp)]
-    var i = 1
-    while (i < o.getChildCount) {
-      o.getChild(i) match {
-        case isLogicalAnd: RuleAndOperatorContext =>
-          s = s.push((AST.Exp.BinaryOp.And, visitEqualityExpression(o.getChild(i + 1).asInstanceOf[RuleEqualityExpressionContext])))
-        case isCondAnd: RuleConditionalAndOperatorContext =>
-          s = s.push((AST.Exp.BinaryOp.CondAnd, visitEqualityExpression(o.getChild(i + 1).asInstanceOf[RuleEqualityExpressionReferenceContext].ruleEqualityExpressionMember().ruleEqualityExpression())))
+      var s = Stack.empty[(String, AST.Exp)]
+      var i = 1
+      while (i < o.getChildCount) {
+        o.getChild(i) match {
+          case isLogicalOr: RuleOrOperatorContext =>
+            s = s.push(AST.Exp.BinaryOp.Or, visitXorExpression(o.getChild(i + 1).asInstanceOf[SysMLv2Parser.RuleXorExpressionContext]))
+          case isCondOr: RuleConditionalOrOperatorContext =>
+            s = s.push(AST.Exp.BinaryOp.CondOr, visitXorExpression(o.getChild(i + 1).asInstanceOf[RuleXorExpressionReferenceContext].ruleXorExpressionMember().ruleXorExpression()))
+        }
+        i = i + 2
       }
-      i = i + 2
+
+      return SlangUtil.collapse2(lhs, s)
     }
-    return SlangUtil.collapse2(lhs, s)
-  }
 
-  // ruleEqualityExpression: ruleClassificationExpression ( ruleEqualityOperator ruleClassificationExpression)*;
-  private def visitEqualityExpression(o: RuleEqualityExpressionContext): AST.Exp = {
-    val lhs = visitClassificationExpression(o.ruleClassificationExpression(0))
+    // ruleXorExpression: ruleAndExpression ( ruleXorOperator ruleAndExpression)*;
+    def visitXorExpression(o: RuleXorExpressionContext): AST.Exp = {
+      val exprs = ops.ISZOps(listToISZ(o.ruleAndExpression()))
+      val lhs = visitAndExpression(exprs.first)
 
-    var s = Stack.empty[(String, AST.Exp)]
-    var i = 1
-    while (i < o.getChildCount) {
-      /* The operators == and != apply to operands that have single values, testing whether they are equal or unequal,
+      val s = Stack(for (e <- exprs.tail) yield visitAndExpression(e))
+
+      return SlangUtil.collapse1(lhs, AST.Exp.BinaryOp.Xor, s)
+    }
+
+    def visitAndExpression(o: RuleAndExpressionContext): AST.Exp = {
+      assert(o.getChild(0).isInstanceOf[RuleEqualityExpressionContext])
+      val lhs = visitEqualityExpression(o.ruleEqualityExpression(0))
+
+      var s = Stack.empty[(String, AST.Exp)]
+      var i = 1
+      while (i < o.getChildCount) {
+        o.getChild(i) match {
+          case isLogicalAnd: RuleAndOperatorContext =>
+            s = s.push((AST.Exp.BinaryOp.And, visitEqualityExpression(o.getChild(i + 1).asInstanceOf[RuleEqualityExpressionContext])))
+          case isCondAnd: RuleConditionalAndOperatorContext =>
+            s = s.push((AST.Exp.BinaryOp.CondAnd, visitEqualityExpression(o.getChild(i + 1).asInstanceOf[RuleEqualityExpressionReferenceContext].ruleEqualityExpressionMember().ruleEqualityExpression())))
+        }
+        i = i + 2
+      }
+      return SlangUtil.collapse2(lhs, s)
+    }
+
+    // ruleEqualityExpression: ruleClassificationExpression ( ruleEqualityOperator ruleClassificationExpression)*;
+    def visitEqualityExpression(o: RuleEqualityExpressionContext): AST.Exp = {
+      val lhs = visitClassificationExpression(o.ruleClassificationExpression(0))
+
+      var s = Stack.empty[(String, AST.Exp)]
+      var i = 1
+      while (i < o.getChildCount) {
+        /* The operators == and != apply to operands that have single values, testing whether they are equal or unequal,
        * respectively. They also evaluate to true or false, respectively, if their operands are both null (no values).
        * The operators === and !== apply specifically to values that are occurrences (see 9.2.4). They test whether two
        * occurrences are portions (in space and/or time) of the same life occurrence. Informally, these operators test
        * whether or not two occurrences have the same "identity". For data values (values that are not occurrences),
        * === and !== are the same as == and !=.
        */
-      val binaryOp: String = o.getChild(i).asInstanceOf[RuleEqualityOperatorContext] match {
-        case i: RuleEqualityOperator1Context =>
-          assert(i.OP_EQ_EQ() != null)
-          AST.Exp.BinaryOp.Eq
-        case i: RuleEqualityOperator2Context =>
-          assert(i.OP_BANG_EQ() != null)
-          AST.Exp.BinaryOp.Ne
-        case i: RuleEqualityOperator3Context =>
-          assert(i.OP_EQ_EQ_EQ() != null)
-          reportError(i, "TODO, can sysmlv2's === be mapped to Slang's ===")
-          AST.Exp.BinaryOp.Equiv
-        case i: RuleEqualityOperator4Context =>
-          assert(i.OP_BANG_EQ_EQ() != null)
-          reportError(i, "TODO, can sysmlv2's !== be mapped to Slang's =!=")
-          AST.Exp.BinaryOp.Inequiv
-      }
-      s = s.push((binaryOp, visitClassificationExpression(o.getChild(i + 1).asInstanceOf[RuleClassificationExpressionContext])))
-      i = i + 2
-    }
-
-    return SlangUtil.collapse2(lhs, s)
-  }
-
-  private def visitClassificationExpression(o: RuleClassificationExpressionContext): AST.Exp = {
-    o match {
-      case i1: RuleClassificationExpression1Context =>
-        val lhs = visitRelationalExpression(i1.ruleRelationalExpression())
-
-        if (i1.ruleClassificationTestOperator() != null) {
-          reportError(i1.ruleClassificationTestOperator(), "Classification Test operations are not currently supported")
-        } else if (i1.ruleCastOperator() != null) {
-          reportError(i1.ruleCastOperator(), "Cast operations are not currently supported")
+        val binaryOp: String = o.getChild(i).asInstanceOf[RuleEqualityOperatorContext] match {
+          case i: RuleEqualityOperator1Context =>
+            assert(i.OP_EQ_EQ() != null)
+            AST.Exp.BinaryOp.Eq
+          case i: RuleEqualityOperator2Context =>
+            assert(i.OP_BANG_EQ() != null)
+            AST.Exp.BinaryOp.Ne
+          case i: RuleEqualityOperator3Context =>
+            assert(i.OP_EQ_EQ_EQ() != null)
+            reportError(i, "TODO, can sysmlv2's === be mapped to Slang's ===")
+            AST.Exp.BinaryOp.Equiv
+          case i: RuleEqualityOperator4Context =>
+            assert(i.OP_BANG_EQ_EQ() != null)
+            reportError(i, "TODO, can sysmlv2's !== be mapped to Slang's =!=")
+            AST.Exp.BinaryOp.Inequiv
         }
-
-        return lhs
-
-      case i2: RuleClassificationExpression2Context =>
-        reportError(o, "Need example of ruleClassification2")
-
-      case i3: RuleClassificationExpression3Context =>
-        assert(nonEmpty(i3.ruleMetaClassificationTestOperator()))
-        reportError(o, "MetaClassification Test '@@' is not currently supported")
-
-      case i4: RuleClassificationExpression4Context =>
-        reportError(o, "Need example of ruleClassification4")
-
-      case i5: RuleClassificationExpression5Context =>
-        assert(nonEmpty(i5.ruleMetaCastOperator()))
-        reportError(o, "MetaCast 'meta' is not currently supported")
-    }
-    return Placeholders.emptyExp
-  }
-
-  // ruleRelationalExpression: ruleRangeExpression ( ruleRelationalOperator ruleRangeExpression)*;
-  private def visitRelationalExpression(o: RuleRelationalExpressionContext): AST.Exp = {
-    val lhs = visitRangeExpression(o.ruleRangeExpression(0))
-
-    var s = Stack.empty[(String, AST.Exp)]
-    var i = 1
-    while (i < o.getChildCount) {
-      val binaryOp: String = o.getChild(i).asInstanceOf[RuleRelationalOperatorContext] match {
-        case i: RuleRelationalOperator1Context =>
-          assert(i.LANGLE() != null)
-          AST.Exp.BinaryOp.Lt
-        case i: RuleRelationalOperator2Context =>
-          assert(i.RANGLE() != null)
-          AST.Exp.BinaryOp.Gt
-        case i: RuleRelationalOperator3Context =>
-          assert(i.OP_LANGLE_EQ() != null)
-          AST.Exp.BinaryOp.Le
-        case i: RuleRelationalOperator4Context =>
-          assert(i.OP_RANGLE_EQ() != null)
-          AST.Exp.BinaryOp.Ge
+        s = s.push((binaryOp, visitClassificationExpression(o.getChild(i + 1).asInstanceOf[RuleClassificationExpressionContext])))
+        i = i + 2
       }
-      s = s.push((binaryOp, visitRangeExpression(o.getChild(i + 1).asInstanceOf[RuleRangeExpressionContext])))
-      i = i + 2
+
+      return SlangUtil.collapse2(lhs, s)
     }
 
-    return SlangUtil.collapse2(lhs, s)
-  }
+    def visitClassificationExpression(o: RuleClassificationExpressionContext): AST.Exp = {
+      o match {
+        case i1: RuleClassificationExpression1Context =>
+          val lhs = visitRelationalExpression(i1.ruleRelationalExpression())
 
-  // ruleRangeExpression: ruleAdditiveExpression ( '..' ruleAdditiveExpression)?;
-  private def visitRangeExpression(o: RuleRangeExpressionContext): AST.Exp = {
-    val lhs = visitAdditiveExpression(o.ruleAdditiveExpression(0))
+          if (i1.ruleClassificationTestOperator() != null) {
+            reportError(i1.ruleClassificationTestOperator(), "Classification Test operations are not currently supported")
+          } else if (i1.ruleCastOperator() != null) {
+            reportError(i1.ruleCastOperator(), "Cast operations are not currently supported")
+          }
 
-    if (o.ruleAdditiveExpression().size() > 1) {
-      val rhs = visitAdditiveExpression(o.ruleAdditiveExpression(1))
+          return lhs
 
-      val ident = AST.Exp.Ident(id = AST.Id(value = UIF.RangeExpression, attr = toSlangAttr(o)), attr = toSlangResolvedAttr(o))
-      return AST.Exp.Invoke(
-        receiverOpt = None(),
-        ident = ident,
-        targs = ISZ(),
-        args = ISZ(lhs, rhs),
-        attr = toSlangResolvedAttr(o))
-    }
+        case i2: RuleClassificationExpression2Context =>
+          reportError(o, "Need example of ruleClassification2")
 
-    return lhs
-  }
+        case i3: RuleClassificationExpression3Context =>
+          assert(nonEmpty(i3.ruleMetaClassificationTestOperator()))
+          reportError(o, "MetaClassification Test '@@' is not currently supported")
 
-  // ruleAdditiveExpression: ruleMultiplicativeExpression ( ruleAdditiveOperator ruleMultiplicativeExpression)*;
-  private def visitAdditiveExpression(o: RuleAdditiveExpressionContext): AST.Exp = {
-    val lhs = visitMultiplicativeExpression(o.ruleMultiplicativeExpression(0))
+        case i4: RuleClassificationExpression4Context =>
+          reportError(o, "Need example of ruleClassification4")
 
-    var s = Stack.empty[(String, AST.Exp)]
-    var i = 1
-    while (i < o.getChildCount) {
-      val binaryOp: String = o.getChild(i).asInstanceOf[RuleAdditiveOperatorContext] match {
-        case i: RuleAdditiveOperator1Context =>
-          assert(i.OP_PLUS() != null)
-          AST.Exp.BinaryOp.Add
-        case i: RuleAdditiveOperator2Context =>
-          assert(i.OP_MINUS() != null)
-          AST.Exp.BinaryOp.Sub
+        case i5: RuleClassificationExpression5Context =>
+          assert(nonEmpty(i5.ruleMetaCastOperator()))
+          reportError(o, "MetaCast 'meta' is not currently supported")
       }
-      s = s.push((binaryOp, visitMultiplicativeExpression(o.getChild(i + 1).asInstanceOf[RuleMultiplicativeExpressionContext])))
-      i = i + 2
+      return Placeholders.emptyExp
     }
 
-    return SlangUtil.collapse2(lhs, s)
-  }
+    // ruleRelationalExpression: ruleRangeExpression ( ruleRelationalOperator ruleRangeExpression)*;
+    def visitRelationalExpression(o: RuleRelationalExpressionContext): AST.Exp = {
+      val lhs = visitRangeExpression(o.ruleRangeExpression(0))
 
-  // ruleMultiplicativeExpression: ruleExponentiationExpression ( ruleMultiplicativeOperator ruleExponentiationExpression)*;
-  private def visitMultiplicativeExpression(o: RuleMultiplicativeExpressionContext): AST.Exp = {
-    val lhs = visitExponentiationExpression(o.ruleExponentiationExpression(0))
-
-    var s = Stack.empty[(String, AST.Exp)]
-    var i = 1
-    while (i < o.getChildCount) {
-      val binaryOp: String = o.getChild(i).asInstanceOf[RuleMultiplicativeOperatorContext] match {
-        case i: RuleMultiplicativeOperator1Context =>
-          assert(i.OP_STAR() != null)
-          AST.Exp.BinaryOp.Mul
-        case i: RuleMultiplicativeOperator2Context =>
-          assert(i.OP_SLASH() != null)
-          AST.Exp.BinaryOp.Div
-        case i: RuleMultiplicativeOperator3Context =>
-          assert(i.OP_PERCENT() != null)
-          AST.Exp.BinaryOp.Rem
+      var s = Stack.empty[(String, AST.Exp)]
+      var i = 1
+      while (i < o.getChildCount) {
+        val binaryOp: String = o.getChild(i).asInstanceOf[RuleRelationalOperatorContext] match {
+          case i: RuleRelationalOperator1Context =>
+            assert(i.LANGLE() != null)
+            AST.Exp.BinaryOp.Lt
+          case i: RuleRelationalOperator2Context =>
+            assert(i.RANGLE() != null)
+            AST.Exp.BinaryOp.Gt
+          case i: RuleRelationalOperator3Context =>
+            assert(i.OP_LANGLE_EQ() != null)
+            AST.Exp.BinaryOp.Le
+          case i: RuleRelationalOperator4Context =>
+            assert(i.OP_RANGLE_EQ() != null)
+            AST.Exp.BinaryOp.Ge
+        }
+        s = s.push((binaryOp, visitRangeExpression(o.getChild(i + 1).asInstanceOf[RuleRangeExpressionContext])))
+        i = i + 2
       }
-      s = s.push((binaryOp, visitExponentiationExpression(o.getChild(i + 1).asInstanceOf[RuleExponentiationExpressionContext])))
-      i = i + 2
+
+      return SlangUtil.collapse2(lhs, s)
     }
 
-    return SlangUtil.collapse2(lhs, s)
-  }
+    // ruleRangeExpression: ruleAdditiveExpression ( '..' ruleAdditiveExpression)?;
+    def visitRangeExpression(o: RuleRangeExpressionContext): AST.Exp = {
+      val lhs = visitAdditiveExpression(o.ruleAdditiveExpression(0))
 
-  private def visitExponentiationExpression(o: RuleExponentiationExpressionContext): AST.Exp = {
-    val lhs = visitUnaryExpression(o.ruleUnaryExpression())
+      if (o.ruleAdditiveExpression().size() > 1) {
+        val rhs = visitAdditiveExpression(o.ruleAdditiveExpression(1))
 
-    if (nonEmpty(o.ruleExponentiationOperator())) {
-      // TODO: perhaps uif?
-      reportError(o.ruleExponentiationOperator(), "Exponentiation operations are not currently supported")
+        val ident = AST.Exp.Ident(id = AST.Id(value = UIF.RangeExpression, attr = toSlangAttr(o)), attr = toSlangResolvedAttr(o))
+        return AST.Exp.Invoke(
+          receiverOpt = None(),
+          ident = ident,
+          targs = ISZ(),
+          args = ISZ(lhs, rhs),
+          attr = toSlangResolvedAttr(o))
+      }
+
+      return lhs
     }
 
-    return lhs
-  }
+    // ruleAdditiveExpression: ruleMultiplicativeExpression ( ruleAdditiveOperator ruleMultiplicativeExpression)*;
+    def visitAdditiveExpression(o: RuleAdditiveExpressionContext): AST.Exp = {
+      val lhs = visitMultiplicativeExpression(o.ruleMultiplicativeExpression(0))
 
-  private def visitUnaryExpression(o: RuleUnaryExpressionContext): AST.Exp = {
-    o match {
-      case u1: RuleUnaryExpression1Context =>
-        val op = u1.ruleUnaryOperator() match {
-          case i: RuleUnaryOperator1Context =>
+      var s = Stack.empty[(String, AST.Exp)]
+      var i = 1
+      while (i < o.getChildCount) {
+        val binaryOp: String = o.getChild(i).asInstanceOf[RuleAdditiveOperatorContext] match {
+          case i: RuleAdditiveOperator1Context =>
             assert(i.OP_PLUS() != null)
-            AST.Exp.UnaryOp.Plus
-          case i: RuleUnaryOperator2Context =>
+            AST.Exp.BinaryOp.Add
+          case i: RuleAdditiveOperator2Context =>
             assert(i.OP_MINUS() != null)
-            AST.Exp.UnaryOp.Minus
-          case i: RuleUnaryOperator3Context =>
-            assert(i.OP_TILDE() != null)
-            AST.Exp.UnaryOp.Complement
-          case i: RuleUnaryOperator4Context =>
-            assert(i.K_NOT() != null)
-            AST.Exp.UnaryOp.Not
+            AST.Exp.BinaryOp.Sub
         }
-
-        val exp = visitExtentExpression(u1.ruleExtentExpression())
-        if (op == AST.Exp.UnaryOp.Minus) {
-          exp match {
-            case f32: AST.Exp.LitF32 => return f32(value = -f32.value)
-            case f64: AST.Exp.LitF64 => return f64(value = -f64.value)
-            case r: AST.Exp.LitR => return r(value = -r.value)
-            case z: AST.Exp.LitZ => return z(value = -z.value)
-            case si@AST.Exp.StringInterpolate(_, ISZ(ls@AST.Exp.LitString(str)), _) =>
-              return (si(lits = ISZ(ls(value = s"-$str"))))
-            case _ =>
-          }
-        }
-
-        return AST.Exp.Unary(op = op, exp = exp, attr = Placeholders.emptyResolvedAttr(toPosOpt(o)), opPosOpt = toPosOpt(o))
-
-      case u2: RuleUnaryExpression2Context =>
-        return visitExtentExpression(u2.ruleExtentExpression())
-    }
-  }
-
-  private def visitExtentExpression(o: RuleExtentExpressionContext): AST.Exp = {
-    o match {
-      case i: RuleExtentExpression1Context =>
-        assert(i.K_ALL() != null)
-        reportError(i, "Extend expressions are not currently handled")
-        return Placeholders.emptyExp
-
-      case i: RuleExtentExpression2Context =>
-        return visitPrimaryExpression(i.rulePrimaryExpression())
-    }
-  }
-
-  // rulePrimaryExpression:
-  //   ruleBaseExpression ( '.' ruleFeatureChainMember )?
-  //   ( ( '#' '(' ruleSequenceExpression ')'
-  //     | '[' ruleSequenceExpression ']'
-  //     | '->' ruleReferenceTyping (ruleBodyExpression | ruleFunctionReferenceExpression | ruleArgumentList)
-  //     | '.' ruleBodyExpression
-  //     | '.?' ruleBodyExpression
-  //     )
-  //     ( '.' ruleFeatureChainMember)?
-  //   )*;
-  private def visitPrimaryExpression(o: RulePrimaryExpressionContext): AST.Exp = {
-    var baseExp = visitBaseExpression(o.ruleBaseExpression())
-
-    var ret = baseExp
-    if (o.children.size() > 1) {
-      var index = 1
-      o.getChild(index) match {
-        case i: TerminalNodeImpl if i.getText == "." && o.getChild(index + 1).isInstanceOf[RuleFeatureChainMemberContext] =>
-          // ( '.' ruleFeatureChainMember )?
-          index = index + 1
-          o.getChild(index) match {
-            case i: RuleFeatureChainMember1Context =>
-              // e.g.  e::x
-              val slangName: AST.Name = visitQualifiedNameAsSlangName(i.ruleQualifiedName())
-              assert(slangName.ids.size == 1)
-
-              baseExp = AST.Exp.Select(
-                receiverOpt = Some(baseExp),
-                id = slangName.ids(0),
-                targs = ISZ(),
-                attr = Placeholders.emptyResolvedAttr(mergePos(baseExp.posOpt, slangName.ids(0).attr.posOpt))
-              )
-            case i: RuleFeatureChainMember2Context =>
-              // e.blah::x.blah2::y.blah3::z
-              // currentTemp.degrees
-              var ids: ISZ[AST.Id] = ISZ()
-              for (f <- listToISZ(i.ruleOwnedFeatureChain().ruleFeatureChain().ruleOwnedFeatureChaining())) {
-                val n = visitQualifiedNameAsSlangName(f.ruleQualifiedName())
-                ids = ids ++ n.ids
-              }
-              baseExp = SlangUtil.toSelect(baseExp, ids)
-          }
-          index = index + 1
-        case _ =>
+        s = s.push((binaryOp, visitMultiplicativeExpression(o.getChild(i + 1).asInstanceOf[RuleMultiplicativeExpressionContext])))
+        i = i + 2
       }
 
-      assert(o.getChildCount == o.children.size())
+      return SlangUtil.collapse2(lhs, s)
+    }
 
-      ret = baseExp
+    // ruleMultiplicativeExpression: ruleExponentiationExpression ( ruleMultiplicativeOperator ruleExponentiationExpression)*;
+    def visitMultiplicativeExpression(o: RuleMultiplicativeExpressionContext): AST.Exp = {
+      val lhs = visitExponentiationExpression(o.ruleExponentiationExpression(0))
 
-      val initIndex = index
-      while (index < o.getChildCount) {
+      var s = Stack.empty[(String, AST.Exp)]
+      var i = 1
+      while (i < o.getChildCount) {
+        val binaryOp: String = o.getChild(i).asInstanceOf[RuleMultiplicativeOperatorContext] match {
+          case i: RuleMultiplicativeOperator1Context =>
+            assert(i.OP_STAR() != null)
+            AST.Exp.BinaryOp.Mul
+          case i: RuleMultiplicativeOperator2Context =>
+            assert(i.OP_SLASH() != null)
+            AST.Exp.BinaryOp.Div
+          case i: RuleMultiplicativeOperator3Context =>
+            assert(i.OP_PERCENT() != null)
+            AST.Exp.BinaryOp.Rem
+        }
+        s = s.push((binaryOp, visitExponentiationExpression(o.getChild(i + 1).asInstanceOf[RuleExponentiationExpressionContext])))
+        i = i + 2
+      }
 
+      return SlangUtil.collapse2(lhs, s)
+    }
+
+    def visitExponentiationExpression(o: RuleExponentiationExpressionContext): AST.Exp = {
+      val lhs = visitUnaryExpression(o.ruleUnaryExpression())
+
+      if (nonEmpty(o.ruleExponentiationOperator())) {
+        // TODO: perhaps uif?
+        reportError(o.ruleExponentiationOperator(), "Exponentiation operations are not currently supported")
+      }
+
+      return lhs
+    }
+
+    def visitUnaryExpression(o: RuleUnaryExpressionContext): AST.Exp = {
+      o match {
+        case u1: RuleUnaryExpression1Context =>
+          val op = u1.ruleUnaryOperator() match {
+            case i: RuleUnaryOperator1Context =>
+              assert(i.OP_PLUS() != null)
+              AST.Exp.UnaryOp.Plus
+            case i: RuleUnaryOperator2Context =>
+              assert(i.OP_MINUS() != null)
+              AST.Exp.UnaryOp.Minus
+            case i: RuleUnaryOperator3Context =>
+              assert(i.OP_TILDE() != null)
+              AST.Exp.UnaryOp.Complement
+            case i: RuleUnaryOperator4Context =>
+              assert(i.K_NOT() != null)
+              AST.Exp.UnaryOp.Not
+          }
+
+          val exp = visitExtentExpression(u1.ruleExtentExpression())
+          if (op == AST.Exp.UnaryOp.Minus) {
+            exp match {
+              case f32: AST.Exp.LitF32 => return f32(value = -f32.value)
+              case f64: AST.Exp.LitF64 => return f64(value = -f64.value)
+              case r: AST.Exp.LitR => return r(value = -r.value)
+              case z: AST.Exp.LitZ => return z(value = -z.value)
+              case si@AST.Exp.StringInterpolate(_, ISZ(ls@AST.Exp.LitString(str)), _) =>
+                return (si(lits = ISZ(ls(value = s"-$str"))))
+              case _ =>
+            }
+          }
+
+          return AST.Exp.Unary(op = op, exp = exp, attr = Placeholders.emptyResolvedAttr(toPosOpt(o)), opPosOpt = toPosOpt(o))
+
+        case u2: RuleUnaryExpression2Context =>
+          return visitExtentExpression(u2.ruleExtentExpression())
+      }
+    }
+
+    def visitExtentExpression(o: RuleExtentExpressionContext): AST.Exp = {
+      o match {
+        case i: RuleExtentExpression1Context =>
+          assert(i.K_ALL() != null)
+          reportError(i, "Extend expressions are not currently handled")
+          return Placeholders.emptyExp
+
+        case i: RuleExtentExpression2Context =>
+          return visitPrimaryExpression(i.rulePrimaryExpression())
+      }
+    }
+
+    // rulePrimaryExpression:
+    //   ruleBaseExpression ( '.' ruleFeatureChainMember )?
+    //   ( ( '#' '(' ruleSequenceExpression ')'
+    //     | '[' ruleSequenceExpression ']'
+    //     | '->' ruleReferenceTyping (ruleBodyExpression | ruleFunctionReferenceExpression | ruleArgumentList)
+    //     | '.' ruleBodyExpression
+    //     | '.?' ruleBodyExpression
+    //     )
+    //     ( '.' ruleFeatureChainMember)?
+    //   )*;
+    def visitPrimaryExpression(o: RulePrimaryExpressionContext): AST.Exp = {
+      var baseExp = visitBaseExpression(o.ruleBaseExpression())
+
+      var ret = baseExp
+      if (o.children.size() > 1) {
+        var index = 1
         o.getChild(index) match {
-          case i: TerminalNodeImpl if i.getText == "#" =>
-            // ( '#' '(' ruleSequenceExpression ')'
-            val se = visitSequenceExpression(o.getChild(index + 2).asInstanceOf[RuleSequenceExpressionContext])
-            index = index + 4
-            reportError(i, s"Need example of primary expression alt 1: $se")
-          case i: TerminalNodeImpl if i.getText == "[" =>
-            //     | '[' ruleSequenceExpression ']'
-            visitSequenceExpression(o.getChild(index + 1).asInstanceOf[RuleSequenceExpressionContext]) match {
-              case i: AST.Exp.Ident if index == initIndex && index + 3 == o.getChildCount =>
+          case i: TerminalNodeImpl if i.getText == "." && o.getChild(index + 1).isInstanceOf[RuleFeatureChainMemberContext] =>
+            // ( '.' ruleFeatureChainMember )?
+            index = index + 1
+            o.getChild(index) match {
+              case i: RuleFeatureChainMember1Context =>
+                // e.g.  e::x
+                val slangName: AST.Name = visitQualifiedNameAsSlangName(i.ruleQualifiedName())
+                assert(slangName.ids.size == 1)
 
-                if (isReservedSequenceName(i.id.value)) {
-                  return handleReservedSequenceName(ret, i, o)
-                } else {
-                  // e.g. 1000 [ms] ~> SysmlUnitExpression(1000, ms)
-                  ret = AST.Exp.Invoke(
-                    receiverOpt = None(),
-                    ident = AST.Exp.Ident(AST.Id(UIF.SysmlUnitExpression, toSlangAttr(o)), toSlangResolvedAttr(o)),
-                    targs = ISZ(),
-                    args = ISZ(baseExp, i),
-                    attr = toSlangResolvedAttr(o))
-                }
-              case x =>
-                // e.g. 1000 [s * m] ~> SysmlUnitExpression(1000, s * m)
-                ret = AST.Exp.Invoke(
-                  receiverOpt = None(),
-                  ident = AST.Exp.Ident(AST.Id(UIF.SysmlUnitExpression, toSlangAttr(o)), toSlangResolvedAttr(o)),
+                baseExp = AST.Exp.Select(
+                  receiverOpt = Some(baseExp),
+                  id = slangName.ids(0),
                   targs = ISZ(),
-                  args = ISZ(baseExp, x),
-                  attr = toSlangResolvedAttr(o))
+                  attr = Placeholders.emptyResolvedAttr(mergePos(baseExp.posOpt, slangName.ids(0).attr.posOpt))
+                )
+              case i: RuleFeatureChainMember2Context =>
+                // e.blah::x.blah2::y.blah3::z
+                // currentTemp.degrees
+                var ids: ISZ[AST.Id] = ISZ()
+                for (f <- listToISZ(i.ruleOwnedFeatureChain().ruleFeatureChain().ruleOwnedFeatureChaining())) {
+                  val n = visitQualifiedNameAsSlangName(f.ruleQualifiedName())
+                  ids = ids ++ n.ids
+                }
+                baseExp = SlangUtil.toSelect(baseExp, ids)
             }
-            index = index + 3
-
-          case i: TerminalNodeImpl if i.getText == "->" =>
-            //     | '->' ruleReferenceTyping (ruleBodyExpression | ruleFunctionReferenceExpression | ruleArgumentList)
-            val rt = visitReferenceTyping(o.getChild(index + 1).asInstanceOf[RuleReferenceTypingContext])
-            val subExp = o.getChild(index + 2) match {
-              case bec: RuleBodyExpressionContext =>
-                visitBodyExpression(bec)
-              case fre: RuleFunctionReferenceExpressionContext =>
-                visitFunctionReferenceExpression(fre)
-              case al: RuleArgumentListContext =>
-                visitArgumentList(al)
-            }
-            index = index + 3
-            reportError(i, s"Need example of primary expression alt 2: $subExp")
-          case i: TerminalNodeImpl if i.getText == "." =>
-            o.getChild(index + 1) match {
-              case i: TerminalNodeImpl =>
-                //     | '.?' ruleBodyExpression
-                assert(i.getText == "?")
-                val be = visitBodyExpression(o.getChild(index + 2).asInstanceOf[RuleBodyExpressionContext])
-                index = index + 3
-                reportError(i, s"Need example of primary expression alt 3: $be")
-              case i =>
-                //     | '.' ruleBodyExpression
-                val be = visitBodyExpression(i.asInstanceOf[RuleBodyExpressionContext])
-                index = index + 2
-                reportError(i, s"Need example of primary expression alt 4: $be")
-            }
-          case x =>
-            halt(s"wasn't expecting ${x}")
+            index = index + 1
+          case _ =>
         }
 
-        if (index < o.getChildCount) {
+        assert(o.getChildCount == o.children.size())
+
+        ret = baseExp
+
+        val initIndex = index
+        while (index < o.getChildCount) {
+
           o.getChild(index) match {
-            case i: TerminalNodeImpl if i.getText == "." && o.getChild(index + 1).isInstanceOf[RuleFeatureChainMemberContext] =>
-              //     ( '.' ruleFeatureChainMember)?
-              index = index + 1
-              // blah
-              index = index + 1
-              reportError(i, "Need example of primary expression alt 5")
+            case i: TerminalNodeImpl if i.getText == "#" =>
+              // ( '#' '(' ruleSequenceExpression ')'
+              val se = visitSequenceExpression(o.getChild(index + 2).asInstanceOf[RuleSequenceExpressionContext])
+              index = index + 4
+              reportError(i, s"Need example of primary expression alt 1: $se")
+            case i: TerminalNodeImpl if i.getText == "[" =>
+              //     | '[' ruleSequenceExpression ']'
+              visitSequenceExpression(o.getChild(index + 1).asInstanceOf[RuleSequenceExpressionContext]) match {
+                case i: AST.Exp.Ident if index == initIndex && index + 3 == o.getChildCount =>
 
-            case _ =>
+                  if (isReservedSequenceName(i.id.value)) {
+                    return handleReservedSequenceName(ret, i, o)
+                  } else {
+                    // e.g. 1000 [ms] ~> SysmlUnitExpression(1000, ms)
+                    ret = AST.Exp.Invoke(
+                      receiverOpt = None(),
+                      ident = AST.Exp.Ident(AST.Id(UIF.SysmlUnitExpression, toSlangAttr(o)), toSlangResolvedAttr(o)),
+                      targs = ISZ(),
+                      args = ISZ(baseExp, i),
+                      attr = toSlangResolvedAttr(o))
+                  }
+                case x =>
+                  if (isGumboExpression) {
+                    val ii = x.asInstanceOf[AST.Exp.LitZ]
+                    //val zz = Z(ii.id.value).get
+                    //val index = AST.Exp.LitZ(zz, toSlangAttr(o))
+                    ret = AST.Exp.Invoke(
+                      receiverOpt = None(),
+                      ident = baseExp.asInstanceOf[AST.Exp.Ident],
+                      targs = ISZ(),
+                      args = ISZ(ii),
+                      attr = toSlangResolvedAttr(o))
+                  } else {
+                    // e.g. 1000 [s * m] ~> SysmlUnitExpression(1000, s * m)
+                    ret = AST.Exp.Invoke(
+                      receiverOpt = None(),
+                      ident = AST.Exp.Ident(AST.Id(UIF.SysmlUnitExpression, toSlangAttr(o)), toSlangResolvedAttr(o)),
+                      targs = ISZ(),
+                      args = ISZ(baseExp, x),
+                      attr = toSlangResolvedAttr(o))
+                  }
+              }
+              index = index + 3
+
+            case i: TerminalNodeImpl if i.getText == "->" =>
+              //     | '->' ruleReferenceTyping (ruleBodyExpression | ruleFunctionReferenceExpression | ruleArgumentList)
+              val rt = visitReferenceTyping(o.getChild(index + 1).asInstanceOf[RuleReferenceTypingContext])
+              val subExp = o.getChild(index + 2) match {
+                case bec: RuleBodyExpressionContext =>
+                  visitBodyExpression(bec)
+                case fre: RuleFunctionReferenceExpressionContext =>
+                  visitFunctionReferenceExpression(fre)
+                case al: RuleArgumentListContext =>
+                  visitArgumentList(al)
+              }
+              index = index + 3
+              reportError(i, s"Need example of primary expression alt 2: $subExp")
+            case i: TerminalNodeImpl if i.getText == "." =>
+              o.getChild(index + 1) match {
+                case i: TerminalNodeImpl =>
+                  //     | '.?' ruleBodyExpression
+                  assert(i.getText == "?")
+                  val be = visitBodyExpression(o.getChild(index + 2).asInstanceOf[RuleBodyExpressionContext])
+                  index = index + 3
+                  reportError(i, s"Need example of primary expression alt 3: $be")
+                case i =>
+                  //     | '.' ruleBodyExpression
+                  val be = visitBodyExpression(i.asInstanceOf[RuleBodyExpressionContext])
+                  index = index + 2
+                  reportError(i, s"Need example of primary expression alt 4: $be")
+              }
+            case x =>
+              halt(s"wasn't expecting ${x}")
           }
-        }
 
+          if (index < o.getChildCount) {
+            o.getChild(index) match {
+              case i: TerminalNodeImpl if i.getText == "." && o.getChild(index + 1).isInstanceOf[RuleFeatureChainMemberContext] =>
+                //     ( '.' ruleFeatureChainMember)?
+                index = index + 1
+                // blah
+                index = index + 1
+                reportError(i, "Need example of primary expression alt 5")
+
+              case _ =>
+            }
+          }
+
+        }
+      }
+
+      return ret
+    }
+
+    def visitArgumentList(al: RuleArgumentListContext): AST.Exp = {
+      reportError(al, "Argument lists are not currently supported")
+      return SlangUtil.Placeholders.emptyExp
+    }
+
+    def visitFunctionReferenceExpression(fre: RuleFunctionReferenceExpressionContext): AST.Exp = {
+      reportError(fre, "Function reference expressions are not currently handled")
+      return SlangUtil.Placeholders.emptyExp
+    }
+
+    def visitReferenceTyping(context: RuleReferenceTypingContext): AST.Exp = {
+      reportError(context, "Reference typing are not currently handled")
+      return SlangUtil.Placeholders.emptyExp
+    }
+
+    def visitBaseExpression(o: RuleBaseExpressionContext): AST.Exp = {
+      o match {
+        case i: RuleBaseExpression1Context =>
+          return visitNullExpression(i.ruleNullExpression())
+
+        case i: RuleBaseExpression2Context =>
+          return visitLiteralExpression(i.ruleLiteralExpression())
+
+        case i: RuleBaseExpression3Context =>
+          val s = scala.collection.mutable.Stack.from[Any](visitQualifiedNameAsSlangName(i.ruleFeatureReferenceExpression().ruleFeatureReferenceMember().ruleQualifiedName()).ids.elements)
+
+          if (s.size > 1) {
+            // convert sysml id stack into a slang select expression
+            while (s.size > 1) {
+              val a = s.pop()
+              val b = s.pop().asInstanceOf[AST.Id]
+
+              a match {
+                case aAsId: AST.Id =>
+                  val posOpt = SlangUtil.mergePos(aAsId.attr.posOpt, b.attr.posOpt)
+                  val ident = AST.Exp.Ident(id = aAsId, attr = Placeholders.emptyResolvedAttr(posOpt))
+                  s.push(AST.Exp.Select(receiverOpt = Some(ident), id = b, targs = ISZ(), attr = Placeholders.emptyResolvedAttr(posOpt)))
+                case aAsSelect: AST.Exp.Select =>
+                  val posOpt = SlangUtil.mergePos(aAsSelect.posOpt, b.attr.posOpt)
+                  s.push(AST.Exp.Select(receiverOpt = Some(aAsSelect), id = b, targs = ISZ(), attr = Placeholders.emptyResolvedAttr(posOpt)))
+              }
+            }
+            return s.pop().asInstanceOf[AST.Exp.Select]
+          } else {
+            val id = s.pop().asInstanceOf[AST.Id]
+            return AST.Exp.Ident(id = id, attr = Placeholders.emptyResolvedAttr(id.attr.posOpt))
+          }
+
+        case i: RuleBaseExpression4Context =>
+          return visitMetadataAccessExpression(i.ruleMetadataAccessExpression())
+
+        case i: RuleBaseExpression5Context =>
+          return visitInvocationExpression(i.ruleInvocationExpression())
+
+        case i: RuleBaseExpression6Context =>
+          return visitConstructorExpression(i.ruleConstructorExpression())
+
+        case i: RuleBaseExpression7Context =>
+          return visitBodyExpression(i.ruleBodyExpression())
+
+        case i: RuleBaseExpression8Context =>
+          return visitSequenceExpression(i.ruleSequenceExpression())
       }
     }
 
-    return ret
-  }
-
-  private def visitArgumentList(al: RuleArgumentListContext): AST.Exp = {
-    reportError(al, "Argument lists are not currently supported")
-    return SlangUtil.Placeholders.emptyExp
-  }
-
-  private def visitFunctionReferenceExpression(fre: RuleFunctionReferenceExpressionContext): AST.Exp = {
-    reportError(fre, "Function reference expressions are not currently handled")
-    return SlangUtil.Placeholders.emptyExp
-  }
-
-  private def visitReferenceTyping(context: RuleReferenceTypingContext): AST.Exp = {
-    reportError(context, "Reference typing are not currently handled")
-    return SlangUtil.Placeholders.emptyExp
-  }
-
-  private def visitBaseExpression(o: RuleBaseExpressionContext): AST.Exp = {
-    o match {
-      case i: RuleBaseExpression1Context =>
-        return visitNullExpression(i.ruleNullExpression())
-
-      case i: RuleBaseExpression2Context =>
-        return visitLiteralExpression(i.ruleLiteralExpression())
-
-      case i: RuleBaseExpression3Context =>
-        val s = scala.collection.mutable.Stack.from[Any](visitQualifiedNameAsSlangName(i.ruleFeatureReferenceExpression().ruleFeatureReferenceMember().ruleQualifiedName()).ids.elements)
-
-        if (s.size > 1) {
-          // convert sysml id stack into a slang select expression
-          while(s.size > 1) {
-            val a = s.pop()
-            val b = s.pop().asInstanceOf[AST.Id]
-
-            a match {
-              case aAsId: AST.Id =>
-                val posOpt = SlangUtil.mergePos(aAsId.attr.posOpt, b.attr.posOpt)
-                val ident = AST.Exp.Ident(id = aAsId, attr = Placeholders.emptyResolvedAttr(posOpt))
-                s.push(AST.Exp.Select(receiverOpt = Some(ident), id = b, targs = ISZ(), attr = Placeholders.emptyResolvedAttr(posOpt)))
-              case aAsSelect: AST.Exp.Select =>
-                val posOpt = SlangUtil.mergePos(aAsSelect.posOpt, b.attr.posOpt)
-                s.push(AST.Exp.Select(receiverOpt = Some(aAsSelect), id = b, targs = ISZ(), attr = Placeholders.emptyResolvedAttr(posOpt)))
-            }
-          }
-          return s.pop().asInstanceOf[AST.Exp.Select]
-        } else {
-          val id = s.pop().asInstanceOf[AST.Id]
-          return AST.Exp.Ident(id = id, attr = Placeholders.emptyResolvedAttr(id.attr.posOpt))
-        }
-
-      case i: RuleBaseExpression4Context =>
-        return visitMetadataAccessExpression(i.ruleMetadataAccessExpression())
-
-      case i: RuleBaseExpression5Context =>
-        return visitInvocationExpression(i.ruleInvocationExpression())
-
-      case i: RuleBaseExpression6Context =>
-        return visitConstructorExpression(i.ruleConstructorExpression())
-
-      case i: RuleBaseExpression7Context =>
-        return visitBodyExpression(i.ruleBodyExpression())
-
-      case i: RuleBaseExpression8Context =>
-        return visitSequenceExpression(i.ruleSequenceExpression())
-    }
-  }
-
-  private def visitConstructorExpression(o: SysMLv2Parser.RuleConstructorExpressionContext): AST.Exp = {
-    reportError(o, "Constructor expressions are not currently supported")
-    return SlangUtil.Placeholders.emptyExp
-  }
-
-  private def visitSequenceExpression(o: RuleSequenceExpressionContext): AST.Exp = {
-    val oe = visitOwnedExpression(o.ruleOwnedExpression())
-
-    if (o.getChildCount > 1) {
-      reportError(o, "comma separated sequencing expressions are not currently supported")
-    }
-
-    return oe
-  }
-
-  private def visitBodyExpression(o: RuleBodyExpressionContext): AST.Exp = {
-    reportError(o, "Body expressions are not currently supported")
-    return SlangUtil.Placeholders.emptyExp
-  }
-
-  private def visitInvocationExpression(o: RuleInvocationExpressionContext): AST.Exp = {
-    if (nonEmpty(o.ruleArgumentList().ruleNamedArgumentList())) {
-      reportError(o, "Named arguments lists are not currently supported")
+    def visitConstructorExpression(o: SysMLv2Parser.RuleConstructorExpressionContext): AST.Exp = {
+      reportError(o, "Constructor expressions are not currently supported")
       return SlangUtil.Placeholders.emptyExp
-      /*
+    }
+
+    def visitSequenceExpression(o: RuleSequenceExpressionContext): AST.Exp = {
+      val oe = visitOwnedExpression(o.ruleOwnedExpression())
+
+      if (o.getChildCount > 1) {
+        reportError(o, "comma separated sequencing expressions are not currently supported")
+      }
+
+      return oe
+    }
+
+    def visitBodyExpression(o: RuleBodyExpressionContext): AST.Exp = {
+      reportError(o, "Body expressions are not currently supported")
+      return SlangUtil.Placeholders.emptyExp
+    }
+
+    def visitInvocationExpression(o: RuleInvocationExpressionContext): AST.Exp = {
+      if (nonEmpty(o.ruleArgumentList().ruleNamedArgumentList())) {
+        reportError(o, "Named arguments lists are not currently supported")
+        return SlangUtil.Placeholders.emptyExp
+        /*
       return AST.Exp.InvokeNamed (
         receiverOpt = ???,
         ident = ???,
@@ -2313,310 +2333,326 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         args = ???,
         attr = toSlangResolvedAttr(o))
        */
-    } else {
-      val (receiverOpt, ident): (Option[Exp], AST.Exp.Ident) = o.ruleInstantiatedTypeMember() match {
-        case i: RuleInstantiatedTypeMember1Context =>
-          val name = visitQualifiedNameAsSlangName(i.ruleQualifiedName())
-          val ids = ops.ISZOps(name.ids)
-
-          val receiver: Option[Exp] = if (ids.s.size > 1) {
-            Some(SlangUtil.toSelectH(ids.dropRight(1)))
-          } else {
-            None()
-          }
-
-          val ident = AST.Exp.Ident(
-            id = ids.last,
-            attr = AST.ResolvedAttr(posOpt = ids.last.attr.posOpt, resOpt = None(), typedOpt = None()))
-          (receiver, ident)
-
-        case i: RuleInstantiatedTypeMember2Context =>
-          reportError(o, "Owned feature chains are are not currently supported for invocation expressions")
-          return SlangUtil.Placeholders.emptyExp
-      }
-      var args: ISZ[Exp] = ISZ()
-      if (nonEmpty(o.ruleArgumentList().rulePositionalArgumentList())) {
-        args = for (e <- listToISZ(o.ruleArgumentList().rulePositionalArgumentList().ruleArgumentMember())) yield
-          visitOwnedExpression(e.ruleArgument().ruleArgumentValue().ruleOwnedExpression())
-      }
-
-      if (SysMLAstBuilder.isReservedUifName(ident.id.value)) {
-        return handleUif(receiverOpt, ident, args, toSlangResolvedAttr(o))
       } else {
-        return AST.Exp.Invoke(
-          receiverOpt = receiverOpt,
-          ident = ident,
-          targs = ISZ(),
-          args = args,
-          attr = toSlangResolvedAttr(o))
+        val (receiverOpt, ident): (Option[Exp], AST.Exp.Ident) = o.ruleInstantiatedTypeMember() match {
+          case i: RuleInstantiatedTypeMember1Context =>
+            val name = visitQualifiedNameAsSlangName(i.ruleQualifiedName())
+            val ids = ops.ISZOps(name.ids)
+
+            val receiver: Option[Exp] = if (ids.s.size > 1) {
+              Some(SlangUtil.toSelectH(ids.dropRight(1)))
+            } else {
+              None()
+            }
+
+            val ident = AST.Exp.Ident(
+              id = ids.last,
+              attr = AST.ResolvedAttr(posOpt = ids.last.attr.posOpt, resOpt = None(), typedOpt = None()))
+            (receiver, ident)
+
+          case i: RuleInstantiatedTypeMember2Context =>
+            reportError(o, "Owned feature chains are are not currently supported for invocation expressions")
+            return SlangUtil.Placeholders.emptyExp
+        }
+        var args: ISZ[Exp] = ISZ()
+        if (nonEmpty(o.ruleArgumentList().rulePositionalArgumentList())) {
+          args = for (e <- listToISZ(o.ruleArgumentList().rulePositionalArgumentList().ruleArgumentMember())) yield
+            visitOwnedExpression(e.ruleArgument().ruleArgumentValue().ruleOwnedExpression())
+        }
+
+        if (SysMLAstBuilder.isReservedUifName(ident.id.value)) {
+          return handleUif(receiverOpt, ident, args, toSlangResolvedAttr(o))
+        } else {
+          return AST.Exp.Invoke(
+            receiverOpt = receiverOpt,
+            ident = ident,
+            targs = ISZ(),
+            args = args,
+            attr = toSlangResolvedAttr(o))
+        }
       }
     }
-  }
 
-  def handleReservedSequenceName(numeric: Exp, ident: Exp.Ident, origin: RulePrimaryExpressionContext): AST.Exp = {
-    val sequenceId = ident.id.value
+    def handleReservedSequenceName(numeric: Exp, ident: Exp.Ident, origin: RulePrimaryExpressionContext): AST.Exp = {
+      val sequenceId = ident.id.value
 
-    def handleNumeric: Option[String] = {
-      numeric match {
-        case u@AST.Exp.Unary(_, l: AST.Exp.LitF64) => return Some(s"${u.opString}${l.value.string}")
-        case u@AST.Exp.Unary(_, l: AST.Exp.LitZ) => return Some(s"${u.opString}${l.value.string}")
-        case l: AST.Exp.LitF64 => return Some(l.value.string)
-        case l: AST.Exp.LitZ => return Some(l.value.string)
-        case x =>
-          reportError(ident.posOpt, s"'${sequenceId} requires a numeric argument")
-          return None()
+      def handleNumeric: Option[String] = {
+        numeric match {
+          case u@AST.Exp.Unary(_, l: AST.Exp.LitF64) => return Some(s"${u.opString}${l.value.string}")
+          case u@AST.Exp.Unary(_, l: AST.Exp.LitZ) => return Some(s"${u.opString}${l.value.string}")
+          case l: AST.Exp.LitF64 => return Some(l.value.string)
+          case l: AST.Exp.LitZ => return Some(l.value.string)
+          case x =>
+            reportError(ident.posOpt, s"'${sequenceId} requires a numeric argument")
+            return None()
+        }
       }
-    }
 
-    val dummy = AST.Exp.LitString(value = "???", attr = toSlangAttr(origin))
+      val dummy = AST.Exp.LitString(value = "???", attr = toSlangAttr(origin))
 
-    if (ops.ISZOps(interpolates).contains(sequenceId)) {
-      sequenceId match {
-        case string"c" =>
-          numeric match {
-            case AST.Exp.LitString(v) =>
-              val vv = conversions.String.toCis(SlangUtil.unquoteString(v))
-              if (vv.size == 1) {
-                return AST.Exp.LitC(vv(0), toSlangAttr(origin))
-              }
-              reportError(numeric.posOpt, "Slang c interpolator can only have a single character")
-            case _ =>
-              reportError(numeric.posOpt, "Was expecting a string literal")
-          }
-          return dummy
-
-        case string"string" =>
-          numeric match {
-            case AST.Exp.LitString(v) =>
-              return AST.Exp.LitString(SlangUtil.unquoteString(v), toSlangAttr(origin))
-            case _ =>
-              reportError(numeric.posOpt, "Was expecting a string literal")
-              return dummy
-          }
-
-        case string"f32" =>
-          handleNumeric match {
-            case Some(str) =>
-              F32(str) match {
-                case Some(f32) => return AST.Exp.LitF32(f32, toSlangAttr(origin))
-                case _ =>
-                  reportError(ident.posOpt, s"'$str' is not a valid F32")
-                  return dummy
-              }
-            case _ => return dummy
-          }
-
-        case string"f64" =>
-          handleNumeric match {
-            case Some(str) =>
-              F64(str) match {
-                case Some(f64) => return AST.Exp.LitF64(f64, toSlangAttr(origin))
-                case _ =>
-                  reportError(ident.posOpt, s"'$str' is not a valid F64")
-                  return dummy
-              }
-            case _ => return dummy
-          }
-
-        case string"r" =>
-          handleNumeric match {
-            case Some(str) =>
-              R(str) match {
-                case Some(r) => return AST.Exp.LitR(r, toSlangAttr(origin))
-                case _ =>
-                  reportError(ident.posOpt, s"'$str' is not a valid R")
-                  return dummy
-              }
-            case _ => return dummy
-          }
-
-        case string"z" =>
-          handleNumeric match {
-            case Some(str) =>
-              Z(str) match {
-                case Some(z) => return AST.Exp.LitZ(z, toSlangAttr(origin))
-                case _ =>
-                  reportError(ident.posOpt, s"'$str' is not a valid Z'")
-                  return dummy
-              }
-            case _ => return dummy
-          }
-
-        case _ =>
-          if (ops.ISZOps(numeric_interpolates).contains(sequenceId)) {
-            handleNumeric match {
-              case Some(str) =>
-                val sub: String = sequenceId match {
-                  case string"i8" => "s8"
-                  case string"i16" => "s16"
-                  case string"i32" => "s32"
-                  case string"i64" => "s64"
-                  case x => x
+      if (ops.ISZOps(interpolates).contains(sequenceId)) {
+        sequenceId match {
+          case string"c" =>
+            numeric match {
+              case AST.Exp.LitString(v) =>
+                val vv = conversions.String.toCis(SlangUtil.unquoteString(v))
+                if (vv.size == 1) {
+                  return AST.Exp.LitC(vv(0), toSlangAttr(origin))
                 }
-                val lit = AST.Exp.LitString(str, AST.Attr(ident.posOpt))
-                return AST.Exp.StringInterpolate(sub, ISZ(lit), ISZ(), toSlangTypedAttr(origin))
+                reportError(numeric.posOpt, "Slang c interpolator can only have a single character")
               case _ =>
-                reportError(numeric.posOpt, "Not a valid numeric")
+                reportError(numeric.posOpt, "Was expecting a string literal")
+            }
+            return dummy
+
+          case string"string" =>
+            numeric match {
+              case AST.Exp.LitString(v) =>
+                return AST.Exp.LitString(SlangUtil.unquoteString(v), toSlangAttr(origin))
+              case _ =>
+                reportError(numeric.posOpt, "Was expecting a string literal")
                 return dummy
             }
-          } else {
-            reportError(ident.posOpt, s"Not currently handling interpolate '$sequenceId'")
-            return dummy
-          }
-      }
-    } else {
-      reportError(ident.posOpt, s"Not currently handling reserved sequence identifier '$sequenceId'")
-      return dummy
-    }
-  }
 
-  def handleUif(receiver: Option[Exp], ident: Exp.Ident, args: ISZ[Exp], attr: AST.ResolvedAttr): AST.Exp = {
+          case string"f32" =>
+            handleNumeric match {
+              case Some(str) =>
+                F32(str) match {
+                  case Some(f32) => return AST.Exp.LitF32(f32, toSlangAttr(origin))
+                  case _ =>
+                    reportError(ident.posOpt, s"'$str' is not a valid F32")
+                    return dummy
+                }
+              case _ => return dummy
+            }
 
-    val dummy = AST.Exp.LitString(value = "???", attr = AST.Attr(ident.posOpt))
+          case string"f64" =>
+            handleNumeric match {
+              case Some(str) =>
+                F64(str) match {
+                  case Some(f64) => return AST.Exp.LitF64(f64, toSlangAttr(origin))
+                  case _ =>
+                    reportError(ident.posOpt, s"'$str' is not a valid F64")
+                    return dummy
+                }
+              case _ => return dummy
+            }
 
-    val uif = ident.id.value
-    if (ops.ISZOps(portUifs).contains(uif)) {
-      def toInvoke(subName: String): AST.Exp.Invoke = {
-        return AST.Exp.Invoke(receiver, ident(id = ident.id(value = subName)), ISZ(), args, attr)
-      }
+          case string"r" =>
+            handleNumeric match {
+              case Some(str) =>
+                R(str) match {
+                  case Some(r) => return AST.Exp.LitR(r, toSlangAttr(origin))
+                  case _ =>
+                    reportError(ident.posOpt, s"'$str' is not a valid R")
+                    return dummy
+                }
+              case _ => return dummy
+            }
 
-      uif match {
-        case string"HasEvent" =>
-          args match {
-            case ISZ(port) => return toInvoke("uif__HasEvent")
-            case _ =>
-              reportError(ident.posOpt, s"$uif only accepts a port name")
+          case string"z" =>
+            handleNumeric match {
+              case Some(str) =>
+                Z(str) match {
+                  case Some(z) => return AST.Exp.LitZ(z, toSlangAttr(origin))
+                  case _ =>
+                    reportError(ident.posOpt, s"'$str' is not a valid Z'")
+                    return dummy
+                }
+              case _ => return dummy
+            }
+
+          case _ =>
+            if (ops.ISZOps(numeric_interpolates).contains(sequenceId)) {
+              handleNumeric match {
+                case Some(str) =>
+                  val sub: String = sequenceId match {
+                    case string"i8" => "s8"
+                    case string"i16" => "s16"
+                    case string"i32" => "s32"
+                    case string"i64" => "s64"
+                    case x => x
+                  }
+                  val lit = AST.Exp.LitString(str, AST.Attr(ident.posOpt))
+                  return AST.Exp.StringInterpolate(sub, ISZ(lit), ISZ(), toSlangTypedAttr(origin))
+                case _ =>
+                  reportError(numeric.posOpt, "Not a valid numeric")
+                  return dummy
+              }
+            } else {
+              reportError(ident.posOpt, s"Not currently handling interpolate '$sequenceId'")
               return dummy
-          }
-        case string"MaySend" =>
-          args match {
-            case ISZ(port) => return toInvoke("uif__MaySend")
-            case _ =>
-              reportError(ident.posOpt, s"$uif only accepts a port name")
-              return dummy
-          }
-        case string"MustSend" =>
-          args match {
-            case ISZ(port) => return toInvoke("uif__MustSend")
-            case ISZ(port, expectedValue) => return toInvoke("uif__MustSendWithExpectedValue")
-            case _ =>
-              reportError(ident.posOpt, s"$uif only accepts a port name and optionally the expected value")
-              return dummy
-          }
-        case string"NoSend" =>
-          args match {
-            case ISZ(port) => return toInvoke("uif__NoSend")
-            case _ =>
-              reportError(ident.posOpt, s"$uif only accepts a port name")
-              return dummy
-          }
-        case _ =>
-          halt("Infeasible")
-      }
-    } else if (ops.ISZOps(binOpsUifs).contains(uif)) {
-      def toBinary(lhs: AST.Exp, binOp: String, rhs: AST.Exp): AST.Exp = {
-        return AST.Exp.Binary(lhs, binOp, rhs, attr, attr.posOpt)
-      }
-
-      val op: String = uif match {
-        case string"'->:'" => "__>:" // AST.Exp.BinaryOp.Imply
-        case string"'__>:'" => "__>:" // AST.Exp.BinaryOp.Imply
-
-        case string"'-->:'" => "___>:" // AST.Exp.BinaryOp.CondImply
-        case string"'___>:'" => "___>:" // AST.Exp.BinaryOp.CondImply
-        case _ =>
-          halt(s"Infeasible binary op uif $uif")
-          "??"
-      }
-      if (args.size == 2) {
-        return toBinary(args(0), op, args(1))
+            }
+        }
       } else {
-        reportError(ident.posOpt, s"Binary op $uif requires two arguments")
-        return dummy
-      }
-    } else if (ops.ISZOps(logikaUifs).contains(uif)) {
-      if (args.size == 1) {
-        return AST.Exp.Input(exp = args(0), attr = AST.Attr(attr.posOpt))
-      } else {
-        reportError(ident.posOpt, s"In accepts exactly one argument")
+        reportError(ident.posOpt, s"Not currently handling reserved sequence identifier '$sequenceId'")
         return dummy
       }
     }
-    else {
-      reportError(ident.posOpt, s"Unexpected UIF '${uif}'")
-      return dummy
+
+    def handleUif(receiver: Option[Exp], ident: Exp.Ident, args: ISZ[Exp], attr: AST.ResolvedAttr): AST.Exp = {
+
+      val dummy = AST.Exp.LitString(value = "???", attr = AST.Attr(ident.posOpt))
+
+      val uif = ident.id.value
+      if (ops.ISZOps(portUifs).contains(uif)) {
+        def toInvoke(subName: String): AST.Exp.Invoke = {
+          return AST.Exp.Invoke(receiver, ident(id = ident.id(value = subName)), ISZ(), args, attr)
+        }
+
+        uif match {
+          case string"HasEvent" =>
+            args match {
+              case ISZ(port) => return toInvoke("uif__HasEvent")
+              case _ =>
+                reportError(ident.posOpt, s"$uif only accepts a port name")
+                return dummy
+            }
+          case string"MaySend" =>
+            args match {
+              case ISZ(port) => return toInvoke("uif__MaySend")
+              case _ =>
+                reportError(ident.posOpt, s"$uif only accepts a port name")
+                return dummy
+            }
+          case string"MustSend" =>
+            args match {
+              case ISZ(port) => return toInvoke("uif__MustSend")
+              case ISZ(port, expectedValue) => return toInvoke("uif__MustSendWithExpectedValue")
+              case _ =>
+                reportError(ident.posOpt, s"$uif only accepts a port name and optionally the expected value")
+                return dummy
+            }
+          case string"NoSend" =>
+            args match {
+              case ISZ(port) => return toInvoke("uif__NoSend")
+              case _ =>
+                reportError(ident.posOpt, s"$uif only accepts a port name")
+                return dummy
+            }
+          case _ =>
+            halt("Infeasible")
+        }
+      } else if (ops.ISZOps(binOpsUifs).contains(uif)) {
+        def toBinary(lhs: AST.Exp, binOp: String, rhs: AST.Exp): AST.Exp = {
+          return AST.Exp.Binary(lhs, binOp, rhs, attr, attr.posOpt)
+        }
+
+        val op: String = uif match {
+          case string"'->:'" => "__>:" // AST.Exp.BinaryOp.Imply
+          case string"'__>:'" => "__>:" // AST.Exp.BinaryOp.Imply
+
+          case string"'-->:'" => "___>:" // AST.Exp.BinaryOp.CondImply
+          case string"'___>:'" => "___>:" // AST.Exp.BinaryOp.CondImply
+          case _ =>
+            halt(s"Infeasible binary op uif $uif")
+            "??"
+        }
+        if (args.size == 2) {
+          return toBinary(args(0), op, args(1))
+        } else {
+          reportError(ident.posOpt, s"Binary op $uif requires two arguments")
+          return dummy
+        }
+      } else if (ops.ISZOps(logikaUifs).contains(uif)) {
+        if (args.size == 1) {
+          return AST.Exp.Input(exp = args(0), attr = AST.Attr(attr.posOpt))
+        } else {
+          reportError(ident.posOpt, s"In accepts exactly one argument")
+          return dummy
+        }
+      }
+      else {
+        reportError(ident.posOpt, s"Unexpected UIF '${uif}'")
+        return dummy
+      }
     }
-  }
 
-  def visitMetadataAccessExpression(o: RuleMetadataAccessExpressionContext): AST.Exp = {
-    reportError(o, "Metadata access expressions are not currently supported")
-    return SlangUtil.Placeholders.emptyExp
-  }
+    def visitMetadataAccessExpression(o: RuleMetadataAccessExpressionContext): AST.Exp = {
+      reportError(o, "Metadata access expressions are not currently supported")
+      return SlangUtil.Placeholders.emptyExp
+    }
 
-  /** ruleLiteralExpression:
+    /** ruleLiteralExpression:
     * ruleLiteralBoolean #ruleLiteralExpression1
     * | ruleLiteralString #ruleLiteralExpression2
     * | ruleLiteralInteger #ruleLiteralExpression3
     * | ruleLiteralReal #ruleLiteralExpression4
     * | ruleLiteralInfinity #ruleLiteralExpression5;
     */
-  def visitLiteralExpression(o: RuleLiteralExpressionContext): AST.Exp = {
-    o match {
-      case i: RuleLiteralExpression1Context =>
-        i.ruleLiteralBoolean().ruleBooleanValue() match {
-          case i: RuleBooleanValue1Context =>
-            assert(i.K_TRUE() != null)
-            return AST.Exp.LitB(value = T, attr = toSlangAttr(o))
-          case i: RuleBooleanValue2Context =>
-            assert(i.K_FALSE() != null)
-            return AST.Exp.LitB(value = F, attr = toSlangAttr(o))
-        }
+    def visitLiteralExpression(o: RuleLiteralExpressionContext): AST.Exp = {
+      o match {
+        case i: RuleLiteralExpression1Context =>
+          i.ruleLiteralBoolean().ruleBooleanValue() match {
+            case i: RuleBooleanValue1Context =>
+              assert(i.K_TRUE() != null)
+              return AST.Exp.LitB(value = T, attr = toSlangAttr(o))
+            case i: RuleBooleanValue2Context =>
+              assert(i.K_FALSE() != null)
+              return AST.Exp.LitB(value = F, attr = toSlangAttr(o))
+          }
 
-      case i: RuleLiteralExpression2Context =>
-        return AST.Exp.LitString(value = SlangUtil.unquoteString(i.ruleLiteralString().RULE_STRING_VALUE().string), attr = toSlangAttr(o))
+        case i: RuleLiteralExpression2Context =>
+          return AST.Exp.LitString(value = SlangUtil.unquoteString(i.ruleLiteralString().RULE_STRING_VALUE().string), attr = toSlangAttr(o))
 
-      case i: RuleLiteralExpression3Context =>
-        return AST.Exp.LitZ(value = Z(i.ruleLiteralInteger().RULE_DECIMAL_VALUE().string).get, attr = toSlangAttr(o))
+        case i: RuleLiteralExpression3Context =>
+          return AST.Exp.LitZ(value = Z(i.ruleLiteralInteger().RULE_DECIMAL_VALUE().string).get, attr = toSlangAttr(o))
 
-      case i: RuleLiteralExpression4Context =>
-        /* ruleRealValue:
+        case i: RuleLiteralExpression4Context =>
+          /* ruleRealValue:
          *   RULE_DECIMAL_VALUE? '.' (RULE_DECIMAL_VALUE | RULE_EXP_VALUE) #ruleRealValue1
          *   | RULE_EXP_VALUE #ruleRealValue2;
          */
-        i.ruleLiteralReal().ruleRealValue() match {
-          case i: RuleRealValue1Context =>
-            val num: String = if (i.RULE_DECIMAL_VALUE().size() > 1) {
-              i.RULE_DECIMAL_VALUE(0).string
-            } else {
-              "0"
-            }
-            val decimal = if (i.RULE_EXP_VALUE() != null) {
-              reportError(i, "Exponents are not currently supported")
-              "0"
-            } else {
-              if (i.RULE_DECIMAL_VALUE().size() == 1) {
+          i.ruleLiteralReal().ruleRealValue() match {
+            case i: RuleRealValue1Context =>
+              val num: String = if (i.RULE_DECIMAL_VALUE().size() > 1) {
                 i.RULE_DECIMAL_VALUE(0).string
               } else {
-                i.RULE_DECIMAL_VALUE(1).string
+                "0"
               }
-            }
-            return AST.Exp.LitF64(value = F64(s"$num.$decimal").get, attr = toSlangAttr(i))
-          case i: RuleRealValue2Context =>
-            reportError(o, "Exponents are not currently supported")
-            return SlangUtil.Placeholders.emptyExp
-        }
+              val decimal = if (i.RULE_EXP_VALUE() != null) {
+                reportError(i, "Exponents are not currently supported")
+                "0"
+              } else {
+                if (i.RULE_DECIMAL_VALUE().size() == 1) {
+                  i.RULE_DECIMAL_VALUE(0).string
+                } else {
+                  i.RULE_DECIMAL_VALUE(1).string
+                }
+              }
+              return AST.Exp.LitF64(value = F64(s"$num.$decimal").get, attr = toSlangAttr(i))
+            case i: RuleRealValue2Context =>
+              reportError(o, "Exponents are not currently supported")
+              return SlangUtil.Placeholders.emptyExp
+          }
 
-      case i: RuleLiteralExpression5Context =>
-        // TODO perhaps uif
-        reportError(i, "Infinity is not currently supported")
-        return Placeholders.emptyExp
+        case i: RuleLiteralExpression5Context =>
+          // TODO perhaps uif
+          reportError(i, "Infinity is not currently supported")
+          return Placeholders.emptyExp
+      }
+    }
+
+    def visitNullExpression(o: RuleNullExpressionContext): AST.Exp = {
+      reportError(o, "Null expressions are not currently supported")
+      return SlangUtil.Placeholders.emptyExp
+    }
+
+
+    o match {
+      case e: RuleOwnedExpressionContext =>
+        return visitOwnedExpression(e)
+      case e: RuleLiteralExpressionContext =>
+        return visitLiteralExpression(e)
+      case _ =>
+        halt("")
     }
   }
 
-  private def visitNullExpression(o: RuleNullExpressionContext): AST.Exp = {
-    reportError(o, "Null expressions are not currently supported")
-    return SlangUtil.Placeholders.emptyExp
-  }
+
+
+
+
 
   def visitGumboLibrary(o: SysMLv2Parser.RuleGumboLibraryContext): GclLib = {
     val methods = for (m <- listToISZ(o.ruleFunctions().ruleFuncSpec())) yield visitGumboSlangDefDef(m.ruleSlangDefDef())
@@ -2645,7 +2681,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         invariants = invariants :+ GclInvariant(
           id = i.RULE_ID().string,
           descriptor = if (i.RULE_STRING_VALUE() != null) Some(SlangUtil.unquoteString(i.RULE_STRING_VALUE().string)) else None(),
-          exp = visitOwnedExpression(i.ruleOwnedExpression()),
+          exp = visitExpression(i.ruleOwnedExpression()),
           attr = toAttr(i))
       }
     }
@@ -2672,7 +2708,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   def visitCompute(o: RuleComputeContext): GclCompute = {
     var modifies: ISZ[AST.Exp] = ISZ()
     if (nonEmpty(o.ruleSlangModifies())) {
-      modifies = for (m <- listToISZ(o.ruleSlangModifies().ruleOwnedExpression())) yield visitOwnedExpression(m)
+      modifies = for (m <- listToISZ(o.ruleSlangModifies().ruleOwnedExpression())) yield visitExpression(m)
     }
 
     val assumes = for (a <- listToISZ(o.ruleAssumeStatement())) yield visitAssumeStatement(a)
@@ -2700,7 +2736,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
     var modifies: ISZ[AST.Exp] = ISZ()
     if (nonEmpty(o.ruleSlangModifies())) {
-      modifies = for (m <- listToISZ(o.ruleSlangModifies().ruleOwnedExpression())) yield visitOwnedExpression(m)
+      modifies = for (m <- listToISZ(o.ruleSlangModifies().ruleOwnedExpression())) yield visitExpression(m)
     }
 
     val assumes = for(a <- listToISZ(o.ruleAssumeStatement())) yield visitAssumeStatement(a)
@@ -2721,20 +2757,20 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   def visitCaseStatementClause(o: RuleCaseStatementClauseContext): GclCaseStatement = {
     val assumes: Option[Exp] =
       if (nonEmpty(o.ruleAnonAssumeStatement().ruleOwnedExpression()))
-        Some(visitOwnedExpression(o.ruleAnonAssumeStatement().ruleOwnedExpression()))
+        Some(visitExpression(o.ruleAnonAssumeStatement().ruleOwnedExpression()))
       else None()
     return GclCaseStatement(
       id = o.RULE_ID().string,
       descriptor = if (o.RULE_STRING_VALUE() != null) Some(SlangUtil.unquoteString(o.RULE_STRING_VALUE().string)) else None(),
       assumes = assumes,
-      guarantees = visitOwnedExpression(o.ruleAnonGuaranteeStatement().ruleOwnedExpression()),
+      guarantees = visitExpression(o.ruleAnonGuaranteeStatement().ruleOwnedExpression()),
       attr = toAttr(o))
   }
 
   def visitInitialize(o: RuleInitializeContext): GclInitialize = {
     var modifies: ISZ[AST.Exp] = ISZ()
     if (nonEmpty(o.ruleSlangModifies())) {
-      modifies = for (m <- listToISZ(o.ruleSlangModifies().ruleOwnedExpression())) yield visitOwnedExpression(m)
+      modifies = for (m <- listToISZ(o.ruleSlangModifies().ruleOwnedExpression())) yield visitExpression(m)
     }
     val guarantees = for (g <- listToISZ(o.ruleInitializeSpecStatement())) yield visitGuaranteeStatement(g.ruleGuaranteeStatement())
 
@@ -2787,7 +2823,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     return GclGuarantee(
       id = i.RULE_ID().string,
       descriptor = if (i.RULE_STRING_VALUE() != null) Some(SlangUtil.unquoteString(i.RULE_STRING_VALUE().string)) else None(),
-      exp = visitOwnedExpression(i.ruleOwnedExpression()),
+      exp = visitExpression(i.ruleOwnedExpression()),
       attr = toAttr(i))
   }
 
@@ -2795,7 +2831,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     return GclAssume(
       id = i.RULE_ID().string,
       descriptor = if (i.RULE_STRING_VALUE() != null) Some(SlangUtil.unquoteString(i.RULE_STRING_VALUE().string)) else None(),
-      exp = visitOwnedExpression(i.ruleOwnedExpression()),
+      exp = visitExpressionH(i.ruleOwnedExpression(), T),
       attr = toAttr(i))
   }
 
@@ -2830,7 +2866,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
     val retType = SlangUtil.buildSlangTypedNamed(visitQualifiedNameAsSlangName(o.ruleSlangType().ruleSlangBaseType().ruleQualifiedName()))
 
-    val ret = AST.Stmt.Return(expOpt = Some(visitOwnedExpression(o.ruleOwnedExpression())), attr = retType.attr)
+    val ret = AST.Stmt.Return(expOpt = Some(visitExpression(o.ruleOwnedExpression())), attr = retType.attr)
     val body = AST.Body(stmts = ISZ(ret), undecls = ISZ())
 
     var hasContract: B = F
@@ -2840,7 +2876,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       hasContract = T
       var refs: ISZ[AST.Exp.Ref] = ISZ()
       for (read <- o.ruleSlangDefContract().ruleSlangReads().ruleOwnedExpression().asScala) {
-        visitOwnedExpression(read) match {
+        visitExpression(read) match {
           case i: AST.Exp.Ref => refs = refs :+ i
           case _ => reportError(read, "Only select expressions or simple names are allowed for read clauses")
         }
@@ -2853,7 +2889,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       hasContract = T
       val exps: ISZ[AST.Exp] =
         for (e <- listToISZ(o.ruleSlangDefContract().ruleSlangRequires().ruleOwnedExpression())) yield
-          visitOwnedExpression(e)
+          visitExpression(e)
       requiresClause = AST.MethodContract.Claims(claims = exps, attr = toSlangAttr(o.ruleSlangDefContract().ruleSlangRequires()))
     }
 
@@ -2863,7 +2899,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       hasContract = T
       var refs: ISZ[AST.Exp.Ref] = ISZ()
       for (mod <- o.ruleSlangDefContract().ruleSlangModifies().ruleOwnedExpression().asScala) {
-        visitOwnedExpression(mod) match {
+        visitExpression(mod) match {
           case i: AST.Exp.Ref => refs = refs :+ i
           case _ => reportError(mod, "Only select expressions or simple names are allowed for modifies clauses")
         }
@@ -2876,7 +2912,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       hasContract = T
       val exps: ISZ[AST.Exp] =
         for (e <- listToISZ(o.ruleSlangDefContract().ruleSlangEnsures().ruleOwnedExpression())) yield
-          visitOwnedExpression(e)
+          visitExpression(e)
       ensuresClause = AST.MethodContract.Claims(claims = exps, attr = toSlangAttr(o.ruleSlangDefContract().ruleSlangEnsures()))
     }
 
