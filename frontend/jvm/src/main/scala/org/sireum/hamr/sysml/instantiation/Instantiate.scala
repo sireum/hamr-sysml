@@ -41,7 +41,7 @@ object Instantiate {
       val systemRoots: ISZ[TypeInfo.PartDefinition] = InstantiateUtil.getSystemRoots(typeHierarchy)
 
       if (systemRoots.isEmpty) {
-        reporter.warn(None(), instantiatorKey, "Could not find any system roots to instantiate")
+        reportWarn(None(), "Could not find any system roots to instantiate", reporter)
         return (None())
       }
 
@@ -98,8 +98,7 @@ object Instantiate {
                             processDatatype(t1, ISZ()) match {
                               case Some(x) =>
                               case _ =>
-                                reporter.error(p.id.attr.posOpt, Instantiate.instantiatorKey,
-                                  s"Unable to resolve parameter's type: ${p.id.value}")
+                                reportError(p.id.attr.posOpt, s"Unable to resolve parameter's type: ${p.id.value}", reporter)
                             }
                           }
 
@@ -107,8 +106,7 @@ object Instantiate {
                           processDatatype(t2, ISZ()) match {
                             case Some(x) =>
                             case _ =>
-                              reporter.error(m.posOpt, Instantiate.instantiatorKey,
-                                s"Unable to resolve method's return type")
+                              reportError(m.posOpt, s"Unable to resolve method's return type", reporter)
                           }
                         }
 
@@ -116,7 +114,7 @@ object Instantiate {
                           containingPackage = ir.Name(ISZ(id), posOpt),
                           methods = methods)
                       case _ =>
-                        reporter.error(p.posOpt, Instantiate.instantiatorKey, "Could not resolve package name")
+                        reportError(p.posOpt, "Could not resolve package name", reporter)
                     }
                   case _ =>
                 }
@@ -157,33 +155,54 @@ object Instantiate {
         else ir.ComponentCategory.Subprogram
       }
       if (category == ir.ComponentCategory.Subprogram) {
-        reporter.error(p.posOpt, Instantiate.instantiatorKey,
-          s"Only expecting system, processor, process, thread, data or abstract components: ${p}")
+        reportError(p.posOpt, s"Only expecting system, processor, process, thread, data or abstract components: ${p}", reporter)
       }
       if (p.members.itemUsages.nonEmpty) {
-        reporter.error(p.posOpt, Instantiate.instantiatorKey, s"Currently not expecting item usages at the AADL process level")
+        reportError(p.posOpt, s"Currently not expecting item usages at the AADL process level", reporter)
       }
       for (m <- p.members.referenceUsages.values) {
-        reporter.error(m.posOpt, Instantiate.instantiatorKey, s"Currently not expecting reference usages at the AADL process level")
+        reportError(m.posOpt, s"Currently not expecting reference usages at the AADL process level", reporter)
       }
 
       val componentName = st"${(p.name, "::")}".render
 
+      val isArray = InstantiateUtil.isAadlArray(p, typeHierarchy)
+
       val members: ISZ[Info.UsageInfo] = {
         var ret: ISZ[Info.UsageInfo] = ISZ()
         if (processingDatatype) {
-          for (p <- p.members.partUsages.values ) {
-            if (isDatatype(p.typedOpt.get)) {
-              ret = ret :+ p
-            } else if (!allowedDataComponentMembers(p)) {
-              reporter.error(p.posOpt, Instantiate.instantiatorKey, s"Unexpected part usage for an AADL Data Component")
+          for (pmember <- p.members.partUsages.values ) {
+            if (isArray){
+              pmember.id match {
+                case "Base_Type" =>
+                  ret = ret :+ pmember
+                case x =>
+                  reportError(pmember.posOpt, s"Unexpected part usage for an AADL array", reporter)
+              }
+            }
+            else if (isDatatype(pmember.typedOpt.get)) {
+              ret = ret :+ pmember
+            } else if (!allowedDataComponentMembers(p, pmember)) {
+              reportError(pmember.posOpt, s"Unexpected part usage for an AADL Data Component", reporter)
             }
           }
-          for (p <- p.members.attributeUsages.values) {
-            if (isDatatype(p.typedOpt.get)) {
-              ret = ret :+ p
-            } else if (!allowedDataComponentMembers(p)) {
-              reporter.error(p.posOpt, Instantiate.instantiatorKey, s"Unexpected attribute usage for an AADL Data Component")
+
+          for (pmember <- p.members.attributeUsages.values) {
+            if (isArray) {
+              pmember.id match {
+                case "Data_Size" => ret = ret :+ pmember
+                case "Dimensions" => ret = ret :+ pmember
+                case "Array_Size_Kind" =>  ret = ret :+ pmember
+                case x =>
+                  if (!allowedDataComponentMembers(p, pmember)) {
+                    reportError(p.posOpt, s"Unexpected attribute usage for an AADL array", reporter)
+                  }
+              }
+            }
+            else if (isDatatype(pmember.typedOpt.get)) {
+              ret = ret :+ pmember
+            } else if (!allowedDataComponentMembers(p, pmember)) {
+              reportError(p.posOpt, s"Unexpected attribute usage for an AADL Data Component", reporter)
             }
           }
         } else {
@@ -192,38 +211,41 @@ object Instantiate {
         ret
       }
 
+      assert (isArray -->: (members.size <= 4), members.size)
       processActualProcessorBindings(idPath, p.members.allocationUsages)
 
       var subcomponents: ISZ[ir.Component] = ISZ()
-      for (member <- members) {
-        if (InstantiateUtil.isAadlComponentOpt(member.typedOpt, typeHierarchy)) {
-          getDefinition(member.typedOpt.get) match {
-            case Some(x) =>
-              if (!processingDatatype || isDatatype(member.typedOpt.get)) {
-                subcomponents = subcomponents :+ instantiateComponent(
-                  x, processingDatatype, idPath :+ member.id, member.posOpt)
-              }
+      if (!isArray) {
+        for (member <- members) {
+          if (InstantiateUtil.isAadlComponentOpt(member.typedOpt, typeHierarchy)) {
+            getDefinition(member.typedOpt.get) match {
+              case Some(x) =>
+                if (!processingDatatype || isDatatype(member.typedOpt.get)) {
+                  subcomponents = subcomponents :+ instantiateComponent(
+                    x, processingDatatype, idPath :+ member.id, member.posOpt)
+                }
 
-              if (processingDatatype) {
-                processDatatype(getDefinition(member.typedOpt.get).get.name, idPath :+ member.id)
-              }
-            case _ =>
-              getEnumerationDefinition(member.typedOpt.get) match {
-                case Some(e) =>
-                  subcomponents = subcomponents :+ processEnum(e, idPath :+ member.id)
-                case _ =>
-              }
+                if (processingDatatype) {
+                  processDatatype(getDefinition(member.typedOpt.get).get.name, idPath :+ member.id)
+                }
+              case _ =>
+                getEnumerationDefinition(member.typedOpt.get) match {
+                  case Some(e) =>
+                    subcomponents = subcomponents :+ processEnum(e, idPath :+ member.id)
+                  case _ =>
+                }
+            }
+
+          } else {
+            reportError(member.posOpt,
+              st"Part usages of $category must be a descendant of one of the following: ${(AadlUtil.validSubcomponents.get(category).get, ", ")}".render, reporter)
           }
-
-        } else {
-          reporter.error(member.posOpt, Instantiate.instantiatorKey,
-            st"Part usages of $category must be a descendant of one of the following: ${(AadlUtil.validSubcomponents.get(category).get, ", ")}".render)
         }
       }
 
       def getPayloadType(portName: String, optPosOpt: Option[Position], definitionBodyItems: ISZ[SysmlAst.DefinitionBodyItem]): (Option[ir.Classifier], Option[SysmlAst.FeatureDirection.Type]) = {
         if (definitionBodyItems.size != 1) {
-          reporter.error(optPosOpt, Instantiate.instantiatorKey, "Currently expecting a single body item for data ports that refines 'type'")
+          reportError(optPosOpt, "Currently expecting a single body item for data ports that refines 'type'", reporter)
           return (None(), None())
         }
 
@@ -237,20 +259,21 @@ object Instantiate {
                     processDatatype(n.ids, ISZ(portName))
                     return (Some(ir.Classifier(st"${(n.ids, "::")}".render)), r.prefix.direction)
                   } else {
-                    reporter.error(posOpt = optPosOpt, kind = Instantiate.instantiatorKey, message =
-                      st"Data port type must be an enum or a descendant of ${(InstantiateUtil.AadlDataName, "::")}".render)
+                    reportError(optPosOpt,
+                      st"Data port type must be an enum or a descendant of ${(InstantiateUtil.AadlDataName, "::")}".render, reporter)
                   }
                 case _ =>
-                  reporter.warn(r.posOpt, Instantiate.instantiatorKey,
-                    s"The payload type for ${componentName}'s $portName data port was not resolved")
+                  reportWarn(r.posOpt, s"The payload type for ${componentName}'s $portName data port was not resolved", reporter)
                   return (None(), None())
               }
             case x =>
-              reporter.error(optPosOpt, Instantiate.instantiatorKey, s"Currently only expecting reference usages in port bodies")
+              reportError(optPosOpt, s"Currently only expecting reference usages in port bodies", reporter)
           }
         }
         return (None(), None())
       }
+
+      assert(isArray -->: p.members.portUsages.isEmpty)
 
       var features: HashSMap[ISZ[String], ir.FeatureEnd] = HashSMap.empty
       for (portUsage <- p.members.portUsages.entries) {
@@ -262,7 +285,7 @@ object Instantiate {
                 val usageDir = getDirectionFromUsage(portUsage._2.ast.occurrenceUsagePrefix)
                 val (pType, refDir) = getPayloadType(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
                 if (refDir.nonEmpty && usageDir != getDirection(refDir)) {
-                  reporter.error(portUsage._2.posOpt, Instantiate.instantiatorKey, "Port usage direction and the direction of the body reference usage must be the same")
+                  reportError(portUsage._2.posOpt, "Port usage direction and the direction of the body reference usage must be the same", reporter)
                 }
                 features = features + portName ~> ir.FeatureEnd(
                   identifier = ir.Name(portName, portUsage._2.posOpt),
@@ -275,7 +298,7 @@ object Instantiate {
                 val usageDir = getDirectionFromUsage(portUsage._2.ast.occurrenceUsagePrefix)
                 val (pType, refDir) = getPayloadType(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
                 if (refDir.nonEmpty && usageDir != getDirection(refDir)) {
-                  reporter.error(portUsage._2.posOpt, Instantiate.instantiatorKey, "Port usage direction and the direction of the body reference usage must be the same")
+                  reportError(portUsage._2.posOpt, "Port usage direction and the direction of the body reference usage must be the same", reporter)
                 }
                 features = features + portName ~> ir.FeatureEnd(
                   identifier = ir.Name(portName, portUsage._2.posOpt),
@@ -293,13 +316,14 @@ object Instantiate {
                   properties = ISZ(),
                   uriFrag = "")
               case x =>
-                reporter.error(portUsage._2.posOpt, Instantiate.instantiatorKey, s"Unexpected port type $x p")
+                reportError(portUsage._2.posOpt, s"Unexpected port type $x p", reporter)
             }
           case x =>
-            reporter.error(portUsage._2.posOpt, Instantiate.instantiatorKey, s"Port usages should have been resolved to Typed.Name but found $x")
+            reportError(portUsage._2.posOpt, s"Port usages should have been resolved to Typed.Name but found $x", reporter)
         }
       }
 
+      assert (isArray -->: p.members.connectionUsages.isEmpty)
       var connections: ISZ[ir.Connection] = ISZ()
       for (f <- p.members.connectionUsages.entries) {
         connections = connections :+
@@ -313,54 +337,129 @@ object Instantiate {
 
       val classifier: Option[ir.Classifier] = Some(ir.Classifier(st"${(p.name, "::")}".render))
 
-      val (properties, annexes): (ISZ[ir.Property], ISZ[ir.Annex]) = p match {
-        case t: TypeInfo.PartDefinition =>
-
-          val properties_ : ISZ[ir.Property] = processProperties(t) ++ getActualProcessorBindings(idPath)
-
-          var bodyItems: ISZ[SysmlAst.DefinitionBodyItem] = t.ast.bodyItems
-          for(ancestor <- t.ancestors) {
-            typeHierarchy.typeMap.get(ancestor.ids) match {
-              case Some(parent: TypeInfo.PartDefinition) =>
-                bodyItems = bodyItems ++ parent.ast.bodyItems
+      val (properties, annexes): (ISZ[ir.Property], ISZ[ir.Annex]) = {
+        if (isArray) {
+          def getUsage(id: String): Option[Info.UsageInfo] = {
+            for (m <- members if m.id == id) {
+              return Some(m)
+            }
+            return None()
+          }
+          def getFeatureValue(id: String): Option[SysmlAst.FeatureValue]= {
+            getUsage(id) match {
+              case Some(u) => return u.ast.commonUsageElements.featureValue
               case _ =>
             }
+            return None()
           }
 
-          val annexes_ : ISZ[ir.Annex] = {
-            var as: ISZ[ir.Annex] = ISZ()
-            for (b <- bodyItems) {
-              b match {
-                case SysmlAst.GumboAnnotation(gumbo: ir.GclSubclause) =>
-                  hasGumbo = T
+          var arrayProperties = ISZ[ir.Property](
+            ir.Property(
+              name = ir.Name(ISZ("Data_Model::Data_Representation"), None()),
+              propertyValues = ISZ(ir.ValueProp("Array")),
+              appliesTo = ISZ())
+          )
 
-                  for (m <- gumbo.methods) {
-                    for (p <- m.method.sig.params) {
-                      val t1 = p.tipe.typedOpt.get.asInstanceOf[AST.Typed.Name].ids
-                      val d1 = processDatatype(t1, ISZ())
-                      assert(d1.nonEmpty, s"Type $t1 not resolved for subclause method ${m.method.sig.id.value}'s ${p.id.value} param")
-                    }
-
-                    val t2 = m.method.sig.returnType.typedOpt.get.asInstanceOf[AST.Typed.Name].ids
-                    val d2 = processDatatype(t2, ISZ())
-                    assert(d2.nonEmpty, s"Return type $t2 not resolved for subclause method ${m.method.sig.id.value}")
-                  }
-
-                  for (s <- gumbo.state) {
-                    val t3 = ops.StringOps(ops.StringOps(s.classifier).replaceAllLiterally("::", "!")).split(c => c == '!')
-                    val d3 = processDatatype(t3, ISZ())
-                    assert(d3.nonEmpty, s"Type ${t3} not resolved for state var ${s.name}")
-                  }
-
-                  as = as :+ ir.Annex("GUMBO", gumbo)
+          getUsage("Base_Type") match {
+            case Some(n) =>
+              // TODO: check if base type extends data
+              n.typedOpt match {
+                case Some(t: Typed.Name)=>
+                  val baseTypeClassifier = st"${(t.ids, "::")}".render
+                  arrayProperties = arrayProperties :+ ir.Property(
+                    name = ir.Name(ISZ("Data_Model::Base_Type"), None()),
+                    propertyValues = ISZ(ir.ClassifierProp(baseTypeClassifier)),
+                    appliesTo = ISZ())
                 case _ =>
+                  halt("")
               }
-            }
-            as
+            case _ =>
           }
-          (properties_, annexes_)
-        case _ => (ISZ(), ISZ())
+
+          getFeatureValue("Dimensions") match {
+            case Some(fv) =>
+              val x = processValue(fv.exp)
+              arrayProperties = arrayProperties :+ ir.Property(
+                name = ir.Name(ISZ("Data_Model::Dimension"), None()),
+                propertyValues = x,
+                appliesTo = ISZ())
+            case _ =>
+          }
+          getFeatureValue("Data_Size") match {
+            case Some(fv) =>
+              val x = processValue(fv.exp)
+              arrayProperties = arrayProperties :+ ir.Property(
+                name = ir.Name(ISZ("Memory_Properties::Data_Size"), None()),
+                propertyValues = x,
+                appliesTo = ISZ())
+            case _ =>
+          }
+          getFeatureValue("Array_Size_Kind") match {
+            case Some(fv) =>
+              fv.exp match {
+                case r: AST.Exp.Ref =>
+                  arrayProperties = arrayProperties :+ ir.Property(
+                    name = ir.Name(ISZ("HAMR::Array_Size_Kind"), None()),
+                    propertyValues = ISZ(ir.ValueProp("Fixed")),
+                    appliesTo = ISZ())
+                case _ =>
+                  halt("")
+              }
+            case _ =>
+          }
+          (arrayProperties, ISZ())
+        } else {
+          p match {
+            case t: TypeInfo.PartDefinition =>
+
+              val properties_ : ISZ[ir.Property] = processProperties(t) ++ getActualProcessorBindings(idPath)
+
+              var bodyItems: ISZ[SysmlAst.DefinitionBodyItem] = t.ast.bodyItems
+              for (ancestor <- t.ancestors) {
+                typeHierarchy.typeMap.get(ancestor.ids) match {
+                  case Some(parent: TypeInfo.PartDefinition) =>
+                    bodyItems = bodyItems ++ parent.ast.bodyItems
+                  case _ =>
+                }
+              }
+
+              val annexes_ : ISZ[ir.Annex] = {
+                var as: ISZ[ir.Annex] = ISZ()
+                for (b <- bodyItems) {
+                  b match {
+                    case SysmlAst.GumboAnnotation(gumbo: ir.GclSubclause) =>
+                      hasGumbo = T
+
+                      for (m <- gumbo.methods) {
+                        for (p <- m.method.sig.params) {
+                          val t1 = p.tipe.typedOpt.get.asInstanceOf[AST.Typed.Name].ids
+                          val d1 = processDatatype(t1, ISZ())
+                          assert(d1.nonEmpty, s"Type $t1 not resolved for subclause method ${m.method.sig.id.value}'s ${p.id.value} param")
+                        }
+
+                        val t2 = m.method.sig.returnType.typedOpt.get.asInstanceOf[AST.Typed.Name].ids
+                        val d2 = processDatatype(t2, ISZ())
+                        assert(d2.nonEmpty, s"Return type $t2 not resolved for subclause method ${m.method.sig.id.value}")
+                      }
+
+                      for (s <- gumbo.state) {
+                        val t3 = ops.StringOps(ops.StringOps(s.classifier).replaceAllLiterally("::", "!")).split(c => c == '!')
+                        val d3 = processDatatype(t3, ISZ())
+                        assert(d3.nonEmpty, s"Type ${t3} not resolved for state var ${s.name}")
+                      }
+
+                      as = as :+ ir.Annex("GUMBO", gumbo)
+                    case _ =>
+                  }
+                }
+                as
+              }
+              (properties_, annexes_)
+            case _ => (ISZ(), ISZ())
+          }
+        }
       }
+
 
       val id: ISZ[String] =
         if (processingDatatype && idPath.nonEmpty)
@@ -381,6 +480,7 @@ object Instantiate {
         annexes = annexes,
         uriFrag = "")
     }
+
 
     def getActualProcessorBindings(ids: ISZ[String]): ISZ[ir.Property] = {
       var ret: ISZ[Property] = ISZ()
@@ -409,7 +509,7 @@ object Instantiate {
                   appliesTo = ISZ())
                 actualProcessorBindings = actualProcessorBindings + srcPath ~> prop
               case _ =>
-                reporter.error(au._2.posOpt, Instantiate.instantiatorKey, "Did not resolve one of the part usages")
+                reportError(au._2.posOpt, "Did not resolve one of the part usages", reporter)
             }
             assert(T)
           case _ =>
@@ -430,7 +530,7 @@ object Instantiate {
                     case Some(fv) =>
                       return processValue(fv.exp)
                     case _ =>
-                      reporter.error(exp.posOpt, Instantiate.instantiatorKey, "Attribute requires a feature value")
+                      reportError(exp.posOpt, "Attribute requires a feature value", reporter)
                       return ISZ(ir.ValueProp("INVALID"))
                   }
                 case x =>
@@ -451,32 +551,42 @@ object Instantiate {
                   case i: AST.Exp.Ref if i.resOpt.nonEmpty =>
                     i.resOpt.get match {
                       case v: AST.ResolvedInfo.Var =>
-                        val value: R = v.owner match {
+
+                        @pure def time(value: R) : ISZ[ir.PropertyValue] = {
+                          return ISZ(ir.UnitProp(value = value.string, unit = Some("ps")))
+                        }
+                        @pure def size(value: R) : ISZ[ir.PropertyValue] = {
+                          return ISZ(ir.UnitProp(value = value.string, unit = Some("bits")))
+                        }
+
+                        v.owner match {
                           case (ISZ("SI")) =>
                             if (v.id == "s" || v.id == "seconds") {
-                              R(baseExp.string).get * R("1.0E12").get
-                            } else {
+                              return time(R(baseExp.string).get * R("1.0E12").get)
+                            } else if (v.id == "byte") {
+                              return size(R(baseExp.string).get * r"8")
+                            }
+                            else {
                               halt(s"Need to handle $v")
                             }
                           case (ISZ("HAMR_Time_Units")) =>
                             if (v.id == "ps" || v.id == "picoseconds") {
-                              R(baseExp.string).get
+                              return time(R(baseExp.string).get)
                             } else if (v.id == "ns" || v.id == "nanoseconds") {
-                              R(baseExp.string).get * R("1.0E3").get
+                              return time(R(baseExp.string).get * R("1.0E3").get)
                             } else if (v.id == "us" || v.id == "microseconds") {
-                              R(baseExp.string).get * R("1.06").get
+                              return time(R(baseExp.string).get * R("1.06").get)
                             } else if (v.id == "ms" || v.id == "milliseconds") {
-                              R(baseExp.string).get * R("1.0E9").get
+                              return time(R(baseExp.string).get * R("1.0E9").get)
                             } else if (v.id == "s" || v.id == "seconds") {
-                              R(baseExp.string).get * R("1.0E12").get
+                              return time(R(baseExp.string).get * R("1.0E12").get)
                             } else {
                               halt(s"Unexpected duration unit ${v.id}")
                             }
                           case x =>
-                            reporter.error(unitExp.posOpt, Instantiate.instantiatorKey, st"Unit expressions must be SI::s, or any attribute from HAMR::Time_Units.  Found ${(v.owner, "::")}::${v.id}".render)
-                            r"-1"
+                            reportError(unitExp.posOpt, st"Unexpected feature value: ${(v.owner, "::")}::${v.id}".render, reporter)
+                            return ISZ()
                         }
-                        return ISZ(ir.UnitProp(value = value.string, unit = Some("ps")))
                       case x =>
                         halt(s"Expected unit exp to resolve to a var: $x")
                     }
@@ -485,11 +595,11 @@ object Instantiate {
                     halt(s"Expected a resolved Ref for the unit exp: $x ${unitExp.posOpt}")
                 }
               case x =>
-                reporter.error(f.posOpt, Instantiate.instantiatorKey, s"Wasn't expecting UIF: $x")
+                reportError(f.posOpt, s"Wasn't expecting UIF: $x", reporter)
                 return ISZ()
             }
           } else {
-            reporter.error(f.posOpt, Instantiate.instantiatorKey, s"Unable function: ${f.ident.id.value}")
+            reportError(f.posOpt, s"Unable function: ${f.ident.id.value}", reporter)
             return ISZ()
           }
         case _ =>
@@ -587,6 +697,7 @@ object Instantiate {
     }
 
     def isDatatypeH(name: ISZ[String]): B = {
+
       typeHierarchy.typeMap.get(name) match {
         case Some(p: TypeInfo.PartDefinition) => return isDescendantOf(InstantiateUtil.AadlDataName, p.name)
         case Some(e: TypeInfo.EnumDefinition) if !InstantiateUtil.isAadlAttribute(name) =>
@@ -676,26 +787,16 @@ object Instantiate {
       }
     }
 
-    def allowedDataComponentMembers(p: Info.UsageInfo): B = {
+    def allowedDataComponentMembers(parent: TypeInfo.DefinitionTypeInfo, p: Info.UsageInfo): B = {
+      assert(isDatatype(parent.tpe))
+
       p match {
         case i:Info.AttributeUsage =>
           if (i.owner == InstantiateUtil.AadlDataName ||
             i.owner == InstantiateUtil.AadlComponentName) {
             return T
           }
-          i.typedOpt match {
-            case Some(t: Typed.Name) =>
-              t.ids match {
-                case ISZ("HAMR", "Array_Size_Kind") =>
-                  return p.id == "Array_Size_Kind"
-                case _ =>
-                  halt("")
-              }
-              println(t)
-              halt("")
-            case x =>
-              halt(x.string)
-          }
+          halt("")
         case i =>
 
           return F
@@ -720,6 +821,26 @@ object Instantiate {
     }
 
     return process()
+  }
+
+  def reportWarnCond(cond: B, posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    if (!cond) {
+      reportWarn(posOpt, message, reporter)
+    }
+  }
+
+  def reportWarn(posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    reporter.warn(posOpt, Instantiate.instantiatorKey, s"Instantiation Warning: $message")
+  }
+
+  def reportErrorCond(cond: B, posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    if (!cond) {
+      reportError(posOpt, message, reporter)
+    }
+  }
+
+  def reportError(posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    reporter.error(posOpt, Instantiate.instantiatorKey, s"Instantiation Error: $message")
   }
 
 }

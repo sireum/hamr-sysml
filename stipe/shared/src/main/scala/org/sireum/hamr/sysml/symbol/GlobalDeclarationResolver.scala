@@ -365,12 +365,13 @@ object GlobalDeclarationResolver {
   def resolveMembers(owner: IS[Z, String], scope: Scope, items: ISZ[SysmlAst.DefinitionBodyItem]): TypeInfo.Members = {
     var allocationUsages = HashSMap.empty[String, Info.AllocationUsage]
     var attributeUsages = HashSMap.empty[String, Info.AttributeUsage]
-    var attributeUsagesIdLess = ISZ[Info.AttributeUsage]()
+    //var attributeUsagesIdLess = ISZ[Info.AttributeUsage]()
     var connectionUsages = HashSMap.empty[String, Info.ConnectionUsage]
     var itemUsages = HashSMap.empty[String, Info.ItemUsage]
     var partUsages = HashSMap.empty[String, Info.PartUsage]
     var portUsages = HashSMap.empty[String, Info.PortUsage]
     var referenceUsages = HashSMap.empty[String, Info.ReferenceUsage]
+    var refinedUsages = ISZ[Info.UsageInfo]()
 
     @pure def checkId(id: String, posOpt: Option[Position]): Unit = {
       val declared: B = {
@@ -382,19 +383,17 @@ object GlobalDeclarationResolver {
       }
     }
 
-    def update(ast: SysmlAst.CommonUsageElements, id: String): SAST.SysmlAst.CommonUsageElements = {
-      return ast(attr = ast.attr(resOpt = Some(SAST.ResolvedInfo.AttributeUsage(owner = owner, name = id))))
-    }
-
     for (item <- items) {
       item match {
       case ast: SysmlAst.AllocationUsage =>
         getId(ast.commonUsageElements.identification, ast.posOpt) match {
           case (Some(id), posOpt) =>
             checkId(id, posOpt)
+            val ri = SAST.ResolvedInfo.AllocationUsage(owner = owner, name = id)
+            val cue = ast.commonUsageElements(attr = ast.commonUsageElements.attr(resOpt = Some(ri)))
             allocationUsages = allocationUsages +
               id ~> Info.AllocationUsage(owner = owner, id = id, scope = scope,
-                ast = ast(commonUsageElements = update(ast.commonUsageElements, id)),
+                ast = ast(commonUsageElements = cue),
                 srcName = ISZ(),
                 srcAst = None(),
                 dstName = ISZ(),
@@ -406,21 +405,26 @@ object GlobalDeclarationResolver {
           getId(ast.commonUsageElements.identification, ast.posOpt) match {
             case (Some(id), posOpt) =>
               checkId(id, posOpt)
+              val ri = SAST.ResolvedInfo.AttributeUsage(owner = owner, name = id)
+              val cue = ast.commonUsageElements(attr = ast.commonUsageElements.attr(resOpt = Some(ri)))
               attributeUsages = attributeUsages +
                 id ~> Info.AttributeUsage(owner = owner, id = id, hasId = T, scope = scope,
-                  ast = ast(commonUsageElements = update(ast.commonUsageElements, id)))
+                  ast = ast(commonUsageElements = cue))
             case x =>
-              attributeUsagesIdLess = attributeUsagesIdLess :+
+              refinedUsages = refinedUsages :+
                 Info.AttributeUsage(owner = owner, id = "ID_LESS", hasId = F, scope = scope, ast = ast)
           }
         case ast: SysmlAst.ConnectionUsage =>
           getId(ast.commonUsageElements.identification, ast.posOpt) match {
             case (Some(id), posOpt) =>
               checkId(id, posOpt)
+              val ri = SAST.ResolvedInfo.ConnectionUsage(owner = owner, name = id)
+              val cue = ast.commonUsageElements(attr = ast.commonUsageElements.attr(resOpt = Some(ri)))
               connectionUsages = connectionUsages +
                 id ~> Info.ConnectionUsage(owner = owner, id = id, scope = scope,
-                  ast = ast(commonUsageElements = update(ast.commonUsageElements, id)),
-                  srcAst = None(), dstAst = None())
+                  ast = ast(commonUsageElements = cue),
+                  srcAst = None(),
+                  dstAst = None())
             case _ =>
             //reporter.warn(ast.posOpt, resolverKind, s"How to handle usages without identification")
           }
@@ -428,9 +432,11 @@ object GlobalDeclarationResolver {
           getId(ast.commonUsageElements.identification, ast.posOpt) match {
             case (Some(id), posOpt) =>
               checkId(id, posOpt)
+              val ri = SAST.ResolvedInfo.ItemUsage(owner = owner, name = id)
+              val cue = ast.commonUsageElements(attr = ast.commonUsageElements.attr(resOpt = Some(ri)))
               itemUsages = itemUsages +
                 id ~> Info.ItemUsage(owner = owner, id = id, scope = scope,
-                  ast = ast(commonUsageElements = update(ast.commonUsageElements, id)))
+                  ast = ast(commonUsageElements = cue))
             case _ =>
               //reporter.warn(ast.posOpt, resolverKind, s"How to handle usages without identification")
           }
@@ -438,20 +444,25 @@ object GlobalDeclarationResolver {
           getId(ast.commonUsageElements.identification, ast.posOpt) match {
             case (Some(id), posOpt) =>
               checkId(id, posOpt)
+              val ri = SAST.ResolvedInfo.PartUsage(owner = owner, name = id)
+              val cue = ast.commonUsageElements(attr = ast.commonUsageElements.attr(resOpt = Some(ri)))
               partUsages = partUsages +
-                id ~> Info.PartUsage(owner = owner, id = id, scope = scope,
-                  ast = ast(commonUsageElements = update(ast.commonUsageElements, id)))
+                id ~> Info.PartUsage(owner = owner, id = id, hasId = T, scope = scope,
+                  ast = ast(commonUsageElements = cue))
             case _ =>
-              //reporter.warn(ast.posOpt, resolverKind, s"How to handle usages without identification")
+              refinedUsages = refinedUsages :+
+              Info.PartUsage(owner = owner, id = "ID_LESS", hasId = F, scope = scope, ast = ast)
           }
 
         case ast: SysmlAst.PortUsage =>
           getId(ast.commonUsageElements.identification, ast.posOpt) match {
             case (Some(id), posOpt) =>
               checkId(id, posOpt)
+              val ri = SAST.ResolvedInfo.PortUsage(owner = owner, name = id)
+              val cue = ast.commonUsageElements(attr = ast.commonUsageElements.attr(resOpt = Some(ri)))
               portUsages = portUsages +
                 id ~> Info.PortUsage(owner = owner, id = id, scope = scope,
-                  ast = ast(commonUsageElements = update(ast.commonUsageElements, id)))
+                  ast = ast(commonUsageElements = cue))
             case _ =>
               //reporter.warn(ast.posOpt, resolverKind, s"How to handle usages without identification")
           }
@@ -460,9 +471,11 @@ object GlobalDeclarationResolver {
           getId(ast.commonUsageElements.identification, ast.posOpt) match {
             case (Some(id), posOpt) =>
               checkId(id, posOpt)
+              val ri = SAST.ResolvedInfo.ReferenceUsage(owner = owner, name = id)
+              val cue = ast.commonUsageElements(attr = ast.commonUsageElements.attr(resOpt = Some(ri)))
               referenceUsages = referenceUsages +
                 id ~> Info.ReferenceUsage(owner = owner, id = id, scope = scope,
-                  ast = ast(commonUsageElements = update(ast.commonUsageElements, id)))
+                  ast = ast(commonUsageElements = cue))
             case _ =>
               //reporter.warn(ast.posOpt, resolverKind, s"How to handle usages without identification")
           }
@@ -475,12 +488,13 @@ object GlobalDeclarationResolver {
     return TypeInfo.Members(
       allocationUsages = allocationUsages,
       attributeUsages = attributeUsages,
-      attributeUsagesIdLess = attributeUsagesIdLess,
+      //attributeUsagesIdLess = attributeUsagesIdLess,
       connectionUsages = connectionUsages,
       itemUsages = itemUsages,
       partUsages = partUsages,
       portUsages = portUsages,
-      referenceUsages = referenceUsages
+      referenceUsages = referenceUsages,
+      refinedUsages = refinedUsages
     )
   }
 

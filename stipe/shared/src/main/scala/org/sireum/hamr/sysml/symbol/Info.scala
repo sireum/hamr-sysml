@@ -318,7 +318,7 @@ object Info {
   @datatype trait UsageInfo extends Info {
     def owner: ISZ[String]
     def id: String
-    def ast: SAST.SysmlAst.UsageElement
+    def ast: SAST.SysmlAst.UsageMember
 
     @pure override def typedOpt: Option[Typed] = {
       return ast.commonUsageElements.attr.typedOpt
@@ -361,6 +361,7 @@ object Info {
 
   @datatype class PartUsage(val owner: ISZ[String],
                             val id: String,
+                            val hasId: B,
                             val scope: Scope,
                             val ast: SAST.SysmlAst.PartUsage) extends UsageInfo {
     @strictpure def posOpt: Option[Position] = ast.commonUsageElements.attr.posOpt
@@ -642,26 +643,30 @@ object TypeInfo {
   }
 
   object Members {
-    @strictpure def empty: Members = Members(HashSMap.empty, HashSMap.empty, ISZ(), HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty)
+    @strictpure def empty: Members = Members(HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty, HashSMap.empty, ISZ())
   }
 
   @datatype class Members(val allocationUsages: HashSMap[String, Info.AllocationUsage],
                           val attributeUsages: HashSMap[String, Info.AttributeUsage],
-                          val attributeUsagesIdLess: ISZ[Info.AttributeUsage],
+                          //val attributeUsagesIdLess: ISZ[Info.AttributeUsage],
                           val connectionUsages: HashSMap[String, Info.ConnectionUsage],
                           val itemUsages: HashSMap[String, Info.ItemUsage],
                           val partUsages: HashSMap[String, Info.PartUsage],
                           val portUsages: HashSMap[String, Info.PortUsage],
-                          val referenceUsages: HashSMap[String, Info.ReferenceUsage]) {
+                          val referenceUsages: HashSMap[String, Info.ReferenceUsage],
+
+                          val refinedUsages: ISZ[Info.UsageInfo]
+                         ) {
     @strictpure def isEmpty: B =
       allocationUsages.isEmpty &&
         attributeUsages.isEmpty &&
-        attributeUsagesIdLess.isEmpty &&
+        //attributeUsagesIdLess.isEmpty &&
         connectionUsages.isEmpty &&
         itemUsages.isEmpty &&
         partUsages.isEmpty &&
         portUsages.isEmpty &&
-        referenceUsages.isEmpty
+        referenceUsages.isEmpty &&
+        refinedUsages.isEmpty
 
     @strictpure def nonEmpty: B = !isEmpty
   }

@@ -3,7 +3,7 @@ package org.sireum.hamr.sysml.stipe
 
 import org.sireum._
 import org.sireum.hamr.ir.SysmlAst.{BinaryConnectorPart, OccurrenceBasicUsagePrefix, RedefinitionsSpecialization, SubsettingsSpecialization, TypingsSpecialization}
-import org.sireum.hamr.ir.{GclLib, GclMethod, GclStateVar, GclSubclause, ResolvedInfo, SysmlAst, Typed}
+import org.sireum.hamr.ir.{GclLib, GclMethod, GclStateVar, GclSubclause, ResolvedInfo, ResolvedAttr, SysmlAst, Typed}
 import org.sireum.hamr.{ir => SAST}
 import org.sireum.hamr.sysml.symbol.Resolver.{NameMap, QName, resolverKind}
 import org.sireum.hamr.sysml.symbol.{Info, Scope, TypeInfo, Util}
@@ -270,26 +270,31 @@ object TypeChecker {
     val gumboAnnotationASTsUpdated = checkBodyItems(ISZ(scope), gumboAnnotationASTs, reporter)
     newMembers = updateMembers(gumboAnnotationASTs, newMembers, reporter)
 
-    // type check any inherited refined usages
-    val inheritedAttributeUsagesIdLessASTs: ISZ[SysmlAst.DefinitionBodyItem] = (for(a <- info.members.attributeUsagesIdLess) yield a.ast)
-    val newAttributeUsagesIdLess = checkBodyItems(ISZ(scope), inheritedAttributeUsagesIdLessASTs, reporter).asInstanceOf[ISZ[SAST.SysmlAst.AttributeUsage]]
-    for (a <- newAttributeUsagesIdLess) {
+    // type check any inherited refined usages and replace inherited members with
+    // the refined version
+    val inheritedRefinedASTs: ISZ[SysmlAst.DefinitionBodyItem] = (for(a <- info.members.refinedUsages) yield a.ast)
+    val inheritedRefinedASTsUpdated: ISZ[SysmlAst.UsageMember] = checkBodyItems(ISZ(scope), inheritedRefinedASTs, reporter).asInstanceOf[ISZ[SysmlAst.UsageMember]]
+    for (a <- inheritedRefinedASTsUpdated) {
       assert (a.commonUsageElements.identification.isEmpty)
       a.commonUsageElements.attr.resOpt match {
         case Some(i: ResolvedInfo.AttributeUsage) =>
+          assert (a.isInstanceOf[SysmlAst.AttributeUsage])
           newMembers = newMembers(attributeUsages = newMembers.attributeUsages + i.name ~>
-            Info.AttributeUsage(
-              owner = i.owner, id = i.name, hasId = T, scope = scope, ast = a))
-        case _ =>
+            Info.AttributeUsage(owner = i.owner, id = i.name, hasId = T, scope = scope, ast = a.asInstanceOf[SysmlAst.AttributeUsage]))
+        case Some(i: ResolvedInfo.PartUsage) =>
+          assert (a.isInstanceOf[SysmlAst.PartUsage])
+          newMembers = newMembers(partUsages = newMembers.partUsages + i.name ~>
+            Info.PartUsage(owner = i.owner, id = i.name, hasId = T, scope = scope, ast = a.asInstanceOf[SysmlAst.PartUsage]))
+        case x =>
+          halt(s"Need to handle refined resolution for ${a}")
       }
     }
 
-    val updatedASTs = newMemberASTs ++ gumboAnnotationASTsUpdated
+    val updatedASTs = newMemberASTs ++ gumboAnnotationASTsUpdated ++ inheritedRefinedASTsUpdated.asInstanceOf[ISZ[SysmlAst.DefinitionBodyItem]]
 
     // remove the old unresolved refined usages
-    newMembers = newMembers(attributeUsagesIdLess = ISZ())
-
-
+    //newMembers = newMembers(attributeUsagesIdLess = ISZ())
+    newMembers = newMembers(refinedUsages = ISZ())
 
     val allocationUsages: HashSMap[String, Info.AllocationUsage] = {
       var cus = newMembers.allocationUsages
@@ -439,12 +444,14 @@ object TypeChecker {
 
     var allocationUsages: HashSMap[String, Info.AllocationUsage] = origMembers.allocationUsages
     var attributeUsages: HashSMap[String, Info.AttributeUsage] = origMembers.attributeUsages
-    val attributeUsagesIdLess: ISZ[Info.AttributeUsage]= origMembers.attributeUsagesIdLess
+    //val attributeUsagesIdLess: ISZ[Info.AttributeUsage]= origMembers.attributeUsagesIdLess
     var connectionUsages: HashSMap[String, Info.ConnectionUsage] = origMembers.connectionUsages
     var itemUsages: HashSMap[String, Info.ItemUsage] = origMembers.itemUsages
     var partUsages: HashSMap[String, Info.PartUsage] = origMembers.partUsages
     var portUsages: HashSMap[String, Info.PortUsage] = origMembers.portUsages
     var referenceUsages: HashSMap[String, Info.ReferenceUsage] = origMembers.referenceUsages
+
+    val refinedUsages: ISZ[Info.UsageInfo] = origMembers.refinedUsages
 
     for (bi <- newBodyItems) {
       bi match {
@@ -493,12 +500,15 @@ object TypeChecker {
     return TypeInfo.Members(
       allocationUsages = allocationUsages,
       attributeUsages = attributeUsages,
-      attributeUsagesIdLess = attributeUsagesIdLess,
+      //attributeUsagesIdLess = attributeUsagesIdLess,
       connectionUsages = connectionUsages,
       itemUsages = itemUsages,
       partUsages = partUsages,
       portUsages = portUsages,
-      referenceUsages = referenceUsages)
+      referenceUsages = referenceUsages,
+
+      refinedUsages = refinedUsages
+    )
   }
 
   // see TypeChecker.checkStmts
@@ -692,6 +702,19 @@ object TypeChecker {
       }
     }
 
+    def sanityResCheck(orig: ResolvedAttr, updated: ResolvedAttr): Unit = {
+
+      assert (orig.resOpt.nonEmpty -->: (orig.resOpt.get == updated.resOpt.get),
+        st"""${orig.resOpt.get}
+            |  vs
+            |${updated.resOpt.get}""".render)
+
+      assert (orig.typedOpt.nonEmpty -->: (orig.typedOpt.get == updated.typedOpt.get),
+        st"""${orig.typedOpt.get}
+            |  vs
+            |${updated.typedOpt.get}""".render)
+    }
+
     item match {
       case item: SysmlAst.AllocationUsage =>
         item.commonUsageElements.attr.resOpt match {
@@ -708,7 +731,13 @@ object TypeChecker {
         }
 
       case item: SysmlAst.AttributeUsage =>
-        return item(commonUsageElements = update(item.commonUsageElements))
+        val origResAttr = item.commonUsageElements.attr
+
+        val updated = item(commonUsageElements = update(item.commonUsageElements))
+
+        sanityResCheck(origResAttr, updated.commonUsageElements.attr)
+
+        return updated
 
       case item: SysmlAst.ConnectionUsage =>
         item.commonUsageElements.attr.resOpt match {
@@ -739,23 +768,28 @@ object TypeChecker {
         return item(commonUsageElements = update(item.commonUsageElements))
 
       case item: SysmlAst.PartUsage =>
-        item.commonUsageElements.attr.resOpt match {
-          case Some(_: SAST.ResolvedInfo.PartUsage) => return item
-          case _ =>
-        }
-        return item(commonUsageElements = update(item.commonUsageElements))
+        val origResAttr = item.commonUsageElements.attr
+
+        val updated = item(commonUsageElements = update(item.commonUsageElements))
+
+        sanityResCheck(origResAttr, updated.commonUsageElements.attr)
+
+        return updated
 
       case item: SysmlAst.PortUsage =>
-        item.commonUsageElements.attr.resOpt match {
-          case Some(_: SAST.ResolvedInfo.PortUsage) => return item
-          case _ =>
-        }
+        val origResAttr = item.commonUsageElements.attr
+
         item.occurrenceUsagePrefix match {
           case obup: OccurrenceBasicUsagePrefix if obup.refPrefix.direction.isEmpty =>
             TypeChecker.reportError(item.posOpt, "Port direction must be supplied at the port usage level", reporter)
           case _ =>
         }
-        return item(commonUsageElements = update(item.commonUsageElements))
+
+        val updated = item(commonUsageElements = update(item.commonUsageElements))
+
+        sanityResCheck(origResAttr, updated.commonUsageElements.attr)
+
+        return updated
 
       case item @ SysmlAst.GumboAnnotation(sc: GclSubclause) =>
         var state = ISZ[GclStateVar]()

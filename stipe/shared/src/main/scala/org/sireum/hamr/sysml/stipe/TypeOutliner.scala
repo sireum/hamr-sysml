@@ -258,6 +258,9 @@ object TypeOutliner {
 
     val members = outlineMembers(info.members, scope, reporter)
 
+    if (info.id == "MyArrayStruct") {
+      assume(T)
+    }
     val (
       newMembers,
       ancestors, newParents) =
@@ -306,12 +309,14 @@ object TypeOutliner {
                               reporter: Reporter): (TypeInfo.Members, ISZ[SAST.Typed.Name], ISZ[SAST.Type.Named]) = {
     var allocationUsages = info.allocationUsages
     var attributeUsages = info.attributeUsages
-    var attributeUsagesIdLess = info.attributeUsagesIdLess
+    //var attributeUsagesIdLess = info.attributeUsagesIdLess
     var connectionUsages = info.connectionUsages
     var itemUsages = info.itemUsages
     var partUsages = info.partUsages
     var portUsages = info.portUsages
     var referenceUsages = info.referenceUsages
+
+    var refinedUsages = info.refinedUsages
 
     def checkInherit(id: String, owner: ISZ[String], posOpt: Option[Position]): B = {
       def check(map: HashSMap[String, Info.UsageInfo]): B = {
@@ -339,6 +344,14 @@ object TypeOutliner {
       return ok
     }
 
+    def inheritRefinedUsage(refinedUsage: Info.UsageInfo, posOpt: Option[Position]): Unit = {
+      if (refinedUsage.ast.commonUsageElements.visibility != Visibility.Public) {
+        TypeOutliner.reportError(refinedUsage.ast.posOpt,
+          "Currently only supporting public visibilities", reporter)
+      }
+      refinedUsages = refinedUsages :+ refinedUsage
+    }
+
     def inheritAllocationUsages(allocationUsage: Info.AllocationUsage, posOpt: Option[Position]): Unit = {
       val owner = allocationUsage.owner
       val id = allocationUsage.id
@@ -357,12 +370,14 @@ object TypeOutliner {
         TypeOutliner.reportError(attributeUsage.ast.posOpt,
           "Currently only supporting public visibilities", reporter)
       }
+      assert(attributeUsage.hasId)
+
       if (attributeUsage.hasId) {
         if (checkInherit(id, owner, posOpt)) {
           attributeUsages = attributeUsages + id ~> attributeUsage
         }
       } else {
-        attributeUsagesIdLess = attributeUsagesIdLess :+ attributeUsage
+        //refinedUsages = refinedUsages :+ attributeUsage
       }
     }
     def inheritConnectionUsages(connectionUsage: Info.ConnectionUsage, posOpt: Option[Position]): Unit = {
@@ -394,8 +409,13 @@ object TypeOutliner {
         TypeOutliner.reportError(partUsage.ast.posOpt,
           "Currently only supporting public visibilities", reporter)
       }
-      if (checkInherit(id, owner, posOpt)) {
-        partUsages = partUsages + id ~> partUsage
+      assert (partUsage.hasId)
+      if (partUsage.hasId) {
+        if (checkInherit(id, owner, posOpt)) {
+          partUsages = partUsages + id ~> partUsage
+        }
+      } else {
+        //refinedUsages = refinedUsages :+ partUsage
       }
     }
     def inheritPortUsages(portUsage: Info.PortUsage, posOpt: Option[Position]): Unit = {
@@ -452,9 +472,9 @@ object TypeOutliner {
                   for (parentAttributeUsage <- parentAllocDef.members.attributeUsages.values) {
                     inheritAttributeUsages(parentAttributeUsage, posOpt)
                   }
-                  for (parentAttributeUsageIdLess <- parentAllocDef.members.attributeUsagesIdLess) {
-                    inheritAttributeUsages(parentAttributeUsageIdLess, posOpt)
-                  }
+                  //for (parentAttributeUsageIdLess <- parentAllocDef.members.attributeUsagesIdLess) {
+                  //  inheritAttributeUsages(parentAttributeUsageIdLess, posOpt)
+                  //}
                   for (parentConnectionUsage <- parentAllocDef.members.connectionUsages.values) {
                     inheritConnectionUsages(parentConnectionUsage, posOpt)
                   }
@@ -470,6 +490,9 @@ object TypeOutliner {
                   for (parentReferenceUsage <- parentAllocDef.members.referenceUsages.values) {
                     inheritReferenceUsages(parentReferenceUsage, posOpt)
                   }
+                  for (u <- parentAllocDef.members.refinedUsages) {
+                    inheritRefinedUsage(u, posOpt)
+                  }
 
                 case Some(parentAttrDef: TypeInfo.AttributeDefinition) =>
                   ancestors = ancestors + getTypedName(parentAttrDef.tpe)
@@ -484,9 +507,9 @@ object TypeOutliner {
                   for (parentAttributeUsage <- parentAttrDef.members.attributeUsages.values) {
                     inheritAttributeUsages(parentAttributeUsage, posOpt)
                   }
-                  for (parentAttributeUsageIdLess <- parentAttrDef.members.attributeUsagesIdLess) {
-                    inheritAttributeUsages(parentAttributeUsageIdLess, posOpt)
-                  }
+                  //for (parentAttributeUsageIdLess <- parentAttrDef.members.attributeUsagesIdLess) {
+                  //  inheritAttributeUsages(parentAttributeUsageIdLess, posOpt)
+                  //}
                   for (parentConnectionUsage <- parentAttrDef.members.connectionUsages.values) {
                     inheritConnectionUsages(parentConnectionUsage, posOpt)
                   }
@@ -502,7 +525,9 @@ object TypeOutliner {
                   for (parentReferenceUsage <- parentAttrDef.members.referenceUsages.values) {
                     inheritReferenceUsages(parentReferenceUsage, posOpt)
                   }
-
+                  for (u <- parentAttrDef.members.refinedUsages) {
+                    inheritRefinedUsage(u, posOpt)
+                  }
 
                 case Some(parentConnDef: TypeInfo.ConnectionDefinition) =>
                   ancestors = ancestors + getTypedName(parentConnDef.tpe)
@@ -517,9 +542,9 @@ object TypeOutliner {
                   for (parentAttributeUsage <- parentConnDef.members.attributeUsages.values) {
                     inheritAttributeUsages(parentAttributeUsage, posOpt)
                   }
-                  for (parentAttributeUsageIdLess <- parentConnDef.members.attributeUsagesIdLess) {
-                    inheritAttributeUsages(parentAttributeUsageIdLess, posOpt)
-                  }
+                  //for (parentAttributeUsageIdLess <- parentConnDef.members.attributeUsagesIdLess) {
+                  //  inheritAttributeUsages(parentAttributeUsageIdLess, posOpt)
+                  //}
                   for (parentConnectionUsage <- parentConnDef.members.connectionUsages.values) {
                     inheritConnectionUsages(parentConnectionUsage, posOpt)
                   }
@@ -535,6 +560,10 @@ object TypeOutliner {
                   for (parentReferenceUsage <- parentConnDef.members.referenceUsages.values) {
                     inheritReferenceUsages(parentReferenceUsage, posOpt)
                   }
+                  for (u <- parentConnDef.members.refinedUsages) {
+                    inheritRefinedUsage(u, posOpt)
+                  }
+
 
                 case Some(parentEnumDef: TypeInfo.EnumDefinition) =>
                   ancestors = ancestors + getTypedName(parentEnumDef.tpe)
@@ -556,9 +585,9 @@ object TypeOutliner {
                   for (parentAttributeUsage <- parentPartDef.members.attributeUsages.values) {
                     inheritAttributeUsages(parentAttributeUsage, posOpt)
                   }
-                  for (parentAttributeUsageIdLess <- parentPartDef.members.attributeUsagesIdLess) {
-                    inheritAttributeUsages(parentAttributeUsageIdLess, posOpt)
-                  }
+                  //for (parentAttributeUsageIdLess <- parentPartDef.members.attributeUsagesIdLess) {
+                  //  inheritAttributeUsages(parentAttributeUsageIdLess, posOpt)
+                  //}
                   for (parentConnectionUsage <- parentPartDef.members.connectionUsages.values) {
                     inheritConnectionUsages(parentConnectionUsage, posOpt)
                   }
@@ -574,6 +603,9 @@ object TypeOutliner {
                   for (parentReferenceUsage <- parentPartDef.members.referenceUsages.values) {
                     inheritReferenceUsages(parentReferenceUsage, posOpt)
                   }
+                  for (u <- parentPartDef.members.refinedUsages) {
+                    inheritRefinedUsage(u, posOpt)
+                  }
 
                 case Some(parentPortDef: TypeInfo.PortDefinition) =>
                   ancestors = ancestors + getTypedName(parentPortDef.tpe)
@@ -588,9 +620,9 @@ object TypeOutliner {
                   for (parentAttributeUsage <- parentPortDef.members.attributeUsages.values) {
                     inheritAttributeUsages(parentAttributeUsage, posOpt)
                   }
-                  for (parentAttributeUsageIdLess <- parentPortDef.members.attributeUsagesIdLess) {
-                    inheritAttributeUsages(parentAttributeUsageIdLess, posOpt)
-                  }
+                  //for (parentAttributeUsageIdLess <- parentPortDef.members.attributeUsagesIdLess) {
+                  //  inheritAttributeUsages(parentAttributeUsageIdLess, posOpt)
+                  //}
                   for (parentConnectionUsage <- parentPortDef.members.connectionUsages.values) {
                     inheritConnectionUsages(parentConnectionUsage, posOpt)
                   }
@@ -606,6 +638,9 @@ object TypeOutliner {
                   for (parentReferenceUsage <- parentPortDef.members.referenceUsages.values) {
                     inheritReferenceUsages(parentReferenceUsage, posOpt)
                   }
+                  for (u <- parentPortDef.members.refinedUsages) {
+                    inheritRefinedUsage(u, posOpt)
+                  }
 
                 case _ =>
               }
@@ -620,12 +655,14 @@ object TypeOutliner {
     return (TypeInfo.Members(
       allocationUsages = allocationUsages,
       attributeUsages = attributeUsages,
-      attributeUsagesIdLess = attributeUsagesIdLess,
+      //attributeUsagesIdLess = attributeUsagesIdLess,
       connectionUsages = connectionUsages,
       itemUsages = itemUsages,
       partUsages = partUsages,
       portUsages = portUsages,
-      referenceUsages = referenceUsages),
+      referenceUsages = referenceUsages,
+      refinedUsages = refinedUsages
+    ),
       ancestors.elements,
       newParents)
   }
@@ -633,13 +670,13 @@ object TypeOutliner {
   def outlineMembers(info: TypeInfo.Members, scope: Scope.Local, reporter: Reporter): TypeInfo.Members = {
     var allocationUsages = HashSMap.empty[String, Info.AllocationUsage]
     var attributeUsages = HashSMap.empty[String, Info.AttributeUsage]
-    var attributeUsagesIdLess = info.attributeUsagesIdLess
+    //var attributeUsagesIdLess = info.attributeUsagesIdLess
     var connectionUsages = HashSMap.empty[String, Info.ConnectionUsage]
     var itemUsages = HashSMap.empty[String, Info.ItemUsage]
     var partUsages = HashSMap.empty[String, Info.PartUsage]
     var portUsages = HashSMap.empty[String, Info.PortUsage]
     var referenceUsages = HashSMap.empty[String, Info.ReferenceUsage]
-
+    var refinedUsages = info.refinedUsages
 
     def isDeclared(id: String): B = {
       return (
@@ -864,12 +901,13 @@ object TypeOutliner {
     return TypeInfo.Members(
       allocationUsages = allocationUsages,
       attributeUsages = attributeUsages,
-      attributeUsagesIdLess = attributeUsagesIdLess,
+      //attributeUsagesIdLess = attributeUsagesIdLess,
       connectionUsages = connectionUsages,
       itemUsages = itemUsages,
       partUsages = partUsages,
       portUsages = portUsages,
-      referenceUsages = referenceUsages
+      referenceUsages = referenceUsages,
+      refinedUsages = refinedUsages
       )
   }
 
