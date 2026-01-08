@@ -211,7 +211,7 @@ object Instantiate {
         ret
       }
 
-      assert (isArray -->: (members.size <= 4), members.size)
+      assert (isArray -->: (members.size <= 4), members.size.string)
       processActualProcessorBindings(idPath, p.members.allocationUsages)
 
       var subcomponents: ISZ[ir.Component] = ISZ()
