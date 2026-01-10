@@ -200,7 +200,7 @@ class SysmlFrontEndTests extends TestSuite {
           }
 
           conns = conns :+
-            st"""Connection dInstance: ${(c.srcPort.path, ".")} -> ${(c.dstPort.path, ".")}
+            st"""Connection Instance: ${(c.srcPort.path, ".")} -> ${(c.dstPort.path, ".")}
                 |
                 |  Connection References: ${(refs, " -> ")}
                 |  $connCon
