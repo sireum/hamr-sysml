@@ -4,7 +4,7 @@ import org.sireum._
 import org.sireum.message._
 import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.tree.TerminalNodeImpl
-import org.sireum.hamr.sysml.parser.SysMLAstBuilder.{binOpsUifs, interpolates, isReservedSequenceName, logikaUifs, numeric_interpolates, portUifs}
+import org.sireum.hamr.sysml.parser.SysMLAstBuilder.{binOpsUifs, interpolates, isReservedSequenceName, kerMLOperations, logikaUifs, numeric_interpolates, portUifs}
 import org.sireum.hamr.ir.SysmlAst._
 import org.sireum.hamr.ir.{Attr, GclAssume, GclCaseStatement, GclCompute, GclComputeSpec, GclGuarantee, GclHandle, GclInitialize, GclIntegration, GclInvariant, GclLib, GclMethod, GclSpec, GclStateVar, GclSubclause, InfoFlowClause, ResolvedAttr, Name => AirName}
 import org.sireum.hamr.sysml.parser.SlangUtil.Placeholders.{emptyOccurrenceUsagePrefix, emptyUsagePrefix}
@@ -23,7 +23,7 @@ object SysMLAstBuilder {
   def build(tree: ParserRuleContext, uriOpt: Option[String], isSysML: B, reporter: Reporter): Option[TopUnit] = {
     if (isSysML) {
       assert(!reporter.hasError)
-      val builder = SysMLAstBuilder(uriOpt)
+      val builder = SysMLAstBuilder(uriOpt, F)
       val root = builder.visitEntryRuleRootNamespace(tree.asInstanceOf[SysMLv2Parser.EntryRuleRootNamespaceContext])
       reporter.reports(builder.reporter.messages)
       return Some(root)
@@ -92,7 +92,11 @@ object SysMLAstBuilder {
     "In"
   )
 
-  val reservedUifNames: ops.ISZOps[String] = ops.ISZOps(portUifs ++ binOpsUifs ++ logikaUifs)
+  val kerMLOperations: ISZ[String]= ISZ(
+    "size"
+  )
+
+  val reservedUifNames: ops.ISZOps[String] = ops.ISZOps(portUifs ++ binOpsUifs ++ logikaUifs ++ kerMLOperations)
 
   val reservedSequenceNames: ops.ISZOps[String] = ops.ISZOps(interpolates)
 
@@ -106,7 +110,8 @@ object SysMLAstBuilder {
 
 }
 
-case class SysMLAstBuilder(uriOpt: Option[String]) {
+case class SysMLAstBuilder(val uriOpt: Option[String],
+                           val emitIgnoreNodeMessages: B) {
   val reporter: Reporter = Reporter.create
   val kind: String = "SysMLResolver"
 
@@ -123,8 +128,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           }
 
         case r2: RulePackageBodyElement2Context =>
-          val m2 = r2.ruleElementFilterMember()
-          reportError(m2, "Not currently supporting filter members")
+          ignoreNode(r2.ruleElementFilterMember())
 
         case r3: RulePackageBodyElement3Context =>
           packageBodyElements = packageBodyElements :+ visitAliasMember(r3.ruleAliasMember())
@@ -202,7 +206,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         return visitPortDefinition(visibility, d16.rulePortDefinition())
 
       case x =>
-        reportError(x, s"Not currently handling the following definition element: ${x.getClass.getSimpleName}")
+        ignoreNode(x)
         return Placeholders.emptyDefinitionElement
     }
   }
@@ -244,7 +248,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
               val visibility = visitVisibilityIndicator(variant.ruleMemberPrefix().ruleVisibilityIndicator())
               val variantElem = variant.ruleVariantUsageElement()
 
-              reportError(variantElem, "Variants are not currently handled in interface definition body")
+              ignoreNode(variantElem)
 
             case i3: RuleInterfaceBodyItem3Context =>
               val noum = i3.ruleInterfaceNonOccurrenceUsageMember()
@@ -257,8 +261,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
               }
             case i4: RuleInterfaceBodyItem4Context =>
               if (nonEmpty(i4.ruleEmptySuccessionMember())) {
-                reportError(i4.ruleEmptySuccessionMember(),
-                  "Successions are not currently handled in definition body")
+                ignoreNode(i4.ruleEmptySuccessionMember())
               }
               val visibility = visitVisibilityIndicator(i4.ruleInterfaceOccurrenceUsageMember().ruleMemberPrefix().ruleVisibilityIndicator())
               bodyItems = bodyItems :+ visitInterfaceOccurrenceUsageElement(visibility, i4.ruleInterfaceOccurrenceUsageMember().ruleInterfaceOccurrenceUsageElement())
@@ -339,7 +342,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
                                               parent: RuleDefinitionElementContext): DefinitionElement = {
 
     if (!prefixMetadataMembers.isEmpty) {
-      reportError(parent, "Package metadata not currently supported")
+      ignoreNode(prefixMetadataMembers.get(0))
     }
 
     val id: Option[Identification] =
@@ -369,7 +372,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
               }
 
             case i: RuleElementFilterMemberContext =>
-              reportError(i, "Filter members are not currently supported")
+              ignoreNode(i)
 
             case i: RuleAliasMemberContext =>
               packageElements = packageElements :+ visitAliasMember(i)
@@ -469,7 +472,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         }
 
       case i4: RuleAnnotatingElement4Context =>
-        reportError(o, "Metadata usages are not currently supported")
+        ignoreNode(i4.ruleMetadataUsage())
         return SlangUtil.Placeholders.AnnotatingElementPlaceholder
 
       case x =>
@@ -560,7 +563,8 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   }
 
   private def visitMetadataDefinition(visibility: Visibility.Type, o: RuleMetadataDefinitionContext): MetadataDefinition = {
-    reportError(o, "Need to handle metadata definitions")
+    ignoreNode(o)
+
     val (identification, subClassifications, bodyItems) = visitDefinition(o.ruleDefinition())
     return MetadataDefinition(
       isAbstract = o.K_ABSTRACT() != null,
@@ -783,7 +787,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
               val visibility = visitVisibilityIndicator(variant.ruleMemberPrefix().ruleVisibilityIndicator())
               val variantElem = variant.ruleVariantUsageElement()
 
-              reportError(variantElem, "Variants are not currently handled in definition body")
+              ignoreNode(variantElem)
 
             case bi3: RuleDefinitionBodyItem3Context =>
               val noum = bi3.ruleNonOccurrenceUsageMember()
@@ -796,8 +800,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
             case bi4: RuleDefinitionBodyItem4Context =>
               if (nonEmpty(bi4.ruleEmptySuccessionMember())) {
-                reportError(bi4.ruleEmptySuccessionMember(),
-                  "Successions are not currently handled in definition body")
+                ignoreNode(bi4.ruleEmptySuccessionMember())
               }
               val visibility = visitVisibilityIndicator(bi4.ruleOccurrenceUsageMember().ruleMemberPrefix().ruleVisibilityIndicator())
               visitOccurrenceUsageElement(visibility, bi4.ruleOccurrenceUsageMember().ruleOccurrenceUsageElement()) match {
@@ -852,22 +855,21 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
               val visibility = visitVisibilityIndicator(variant.ruleMemberPrefix().ruleVisibilityIndicator())
               val variantElem = variant.ruleVariantUsageElement()
 
-              reportError(variantElem, "Variants are not currently handled in definition body")
+              ignoreNode(variant)
 
             case bi3: RuleInterfaceBodyItem3Context =>
               val noum = bi3.ruleInterfaceNonOccurrenceUsageMember()
               val visibility = visitVisibilityIndicator(noum.ruleMemberPrefix().ruleVisibilityIndicator())
               //items = items :+ visitInterfaceNonOccurrenceUsageElement(visibility, noum.ruleInterfaceNonOccurrenceUsageElement())
-              halt("todo 1")
+              ignoreNode(bi3.ruleInterfaceNonOccurrenceUsageMember())
 
             case bi4: RuleInterfaceBodyItem4Context =>
               if (nonEmpty(bi4.ruleEmptySuccessionMember())) {
-                reportError(bi4.ruleEmptySuccessionMember(),
-                  "Successions are not currently handled in definition body")
+                ignoreNode(bi4.ruleEmptySuccessionMember())
               }
               val visibility = visitVisibilityIndicator(bi4.ruleInterfaceOccurrenceUsageMember().ruleMemberPrefix().ruleVisibilityIndicator())
               //items = items :+ visitInterfaceOccurrenceUsageElement(visibility, bi4.ruleInterfaceOccurrenceUsageMember().ruleInterfaceOccurrenceUsageElement())
-              halt("todo 2")
+              ignoreNode(bi4.ruleInterfaceOccurrenceUsageMember())
 
             case bi5: RuleInterfaceBodyItem5Context =>
               items = items :+ visitAliasMember(bi5.ruleAliasMember())
@@ -899,14 +901,15 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           case su12: RuleStructureUsageElement12Context =>
             return visitAllocationUsage(visibility, su12.ruleAllocationUsage())
 
+
+          // ignored nodes
           case x =>
-            reportError(x, s"${x.getClass.getSimpleName} are not currently supported")
+            ignoreNode(x)
             return Placeholders.OccurrenceUsageElementPlaceholder(toResolvedAttr(x))
         }
 
       case i2: RuleOccurrenceUsageElement2Context =>
-        val elem = i2.ruleBehaviorUsageElement()
-        //reportWarn(elem, "Not currently supporting behavior usages")
+        ignoreNode(i2.ruleBehaviorUsageElement())
         return Placeholders.OccurrenceUsageElementPlaceholder(toResolvedAttr(i2))
     }
   }
@@ -914,8 +917,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   private def visitInterfaceOccurrenceUsageElement(visibility: Visibility.Type, o: RuleInterfaceOccurrenceUsageElementContext): OccurrenceUsageElement = {
     o match {
       case i1: RuleInterfaceOccurrenceUsageElement1Context =>
-        val elem = i1.ruleDefaultInterfaceEnd()
-        //reportWarn(elem, "Interface end usages are currently ignored")
+        ignoreNode(i1.ruleDefaultInterfaceEnd())
         return Placeholders.OccurrenceUsageElementPlaceholder(toResolvedAttr(i1))
 
       case i2: RuleInterfaceOccurrenceUsageElement2Context =>
@@ -935,19 +937,15 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           case su12: RuleStructureUsageElement12Context =>
             return visitAllocationUsage(visibility, su12.ruleAllocationUsage())
 
-          case su14: RuleStructureUsageElement14Context =>
-            val elem = su14.ruleFlowUsage()
-            //reportWarn(su14, "Interface flow usages are currently ignored")
-            return Placeholders.OccurrenceUsageElementPlaceholder(toResolvedAttr(su14))
 
+          // ignored nodes
           case x =>
-            reportError(x, s"${x.getClass.getSimpleName} are not currently supported")
+            ignoreNode(x)
             return Placeholders.OccurrenceUsageElementPlaceholder(toResolvedAttr(x))
         }
 
       case i3: RuleInterfaceOccurrenceUsageElement3Context =>
-        val elem = i3.ruleBehaviorUsageElement()
-        //reportWarn(elem, "Interface behavior usages are currently ignored")
+        ignoreNode(i3.ruleBehaviorUsageElement())
         return Placeholders.OccurrenceUsageElementPlaceholder(toResolvedAttr(i3))
     }
   }
@@ -1050,10 +1048,11 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           (identification, specializations, connectorPart)
 
         case r2: RuleAllocationUsageDeclaration2Context =>
-          reportError(r2, "Not currently handling RuleAllocationUsageDeclaration2Context")
+          ignoreNode(r2)
           (None(), ISZ(), None())
 
-        case _ => halt("Infeasible")
+        case _ =>
+          halt("Infeasible, all alternatives have been handled")
       }
 
     val bodyItems = visitDefinitionBody(o.ruleUsageBody().ruleDefinitionBody())
@@ -1075,7 +1074,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
   private def visitConnectorEnd(context: RuleConnectorEndContext): ConnectorEnd = {
     if (nonEmpty(context.ruleName())) {
-      reportError(context.ruleName(), "Rule name is not currently handled for connector ends")
+      ignoreNode(context.ruleName())
     }
 
     val ref: ISZ[Name] = context.ruleOwnedReferenceSubsetting() match {
@@ -1085,7 +1084,9 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         visitOwnedFeatureChain(s2.ruleOwnedFeatureChain())
     }
 
-    //reportWarn(isEmpty(context.ruleOwnedCrossMultiplicityMember()), context, "Multiplicities are currently ignored")
+    if (!isEmpty(context.ruleOwnedCrossMultiplicityMember())) {
+      ignoreNode(context.ruleOwnedCrossMultiplicityMember())
+    }
 
     return ConnectorEnd(reference = ref, tipeOpt = None(), resOpt = toResolvedAttr(context))
   }
@@ -1126,18 +1127,15 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         return visitAttributeUsage(visibility, i2.ruleAttributeUsage())
 
       case i3: RuleInterfaceNonOccurrenceUsageElement3Context =>
-        val enumUsage = i3.ruleEnumerationUsage()
-        //reportWarn(enumUsage, "Need to handle interface non-occurrence enum usages")
+        ignoreNode(i3.ruleEnumerationUsage())
         return Placeholders.NonOccurrenceUsageElementPlaceholder(toResolvedAttr(i3))
 
       case i4: RuleInterfaceNonOccurrenceUsageElement4Context =>
-        val bindingConnector = i4.ruleBindingConnectorAsUsage()
-        //reportWarn(bindingConnector, "Need to handle interface non-occurrence binding connectors")
+        ignoreNode(i4.ruleBindingConnectorAsUsage())
         return Placeholders.NonOccurrenceUsageElementPlaceholder(toResolvedAttr(i4))
 
       case i5: RuleInterfaceNonOccurrenceUsageElement5Context =>
-        val successionUsage = i5.ruleSuccessionAsUsage()
-        //reportError(successionUsage, "Need to handle interface non-occurrence succession usages")
+        ignoreNode(i5.ruleSuccessionAsUsage())
         return Placeholders.NonOccurrenceUsageElementPlaceholder(toResolvedAttr(i5))
     }
   }
@@ -1154,23 +1152,19 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         return visitAttributeUsage(visibility, i3.ruleAttributeUsage())
 
       case i4: RuleNonOccurrenceUsageElement4Context =>
-        val enumUsage = i4.ruleEnumerationUsage()
-        //reportWarn(enumUsage, "Need to handle non-occurrence enum usages")
+        ignoreNode(i4.ruleEnumerationUsage())
         return Placeholders.NonOccurrenceUsageElementPlaceholder(toResolvedAttr(i4))
 
       case i5: RuleNonOccurrenceUsageElement5Context =>
-        val bindingConnector = i5.ruleBindingConnectorAsUsage()
-        //reportWarn(bindingConnector, "Need to handle non-occurrence binding connectors")
+        ignoreNode(i5.ruleBindingConnectorAsUsage())
         return Placeholders.NonOccurrenceUsageElementPlaceholder(toResolvedAttr(i5))
 
       case i6: RuleNonOccurrenceUsageElement6Context =>
-        val successionUsage = i6.ruleSuccessionAsUsage()
-        //reportError(successionUsage, "Need to handle non-occurrence succession usages")
+        ignoreNode(i6.ruleSuccessionAsUsage())
         return Placeholders.NonOccurrenceUsageElementPlaceholder(toResolvedAttr(i6))
 
       case i7: RuleNonOccurrenceUsageElement7Context =>
-        val extendedUsage = i7.ruleExtendedUsage()
-        //reportError(extendedUsage, "Need to handle non-occurrence extended usages")
+        ignoreNode(i7.ruleExtendedUsage())
         return Placeholders.NonOccurrenceUsageElementPlaceholder(toResolvedAttr(i7))
     }
   }
@@ -1258,10 +1252,12 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
   private def visitOccurrenceDefinitionPrefix(occurrenceDef: RuleOccurrenceDefinitionPrefixContext): OccurrenceDefinitionPrefix = {
 
-    reportError(occurrenceDef.ruleEmptyMultiplicityMember() == null, occurrenceDef.ruleEmptyMultiplicityMember(),
-      "'individual' keyword is not currently supported")
-    reportError(occurrenceDef.ruleDefinitionExtensionKeyword().isEmpty, occurrenceDef,
-      "Extension definitions are not currently supported")
+    if (occurrenceDef.ruleEmptyMultiplicityMember() != null) {
+      ignoreNode(occurrenceDef.ruleEmptyMultiplicityMember())
+    }
+    if (!occurrenceDef.ruleDefinitionExtensionKeyword().isEmpty) {
+      ignoreNode(occurrenceDef)
+    }
 
     var isAbstract = F
     var isVariation = F
@@ -1364,12 +1360,13 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
               ret = ret :+ visitFeatureSpecialization(i)
             case i: RuleMultiplicityPartContext =>
               val mult = visitMultiplicityPart(i)
-              //reportWarn(i, "Currently ignoring multiplicities")
+              ignoreNode(i)
+
           }
         }
 
       case s2: RuleFeatureSpecializationPart2Context =>
-        reportError(s2.ruleMultiplicityPart(), "Not currently handling payload specialization")
+        ignoreNode(s2)
     }
     return ret
   }
@@ -1404,7 +1401,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
                   types = types ++ visitOwnedFeatureChain(ot2.ruleOwnedFeatureChain())
               }
             case t2: RuleFeatureTyping2Context =>
-              reportError(t2, "Conjugated port typing is not currently supported")
+              ignoreNode(t2.ruleConjugatedPortTyping())
           }
         }
         return TypingsSpecialization(types)
@@ -1698,11 +1695,29 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   def visitQualifiedName(o: RuleQualifiedNameContext): Name = {
     // ruleQualifiedName: ruleQualification? ruleName;
     // ruleQualification: (ruleName '::')+;
+
     var ret: ISZ[Id] = ISZ()
+
+    var candPosOpt = toPosOpt(o)
     if (o.ruleQualification() != null) {
-      ret = ret ++ (for (seg <- listToISZ(o.ruleQualification().ruleName())) yield visitName(seg))
+      for (seg <- listToISZ(o.ruleQualification().ruleName())) {
+        val n = visitName(seg)
+        candPosOpt = mergePos(candPosOpt, n.posOpt)
+        ret = ret :+ n
+      }
     }
-    return Name(ids = ret :+ visitName(o.ruleName()), attr = toAttr(o))
+    val n = visitName(o.ruleName())
+    candPosOpt = mergePos(candPosOpt, n.posOpt)
+    ret = ret :+ n
+
+    val name = Name(ids = ret, attr = Attr(candPosOpt))
+
+    //if (o.start == o.stop) {
+    //  // TODO: how is this possible when there is 1+ characters in the name?
+    //  println(name.prettyST.render)
+    //  assume(T)
+    //}
+    return name
   }
 
   def visitQualifiedNameAsSlangName(o: SysMLv2Parser.RuleQualifiedNameContext): AST.Name = {
@@ -1716,8 +1731,12 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     //   RULE_ID #ruleName1
     //   | RULE_UNRESTRICTED_NAME #ruleName2;
     o match {
-      case r1: RuleName1Context => return Id(value = r1.getText, attr = toAttr(o))
-      case r2: RuleName2Context => return Id(value = r2.getText, attr = toAttr(o))
+      case r1: RuleName1Context =>
+        val token = r1.getChild(0).asInstanceOf[TerminalNodeImpl]
+        return Id(value = r1.getText, attr = Attr((toPosOptT(token))))
+      case r2: RuleName2Context =>
+        val token = r2.getChild(0).asInstanceOf[TerminalNodeImpl]
+        return Id(value = r2.getText, attr = Attr(toPosOptT(token)))
       case x => halt(s"Unexpected name: $x")
     }
   }
@@ -2092,7 +2111,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
     //   ruleBaseExpression ( '.' ruleFeatureChainMember )?
     //   ( ( '#' '(' ruleSequenceExpression ')'
     //     | '[' ruleSequenceExpression ']'
-    //     | '->' ruleReferenceTyping (ruleBodyExpression | ruleFunctionReferenceExpression | ruleArgumentList)
+    //     | '->' ruleInstantiatedTypeMember (ruleBodyExpression | ruleFunctionReferenceExpression | ruleArgumentList)
     //     | '.' ruleBodyExpression
     //     | '.?' ruleBodyExpression
     //     )
@@ -2118,7 +2137,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
                   receiverOpt = Some(baseExp),
                   id = slangName.ids(0),
                   targs = ISZ(),
-                  attr = Placeholders.emptyResolvedAttr(mergePos(baseExp.posOpt, slangName.ids(0).attr.posOpt))
+                  attr = Placeholders.emptyResolvedAttr(mergePos(baseExp.posOpt, slangName.attr.posOpt))
                 )
               case i: RuleFeatureChainMember2Context =>
                 // e.blah::x.blah2::y.blah3::z
@@ -2143,10 +2162,31 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
 
           o.getChild(index) match {
             case i: TerminalNodeImpl if i.getText == "#" =>
-              // ( '#' '(' ruleSequenceExpression ')'
+              // '#' '(' ruleSequenceExpression ')'
               val se = visitSequenceExpression(o.getChild(index + 2).asInstanceOf[RuleSequenceExpressionContext])
               index = index + 4
-              reportError(i, s"Need example of primary expression alt 1: $se")
+
+              val (receiverOpt, ident): (Option[AST.Exp], AST.Exp.Ident) = {
+                baseExp match {
+                  case i: AST.Exp.Ident => (None(), i)
+                  case s: AST.Exp.Select =>
+                    (s.receiverOpt, AST.Exp.Ident(
+                      id=s.id,
+                      attr=AST.ResolvedAttr(posOpt = s.posOpt, resOpt = None(), typedOpt = None())))
+                  case i: AST.Exp.Input =>
+                    (Some(i), AST.Exp.Ident(AST.Id("apply", i.attr), toSlangResolvedAttr(o.ruleBaseExpression())))
+                  case i: AST.Exp.Invoke =>
+                    (Some(i), AST.Exp.Ident(AST.Id("apply", AST.Attr(i.attr.posOpt)), toSlangResolvedAttr(o.ruleBaseExpression())))
+                  case _ =>
+                    halt(s"Unexpected: base expression $baseExp for an indexing expression")
+                }
+              }
+              ret = AST.Exp.Invoke(
+                receiverOpt = receiverOpt,
+                ident = ident,
+                targs = ISZ(),
+                args = ISZ(se),
+                attr = toSlangResolvedAttr(o))
             case i: TerminalNodeImpl if i.getText == "[" =>
               //     | '[' ruleSequenceExpression ']'
               visitSequenceExpression(o.getChild(index + 1).asInstanceOf[RuleSequenceExpressionContext]) match {
@@ -2165,14 +2205,11 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
                   }
                 case x =>
                   if (isGumboExpression) {
-                    val ii = x.asInstanceOf[AST.Exp.LitZ]
-                    //val zz = Z(ii.id.value).get
-                    //val index = AST.Exp.LitZ(zz, toSlangAttr(o))
                     ret = AST.Exp.Invoke(
                       receiverOpt = None(),
                       ident = baseExp.asInstanceOf[AST.Exp.Ident],
                       targs = ISZ(),
-                      args = ISZ(ii),
+                      args = ISZ(x),
                       attr = toSlangResolvedAttr(o))
                   } else {
                     // e.g. 1000 [s * m] ~> SysmlUnitExpression(1000, s * m)
@@ -2187,18 +2224,23 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
               index = index + 3
 
             case i: TerminalNodeImpl if i.getText == "->" =>
-              //     | '->' ruleReferenceTyping (ruleBodyExpression | ruleFunctionReferenceExpression | ruleArgumentList)
-              val rt = visitReferenceTyping(o.getChild(index + 1).asInstanceOf[RuleReferenceTypingContext])
-              val subExp = o.getChild(index + 2) match {
-                case bec: RuleBodyExpressionContext =>
-                  visitBodyExpression(bec)
-                case fre: RuleFunctionReferenceExpressionContext =>
-                  visitFunctionReferenceExpression(fre)
-                case al: RuleArgumentListContext =>
-                  visitArgumentList(al)
+              //     | '->' ruleInstantiatedTypeMember (ruleBodyExpression | ruleFunctionReferenceExpression | ruleArgumentList)
+
+              if (SysmlAstUtil.isRangeExp(ret)) {
+                // TODO: for now identify quantified expressions based on the parse tree shape.  The parse tree
+                //       instead should be converted to a uif which a down stream tool can convert to a Slang quant exp
+                processQuantifiedExpression(o, index, ret) match {
+                  case Some(qe, updatedIndex) =>
+                    ret = qe
+                    index = updatedIndex
+                  case _ =>
+                    assert(reporter.hasError)
+                    return ret
+                }
+              } else {
+                reportError(o.ruleBaseExpression(), "Expecting a quantified expression so the left hand side must be a valid range expression: e.g. '0..size(x)'")
+                return ret
               }
-              index = index + 3
-              reportError(i, s"Need example of primary expression alt 2: $subExp")
             case i: TerminalNodeImpl if i.getText == "." =>
               o.getChild(index + 1) match {
                 case i: TerminalNodeImpl =>
@@ -2218,15 +2260,33 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           }
 
           if (index < o.getChildCount) {
+            // handle the optional feature chain
             o.getChild(index) match {
               case i: TerminalNodeImpl if i.getText == "." && o.getChild(index + 1).isInstanceOf[RuleFeatureChainMemberContext] =>
                 //     ( '.' ruleFeatureChainMember)?
+                index = index + 1 // consume the period
+
+                o.getChild(index) match {
+                  case r: RuleFeatureChainMemberContext =>
+                    visitFeatureChainMember(r) match {
+                      case ISZ(x) =>
+                        assert (x.ids.size == 1)
+                        ret = AST.Exp.Select(
+                          receiverOpt = Some(ret),
+                          id = AST.Id(x.ids(0).value, toSlangAttr(r)),
+                          targs = ISZ(),
+                          attr = toSlangResolvedAttr(r))
+                      case _ =>
+                        halt("Currently expecting a single chained feature")
+                    }
+                  case _ =>
+                    halt("Unexpected")
+                }
+
                 index = index + 1
-                // blah
-                index = index + 1
-                reportError(i, "Need example of primary expression alt 5")
 
               case _ =>
+                halt("Unexpected")
             }
           }
 
@@ -2562,6 +2622,23 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
           return dummy
         }
       }
+      else if (ops.ISZOps(kerMLOperations).contains(uif)) {
+        uif match {
+          case string"size" =>
+            if (args.size == 1) {
+              return AST.Exp.Select(
+                receiverOpt = Some(args(0)),
+                id = AST.Id(value = "size", attr = AST.Attr(attr.posOpt)),
+                targs = ISZ(),
+                attr = attr)
+            } else {
+              reportError(ident.posOpt, s"$uif accepts exactly one argument")
+              return dummy
+            }
+          case x =>
+            halt(s"Unexepected KerML operation: $x")
+        }
+      }
       else {
         reportError(ident.posOpt, s"Unexpected UIF '${uif}'")
         return dummy
@@ -2638,19 +2715,162 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
       return SlangUtil.Placeholders.emptyExp
     }
 
+    def processQuantifiedExpression(o: RulePrimaryExpressionContext, index: Int, rangeExp: Exp): Option[(Exp, Int)] = {
+
+      assert(o.getChild(index).isInstanceOf[TerminalNodeImpl] && o.getChild(index).asInstanceOf[TerminalNodeImpl].getText == "->")
+
+      /* ruleInstantiatedTypeMember:
+       *   ruleQualifiedName #ruleInstantiatedTypeMember1
+       *   |  ruleOwnedFeatureChain #ruleInstantiatedTypeMember2;
+       */
+      var isForAll: B = T
+
+      var ret: Option[AST.Exp] = None()
+
+      // determine quantification type
+      o.getChild(index + 1) match {
+        case itm: RuleInstantiatedTypeMember1Context =>
+
+          val name = visitQualifiedNameAsSlangName(itm.ruleQualifiedName())
+          name.ids match {
+            case ISZ(AST.Id(string"exists")) => isForAll = F
+            case ISZ(AST.Id(string"ControlFunctions"), AST.Id(string"exists")) => isForAll = F
+
+            case ISZ(AST.Id(string"forAll")) => isForAll = T
+            case ISZ(AST.Id(string"ControlFunctions"), AST.Id(string"forAll")) => isForAll = T
+
+            case itm =>
+              reportError(itm, "Currently only 'exists' or 'forAll' are allowed after '->'")
+              return None()
+          }
+        case itm: RuleInstantiatedTypeMember2Context =>
+          val names: ISZ[Name] = visitOwnedFeatureChain(itm.ruleOwnedFeatureChain())
+          reportError(itm, "Currently only 'exists' and 'forAll' are allowed after '->'")
+          return None()
+        case x => halt(s"Unexpected: $x")
+      }
+
+      val rangeExpression = SysmlAstUtil.getRangeExpressions(rangeExp).get
+
+      o.getChild(index + 2) match {
+        case bec: RuleBodyExpressionContext =>
+          /* ruleCalculationBody:
+               ';' #ruleCalculationBody1
+               | '{' ruleCalculationBodyPart '}' #ruleCalculationBody2;
+          */
+          bec.ruleExpressionBodyMember().ruleExpressionBody().ruleCalculationBody() match {
+            case be: RuleCalculationBody1Context =>
+              reportError(bec, "Quantified expressions must have a body")
+              return None()
+            case be: RuleCalculationBody2Context =>
+              /* ruleCalculationBodyPart: ruleCalculationBodyItem* ruleResultExpressionMember?;
+               *
+               * ruleCalculationBodyItem:
+               *   ruleActionBodyItem #ruleCalculationBodyItem1
+               *   | ruleReturnParameterMember #ruleCalculationBodyItem2;
+              */
+
+              // process the quantified expression
+              var quantifiedVariable: Option[Id] = None()
+              listToISZ(be.ruleCalculationBodyPart().ruleCalculationBodyItem()) match {
+                case ISZ(x) =>
+                  x match {
+                    case cbi: RuleCalculationBodyItem1Context =>
+                      cbi.ruleActionBodyItem() match {
+                        case abi: RuleActionBodyItem5Context =>
+                          val noum = abi.ruleNonOccurrenceUsageMember()
+                          reportError(isEmpty(noum.ruleMemberPrefix()), abi, "Not expecting a prefix")
+                          val visibility = visitVisibilityIndicator(noum.ruleMemberPrefix().ruleVisibilityIndicator())
+                          visitNonOccurrenceUsageElement(visibility, noum.ruleNonOccurrenceUsageElement()) match {
+                            case ReferenceUsage(prefix, commonUsageElements) =>
+                              prefix.direction match {
+                                case Some(FeatureDirection.In) => // allowed
+                                case Some(x) =>
+                                  reportError(noum.ruleNonOccurrenceUsageElement(), "Direction of quantified variable must be 'in'")
+                                  return None()
+                                case _ => // direction is assumed to be 'in'
+                              }
+
+                              commonUsageElements.identification match {
+                                case Some(Identification(_, Some(id))) =>
+                                  quantifiedVariable = Some(id)
+                                case _ =>
+                                  reportError(noum.ruleNonOccurrenceUsageElement(), "Quantified variable must have an id: e.g. 'in i'")
+                                  return None()
+                              }
+                            case x =>
+                              reportError(x, "Was expecting quantified variable to be a reference usage")
+                              return None()
+                          }
+                        case x =>
+                          reportError(x, "Was expecting quantified variable to be a non-occurrence usage member")
+                      }
+                    case cbi: RuleCalculationBodyItem2Context =>
+                      reportError(cbi, "Not expecting a return parameter")
+                  }
+                case x =>
+                  reportError(be, "Quantified variable must be specified: e.g. 'exists { in i; ... }'")
+                  return None()
+              }
+
+              // now process the quantified expression
+              {
+                val rem = be.ruleCalculationBodyPart().ruleResultExpressionMember()
+
+                if (rem.ruleMemberPrefix().isEmpty) {
+                  reportError(rem, "")
+                  return None()
+                }
+
+                val quantifiedExp = visitExpressionH(rem.ruleOwnedExpression(), isGumboExpression)
+                val qe = AST.Stmt.Expr(exp = quantifiedExp, attr = toSlangTypedAttr(rem.ruleOwnedExpression()))
+
+                val param: AST.Exp.Fun.Param = {
+                  val slangAttr = AST.Attr(quantifiedVariable.get.posOpt)
+                  val idOpt = Some(AST.Id(quantifiedVariable.get.value, slangAttr))
+                  AST.Exp.Fun.Param(idOpt = idOpt, tipeOpt = None(), typedOpt = None())
+                }
+
+                val fun = AST.Exp.Fun(
+                  context = ISZ(),
+                  params = ISZ(param),
+                  exp = qe,
+                  attr = toSlangTypedAttr(o))
+
+                ret = Some(AST.Exp.QuantRange(
+                  isForall = isForAll,
+                  lo = rangeExpression._1,
+                  hi = rangeExpression._2,
+                  hiExact = T,
+                  fun = fun,
+                  attr = toSlangResolvedAttr(o)))
+              }
+          }
+
+        case fre: RuleFunctionReferenceExpressionContext =>
+          //visitFunctionReferenceExpression(fre)
+          reportError(fre, "Not expecting a function reference expression for the quantification body")
+
+        case al: RuleArgumentListContext =>
+          //visitArgumentList(al)
+          reportError(al, "Not expecting an argument list for the quantification body")
+      }
+
+      return (
+        if (ret.nonEmpty) Some((ret.get, index + 3))
+        else None())
+    }
+
 
     o match {
       case e: RuleOwnedExpressionContext =>
         return visitOwnedExpression(e)
       case e: RuleLiteralExpressionContext =>
         return visitLiteralExpression(e)
-      case _ =>
-        halt("")
+      case x =>
+        halt(s"Unexpected $x")
     }
   }
-
-
-
 
 
 
@@ -2977,6 +3197,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
   }
 
   def toPosOpt(x: ParserRuleContext): Option[Position] = {
+    val length = x.stop.getStartIndex - x.start.getStartIndex// + 1
     return Some(
       FlatPos(
         uriOpt = uriOpt,
@@ -2985,25 +3206,37 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         endLine32 = conversions.Z.toU32(x.stop.getLine),
         endColumn32 = conversions.Z.toU32(x.stop.getCharPositionInLine),
         offset32 = conversions.Z.toU32(x.start.getStartIndex),
-        length32 = conversions.Z.toU32(x.stop.getStartIndex - x.start.getStartIndex))
+        length32 = conversions.Z.toU32(length))
     )
   }
 
   def toPosOptT(t: TerminalNodeImpl): Option[Position] = {
-    val length = t.getSourceInterval.length()
+    //val length = t.getSourceInterval.length()
+    val symbol = t.symbol
+    val length = symbol.getStopIndex - symbol.getStartIndex + 1
+    assert(t.getText.length == length)
+
+    val beginCol = symbol.getCharPositionInLine
+    val endCol = beginCol + length - 1
+
     return Some(
       FlatPos(
         uriOpt = uriOpt,
-        beginLine32 = conversions.Z.toU32(t.getSymbol.getLine),
-        beginColumn32 = conversions.Z.toU32(t.getSymbol.getCharPositionInLine),
-        endLine32 = conversions.Z.toU32(t.getSymbol.getLine),
-        endColumn32 = conversions.Z.toU32(t.getSymbol.getCharPositionInLine + length),
-        offset32 = conversions.Z.toU32(t.getSymbol.getStartIndex),
+        beginLine32 = conversions.Z.toU32(symbol.getLine),
+        beginColumn32 = conversions.Z.toU32(beginCol),
+        endLine32 = conversions.Z.toU32(symbol.getLine),
+        endColumn32 = conversions.Z.toU32(endCol),
+        offset32 = conversions.Z.toU32(symbol.getStartIndex),
         length32 = conversions.Z.toU32(length)
       )
     )
   }
 
+  def ignoreNode(context: ParserRuleContext): Unit = {
+    if (emitIgnoreNodeMessages) {
+      reportWarn(context, s"Currently ignoring '${context.getClass.getSimpleName}'")
+    }
+  }
 
   def reportWarn(nodeOrList: Object, message: String): Unit = {
     reportWarn(F, nodeOrList, message)
@@ -3035,7 +3268,7 @@ case class SysMLAstBuilder(uriOpt: Option[String]) {
         case i: java.util.List[x] => toPosOpt(i.get(0).asInstanceOf[ParserRuleContext])
         case null => None()
         case x =>
-          reportError(None(), s"Trying to create a posOpt for an error report but wasn't expecting $x")
+          reporter.error(None(), kind, s"Trying to create a posOpt for an error report but wasn't expecting $x")
           return
       }
       reportError(posOpt, message)

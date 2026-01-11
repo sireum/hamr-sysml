@@ -26,8 +26,9 @@ object SlangUtil {
       case (_, None()) => return a
       case (Some(af: FlatPos), Some(bf: FlatPos)) =>
         assert(af.offset32 <= bf.offset32, s"${af.offset32} vs ${bf.offset32}")
+        assert(af.endLine32 <= bf.endLine32)
 
-        val length = bf.offset32 - af.offset32 + bf.length32
+        val length = bf.offset32 - af.offset32 + bf.length32// + u32"1"
         return Some(FlatPos(uriOpt = af.uriOpt,
           beginLine32 = af.beginLine32, beginColumn32 = af.beginColumn32,
           endLine32 = bf.endLine32, endColumn32 = bf.endColumn32,

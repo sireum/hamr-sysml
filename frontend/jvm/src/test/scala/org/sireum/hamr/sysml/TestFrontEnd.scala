@@ -7,14 +7,16 @@ import org.sireum.hamr.ir.{Aadl, JSON => irJSON}
 import org.sireum.message.Reporter
 import org.sireum.test.TestSuite
 
-class SysmlFrontEndTests extends TestSuite {
+abstract class TestFrontEnd extends TestSuite {
 
-  val generateExpected: B = F
+  @pure def generateExpected: B = F
 
-  val par: Z = 1
-  val verbose: B = F
+  @pure def verbose: B = F
+
+  @pure def par: Z = 0
 
   val resourceDir: Os.Path = Os.path(implicitly[sourcecode.File].value).up.up.up.up.up.up / "resources"
+
 
   val sysmlv2ModelsDir: Os.Path = resourceDir / "models" / "sysmlv2-models"
 
@@ -57,73 +59,18 @@ class SysmlFrontEndTests extends TestSuite {
     w_internal_models.mklink(dest)
   }
 
-  val libDefs: ISZ[Input] = for (s <- Os.Path.walk(w_sysml_aadl_libraries, T, T, p => p.ext == string"sysml")) yield toInput(s)
+  val libDefs: ISZ[Input] = for(f <- getSysmlFiles (w_sysml_aadl_libraries, T)) yield toInput(f)
+
+  def getSysmlFiles(root: Os.Path, includeAadlLibraries: B): ISZ[Os.Path] = {
+    val files = for(f <- Os.Path.walk(root, T, T, x => x.ext.native == "sysml")) yield f.canon
+    if (!includeAadlLibraries)
+      return ops.ISZOps(files).filter(p => !ops.StringOps(p.value).contains("aadl.library"))
+    else
+      return files
+  }
 
   def toInput(o: Os.Path): Input = {
     return Input(content = o.read, fileUri = Some(o.toUri))
-  }
-
-  /*
-  "gumbo-structs-arrays" in {
-    val root = w_hamrModelsDir / "temp-control" / "sysml-temp-control-mixed"
-    assert (root.exists, root.value)
-    val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
-    println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = libDefs ++ (for (r <- files) yield toInput(r))
-    test(inputs)
-  }
-*/
-  "temp-control-mixed" in {
-    val root = w_hamrModelsDir / "temp-control" / "sysml-temp-control-mixed"
-    assert (root.exists, root.value)
-    val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
-    println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = libDefs ++ (for (r <- files) yield toInput(r))
-    test(ISZ("TempControlSystem_Instance"), inputs, root)
-  }
-
-  "temp-control-mixed-sel4-camkes" in {
-    val root = w_hamrModelsDir / "temp-control" / "sysml-temp-control-mixed-sel4-camkes"
-    assert (root.exists, root.value)
-    val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
-    println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = libDefs ++ (for (r <- files) yield toInput(r))
-    test(ISZ("TempControlSystem_Instance"), inputs, root)
-  }
-
-  "temp-control-periodic" in {
-    val root = w_hamrModelsDir / "temp-control" / "sysml-temp-control-periodic"
-    assert (root.exists, root.value)
-    val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
-    println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = libDefs ++ (for (r <- files) yield toInput(r))
-    test(ISZ("TempControlSystem_Instance"), inputs, root)
-  }
-
-  "rts" in {
-    val root = w_hamrModelsDir / "sysml-rts"
-    assert (root.exists, root.value)
-    val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
-    println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = libDefs ++ (for (r <- files) yield toInput(r))
-    test(ISZ("RTS_Instance"), inputs, root)
-  }
-
-  "isolette" in {
-    val root = w_hamrModelsDir / "sysml-isolette"
-    assert (root.exists, root.value)
-    val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
-    println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = libDefs ++ (for (r <- files) yield toInput(r))
-    test(ISZ("Isolette_Instance"), inputs, root)
-  }
-
-  "data-invariants" in {
-    val root = w_internal_models / "gumbo" / "data-invariants"
-    val files = Os.Path.walk(root, F, F, x => x.ext.native == "sysml")
-    println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = libDefs ++ (for (r <- files) yield toInput(r))
-    test(ISZ("s_impl_Instance"), inputs, root)
   }
 
   def test(instanceName: ISZ[String], inputs: ISZ[Input], root: Os.Path): Unit = {
@@ -138,14 +85,17 @@ class SysmlFrontEndTests extends TestSuite {
 
       val aadlModel: Aadl = {
         var model: Option[Aadl]= None()
+        var avail: ISZ[String] = ISZ()
         for (m <- modelElements) {
           assert(m.model.components.size == 1)
+          avail = avail :+ st"${(m.model.components(0).identifier.name, "::")}".render
           if (m.model.components(0).identifier.name == instanceName) {
             model = Some(m.model)
           }
         }
         if (model.nonEmpty) model.get
-        else halt(s"Didn't locate instance model for ${instanceName} in $root")
+        else halt(st"""Didn't locate instance model for ${instanceName} in $root. Avaliable instances:
+                      |  ${(avail, "\n")}""".render)
       }
 
       val slangDir = root / ".slang"
@@ -159,7 +109,7 @@ class SysmlFrontEndTests extends TestSuite {
         airPath.up.mkdirAll()
         println(s"Wrote: ${airPath}")
       } else {
-        assert(airPath.exists, airPath.value)
+        assert(airPath.exists, s"AIR filed doesn't exist: ${airPath.value}")
 
         val airContent = airPath.read
 
@@ -242,45 +192,4 @@ class SysmlFrontEndTests extends TestSuite {
       reporter.printMessages()
     }
   }
-}
-
-object SysmlFrontEndTests {
-  val baseOptions = CodegenOption(
-    help = "",
-    args = ISZ(),
-    msgpack = F,
-    verbose = F,
-    runtimeMonitoring = F,
-    platform = CodegenHamrPlatform.JVM,
-    outputDir = None(),
-    parseableMessages = F,
-    //
-    slangOutputDir = None(),
-    packageName = None(),
-    noProyekIve = T,
-    noEmbedArt = F,
-    devicesAsThreads = T,
-    genSbtMill = T,
-    //
-    slangAuxCodeDirs = ISZ(),
-    slangOutputCDir = None(),
-    excludeComponentImpl = F,
-    bitWidth = 64,
-    maxStringSize = 256,
-    maxArraySize = 1,
-    runTranspiler = F,
-    //
-    sel4OutputDir = None(),
-    sel4AuxCodeDirs = ISZ(),
-    workspaceRootDir = None(),
-    //
-    strictAadlMode = F,
-    ros2OutputWorkspaceDir = None(),
-    ros2Dir = None(),
-    ros2NodesLanguage = CodegenNodesCodeLanguage.Cpp,
-    ros2LaunchLanguage = CodegenLaunchCodeLanguage.Xml,
-    invertTopicBinding = F,
-    //
-    experimentalOptions = ISZ()
-  )
 }
