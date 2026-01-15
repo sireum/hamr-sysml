@@ -1,8 +1,7 @@
 package org.sireum.hamr.sysml
 
-import org.sireum._
+import org.sireum.{Either, _}
 import org.sireum.hamr.sysml.FrontEnd.Input
-import org.sireum.hamr.codegen.common.util.HamrCli.{CodegenHamrPlatform, CodegenLaunchCodeLanguage, CodegenNodesCodeLanguage, CodegenOption}
 import org.sireum.hamr.ir.{Aadl, JSON => irJSON}
 import org.sireum.message.Reporter
 import org.sireum.test.TestSuite
@@ -94,7 +93,7 @@ abstract class TestFrontEnd extends TestSuite {
           }
         }
         if (model.nonEmpty) model.get
-        else halt(st"""Didn't locate instance model for ${instanceName} in $root. Avaliable instances:
+        else halt(st"""Didn't locate instance model for $instanceName in $root. Avaliable instances:
                       |  ${(avail, "\n")}""".render)
       }
 
@@ -107,19 +106,44 @@ abstract class TestFrontEnd extends TestSuite {
       if (generateExpected) {
         airPath.writeOver(resultAirContent)
         airPath.up.mkdirAll()
-        println(s"Wrote: ${airPath}")
+        println(s"Wrote: $airPath")
       } else {
         assert(airPath.exists, s"AIR filed doesn't exist: ${airPath.value}")
 
-        val airContent = airPath.read
+        irJSON.toAadl(airPath.read) match {
+          case Either.Left(expectedModel) =>
+            val scrubbedExpectedModel = scrub(expectedModel)
+            val scrubbedResultModel = scrub(aadlModel)
 
-        if (airContent != resultAirContent) {
-          val resultAirPath = slangDir / st"${(aadlModel.components(0).identifier.name, "_")}_result.json".render
+            if (scrubbedResultModel != scrubbedExpectedModel) {
+              val expectedAirPath = slangDir / st"${(aadlModel.components(0).identifier.name, "_")}_expected.json".render
+              expectedAirPath.writeOver(irJSON.fromAadl(scrubbedExpectedModel, F))
 
-          resultAirPath.writeOver(resultAirContent)
+              val resultAirPath = slangDir / st"${(aadlModel.components(0).identifier.name, "_")}_result.json".render
+              resultAirPath.writeOver(irJSON.fromAadl(scrubbedResultModel, F))
 
-          println(s"Testing Dir: ${slangDir.toUri}")
-          assert(F, "Expected AIR contents did not match the results")
+              val gitIgnore = slangDir / ".gitignore"
+              val gicontent = ops.StringOps(gitIgnore.read)
+              var add: Option[ST] = None()
+              if (!gicontent.contains("*_result*")) {
+                add = Some(st"""$add
+                               |*_result*""")
+              }
+              if (!gicontent.contains("*_expected*")) {
+                add = Some(st"""$add
+                               |*_expected*""")
+              }
+              if (add.nonEmpty) {
+                gitIgnore.writeOver(
+                  st"""${gicontent.s}
+                      |$add""".render)
+              }
+
+              println(s"Testing Dir: ${slangDir.toUri}")
+              assert(F, "Expected AIR contents did not match the results")
+            }
+          case Either.Right(m) =>
+            assert(F, m)
         }
       }
 
@@ -163,11 +187,11 @@ abstract class TestFrontEnd extends TestSuite {
               |
               |${(conns, "\n")}""".render
 
-        val expectedConstraintPath = slangDir / s"integration_${sysRoot}.txt"
+        val expectedConstraintPath = slangDir / s"integration_$sysRoot.txt"
 
         if (generateExpected) {
           expectedConstraintPath.writeOver(content)
-          println(s"Wrote: ${expectedConstraintPath}")
+          println(s"Wrote: $expectedConstraintPath")
         } else {
           assert(expectedConstraintPath.exists, expectedConstraintPath.value)
 
@@ -191,5 +215,10 @@ abstract class TestFrontEnd extends TestSuite {
     if (verbose && reporter.messages.nonEmpty) {
       reporter.printMessages()
     }
+  }
+
+  val m = TestUtil.AirScrubber()
+  def scrub(model: Aadl): Aadl = {
+    return m.transformAadl(model).get
   }
 }
