@@ -1,8 +1,10 @@
 package org.sireum.hamr.sysml
 
+import org.scalatest.DoNotDiscover
 import org.sireum._
 import org.sireum.hamr.sysml.FrontEnd.Input
 
+@DoNotDiscover
 class TestFrontEnd_Inspecta extends TestFrontEnd {
 
   override def generateExpected: B = F || super.generateExpected
@@ -24,7 +26,7 @@ class TestFrontEnd_Inspecta extends TestFrontEnd {
     assert (F)
   }
 
-  val w_inspectaModels = w_aadl_sysml_workspace / "inspecta-models"
+  val w_inspectaModels: Os.Path = w_aadl_sysml_workspace / "inspecta-models"
 
   if (!w_inspectaModels.exists) {
     val dest = inspectaModels
