@@ -1,6 +1,4 @@
 **/sysml.library
-**/hamr/slang/
-*.json
 readme.md
 *.jpg
 sysmlv2-models

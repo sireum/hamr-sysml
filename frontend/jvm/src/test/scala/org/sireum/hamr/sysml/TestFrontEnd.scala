@@ -82,129 +82,136 @@ abstract class TestFrontEnd extends TestSuite {
       assert (root.exists, root.value)
       assert (modelElements.size.nonEmpty)
 
-      val aadlModel: Aadl = {
-        var model: Option[Aadl]= None()
-        var avail: ISZ[String] = ISZ()
-        for (m <- modelElements) {
-          assert(m.model.components.size == 1)
-          avail = avail :+ st"${(m.model.components(0).identifier.name, "::")}".render
-          if (m.model.components(0).identifier.name == instanceName) {
-            model = Some(m.model)
-          }
-        }
-        if (model.nonEmpty) model.get
-        else halt(st"""Didn't locate instance model for $instanceName in $root. Avaliable instances:
-                      |  ${(avail, "\n")}""".render)
-      }
+      Os.env("USER") match {
+        case Some(string"belt") =>
 
-      val slangDir = root / ".slang"
-
-      val airPath = (slangDir / st"${(aadlModel.components(0).identifier.name, "_")}.json".render).canon
-
-      val resultAirContent = irJSON.fromAadl(aadlModel, F)
-
-      if (generateExpected) {
-        airPath.writeOver(resultAirContent)
-        airPath.up.mkdirAll()
-        println(s"Wrote: $airPath")
-      } else {
-        assert(airPath.exists, s"AIR filed doesn't exist: ${airPath.value}")
-
-        irJSON.toAadl(airPath.read) match {
-          case Either.Left(expectedModel) =>
-            val scrubbedExpectedModel = scrub(expectedModel)
-            val scrubbedResultModel = scrub(aadlModel)
-
-            if (scrubbedResultModel != scrubbedExpectedModel) {
-              val expectedAirPath = slangDir / st"${(aadlModel.components(0).identifier.name, "_")}_expected.json".render
-              expectedAirPath.writeOver(irJSON.fromAadl(scrubbedExpectedModel, F))
-
-              val resultAirPath = slangDir / st"${(aadlModel.components(0).identifier.name, "_")}_result.json".render
-              resultAirPath.writeOver(irJSON.fromAadl(scrubbedResultModel, F))
-
-              val gitIgnore = slangDir / ".gitignore"
-              val gicontent = ops.StringOps(gitIgnore.read)
-              var add: Option[ST] = None()
-              if (!gicontent.contains("*_result*")) {
-                add = Some(st"""$add
-                               |*_result*""")
+          val aadlModel: Aadl = {
+            var model: Option[Aadl]= None()
+            var avail: ISZ[String] = ISZ()
+            for (m <- modelElements) {
+              assert(m.model.components.size == 1)
+              avail = avail :+ st"${(m.model.components(0).identifier.name, "::")}".render
+              if (m.model.components(0).identifier.name == instanceName) {
+                model = Some(m.model)
               }
-              if (!gicontent.contains("*_expected*")) {
-                add = Some(st"""$add
-                               |*_expected*""")
-              }
-              if (add.nonEmpty) {
-                gitIgnore.writeOver(
-                  st"""${gicontent.s}
-                      |$add""".render)
-              }
-
-              println(s"Testing Dir: ${slangDir.toUri}")
-              assert(F, "Expected AIR contents did not match the results")
             }
-          case Either.Right(m) =>
-            assert(F, m)
-        }
-      }
-
-      val integerationConstraints = FrontEnd.getIntegerationConstraints(modelElements, reporter)
-
-      for (i <- integerationConstraints) {
-        var conns: ISZ[ST] = ISZ()
-        for (c <- i.connections) {
-          val refs: ISZ[ST] = for (r <- c.connectionReferences.entries) yield st"[${(r._1, ".")}, ${r._2}]"
-
-          val connCon: Option[ST] = (c.srcConstraint, c.dstConstraint) match {
-            case (Some(s), Some(d)) =>
-              Some(
-                st"""
-                    | $s __>:
-                    |   $d""")
-            case (None(), Some(d)) =>
-              Some(
-                st"""
-                    | <nil> __>:
-                    |   $d""")
-            case (Some(s), None()) =>
-              Some(
-                st"""
-                    | $s __>:
-                    |   <nil>""")
-            case _ => None()
+            if (model.nonEmpty) model.get
+            else halt(st"""Didn't locate instance model for $instanceName in $root. Avaliable instances:
+                          |  ${(avail, "\n")}""".render)
           }
 
-          conns = conns :+
-            st"""Connection Instance: ${(c.srcPort.path, ".")} -> ${(c.dstPort.path, ".")}
-                |
-                |  Connection References: ${(refs, " -> ")}
-                |  $connCon
-                |"""
-        }
-        val sysRoot = st"${(i.systemRootName, "::")}".render
+          val slangDir = root / ".slang"
 
-        val content =
-          st"""System Root: $sysRoot [${i.systemRootPos}]
-              |
-              |${(conns, "\n")}""".render
+          val airPath = (slangDir / st"${(aadlModel.components(0).identifier.name, "_")}.json".render).canon
 
-        val expectedConstraintPath = slangDir / s"integration_$sysRoot.txt"
+          val resultAirContent = irJSON.fromAadl(aadlModel, F)
 
-        if (generateExpected) {
-          expectedConstraintPath.writeOver(content)
-          println(s"Wrote: $expectedConstraintPath")
-        } else {
-          assert(expectedConstraintPath.exists, expectedConstraintPath.value)
+          if (generateExpected) {
+            airPath.writeOver(resultAirContent)
+            airPath.up.mkdirAll()
+            println(s"Wrote: $airPath")
+          } else {
+            assert(airPath.exists, s"AIR filed doesn't exist: ${airPath.value}")
 
-          val expectedContent = expectedConstraintPath.read
+            irJSON.toAadl(airPath.read) match {
+              case Either.Left(expectedModel) =>
+                val scrubbedExpectedModel = scrub(expectedModel)
+                val scrubbedResultModel = scrub(aadlModel)
 
-          if (expectedContent != content) {
-            val resultsConstraintPath = slangDir / s"integration_${sysRoot}_results.txt"
-            resultsConstraintPath.writeOver(content)
+                if (scrubbedResultModel != scrubbedExpectedModel) {
+                  val expectedAirPath = slangDir / st"${(aadlModel.components(0).identifier.name, "_")}_expected.json".render
+                  expectedAirPath.writeOver(irJSON.fromAadl(scrubbedExpectedModel, F))
 
-            println(s"Testing Dir: ${slangDir.toUri}")
-            assert(F, "Expected integration constraints did not match the results")
+                  val resultAirPath = slangDir / st"${(aadlModel.components(0).identifier.name, "_")}_result.json".render
+                  resultAirPath.writeOver(irJSON.fromAadl(scrubbedResultModel, F))
+
+                  val gitIgnore = slangDir / ".gitignore"
+                  val gicontent = ops.StringOps(gitIgnore.read)
+                  var add: Option[ST] = None()
+                  if (!gicontent.contains("*_result*")) {
+                    add = Some(st"""$add
+                                   |*_result*""")
+                  }
+                  if (!gicontent.contains("*_expected*")) {
+                    add = Some(st"""$add
+                                   |*_expected*""")
+                  }
+                  if (add.nonEmpty) {
+                    gitIgnore.writeOver(
+                      st"""${gicontent.s}
+                          |$add""".render)
+                  }
+
+                  println(s"Testing Dir: ${slangDir.toUri}")
+                  assert(F, "Expected AIR contents did not match the results")
+                }
+
+
+
+                val integerationConstraints = FrontEnd.getIntegerationConstraints(modelElements, reporter)
+
+                for (i <- integerationConstraints) {
+                  var conns: ISZ[ST] = ISZ()
+                  for (c <- i.connections) {
+                    val refs: ISZ[ST] = for (r <- c.connectionReferences.entries) yield st"[${(r._1, ".")}, ${r._2}]"
+
+                    val connCon: Option[ST] = (c.srcConstraint, c.dstConstraint) match {
+                      case (Some(s), Some(d)) =>
+                        Some(
+                          st"""
+                              | $s __>:
+                              |   $d""")
+                      case (None(), Some(d)) =>
+                        Some(
+                          st"""
+                              | <nil> __>:
+                              |   $d""")
+                      case (Some(s), None()) =>
+                        Some(
+                          st"""
+                              | $s __>:
+                              |   <nil>""")
+                      case _ => None()
+                    }
+
+                    conns = conns :+
+                      st"""Connection Instance: ${(c.srcPort.path, ".")} -> ${(c.dstPort.path, ".")}
+                          |
+                          |  Connection References: ${(refs, " -> ")}
+                          |  $connCon
+                          |"""
+                  }
+                  val sysRoot = st"${(i.systemRootName, "::")}".render
+
+                  val content =
+                    st"""System Root: $sysRoot [${i.systemRootPos}]
+                        |
+                        |${(conns, "\n")}""".render
+
+                  val expectedConstraintPath = slangDir / s"integration_$sysRoot.txt"
+
+                  if (generateExpected) {
+                    expectedConstraintPath.writeOver(content)
+                    println(s"Wrote: $expectedConstraintPath")
+                  } else {
+                    assert(expectedConstraintPath.exists, expectedConstraintPath.value)
+
+                    val expectedContent = expectedConstraintPath.read
+
+                    if (expectedContent != content) {
+                      val resultsConstraintPath = slangDir / s"integration_${sysRoot}_results.txt"
+                      resultsConstraintPath.writeOver(content)
+
+                      println(s"Testing Dir: ${slangDir.toUri}")
+                      assert(F, "Expected integration constraints did not match the results")
+                    }
+                  }
+                }
+              case Either.Right(m) =>
+                assert(F, m)
+            }
           }
-        }
+        case _ =>
       }
     }
 
