@@ -49,8 +49,8 @@ abstract class TestFrontEnd extends TestSuite {
   val w_sysml_aadl_libraries: Os.Path = w_sysmlv2Models / "sysml-aadl-libraries"
   val w_hamrModels: Os.Path = w_sysmlv2Models / "models"
 
-  assert (w_sysml_aadl_libraries.exists, w_sysml_aadl_libraries.value)
-  assert (w_hamrModels.exists, w_hamrModels.value)
+  assert(w_sysml_aadl_libraries.exists, w_sysml_aadl_libraries.value)
+  assert(w_hamrModels.exists, w_hamrModels.value)
 
   if (!w_internal_models.exists) {
     val dest = internalModels
@@ -58,10 +58,10 @@ abstract class TestFrontEnd extends TestSuite {
     w_internal_models.mklink(dest)
   }
 
-  val libDefs: ISZ[Input] = for(f <- getSysmlFiles (w_sysml_aadl_libraries, T)) yield toInput(f)
+  val libDefs: ISZ[Input] = for (f <- getSysmlFiles(w_sysml_aadl_libraries, T)) yield toInput(f)
 
   def getSysmlFiles(root: Os.Path, includeAadlLibraries: B): ISZ[Os.Path] = {
-    val files = for(f <- Os.Path.walk(root, T, T, x => x.ext.native == "sysml")) yield f.canon
+    val files = for (f <- Os.Path.walk(root, T, T, x => x.ext.native == "sysml")) yield f.canon
     if (!includeAadlLibraries)
       return ops.ISZOps(files).filter(p => !ops.StringOps(p.value).contains("aadl.library"))
     else
@@ -79,14 +79,14 @@ abstract class TestFrontEnd extends TestSuite {
 
     if (!reporter.hasError) {
 
-      assert (root.exists, root.value)
-      assert (modelElements.size.nonEmpty)
+      assert(root.exists, root.value)
+      assert(modelElements.size.nonEmpty)
 
       Os.env("USER") match {
         case Some(string"belt") =>
 
           val aadlModel: Aadl = {
-            var model: Option[Aadl]= None()
+            var model: Option[Aadl] = None()
             var avail: ISZ[String] = ISZ()
             for (m <- modelElements) {
               assert(m.model.components.size == 1)
@@ -96,8 +96,9 @@ abstract class TestFrontEnd extends TestSuite {
               }
             }
             if (model.nonEmpty) model.get
-            else halt(st"""Didn't locate instance model for $instanceName in $root. Avaliable instances:
-                          |  ${(avail, "\n")}""".render)
+            else halt(
+              st"""Didn't locate instance model for $instanceName in $root. Avaliable instances:
+                  |  ${(avail, "\n")}""".render)
           }
 
           val slangDir = root / ".slang"
@@ -129,12 +130,14 @@ abstract class TestFrontEnd extends TestSuite {
                   val gicontent = ops.StringOps(gitIgnore.read)
                   var add: Option[ST] = None()
                   if (!gicontent.contains("*_result*")) {
-                    add = Some(st"""$add
-                                   |*_result*""")
+                    add = Some(
+                      st"""$add
+                          |*_result*""")
                   }
                   if (!gicontent.contains("*_expected*")) {
-                    add = Some(st"""$add
-                                   |*_expected*""")
+                    add = Some(
+                      st"""$add
+                          |*_expected*""")
                   }
                   if (add.nonEmpty) {
                     gitIgnore.writeOver(
@@ -145,70 +148,68 @@ abstract class TestFrontEnd extends TestSuite {
                   println(s"Testing Dir: ${slangDir.toUri}")
                   assert(F, "Expected AIR contents did not match the results")
                 }
-
-
-
-                val integerationConstraints = FrontEnd.getIntegerationConstraints(modelElements, reporter)
-
-                for (i <- integerationConstraints) {
-                  var conns: ISZ[ST] = ISZ()
-                  for (c <- i.connections) {
-                    val refs: ISZ[ST] = for (r <- c.connectionReferences.entries) yield st"[${(r._1, ".")}, ${r._2}]"
-
-                    val connCon: Option[ST] = (c.srcConstraint, c.dstConstraint) match {
-                      case (Some(s), Some(d)) =>
-                        Some(
-                          st"""
-                              | $s __>:
-                              |   $d""")
-                      case (None(), Some(d)) =>
-                        Some(
-                          st"""
-                              | <nil> __>:
-                              |   $d""")
-                      case (Some(s), None()) =>
-                        Some(
-                          st"""
-                              | $s __>:
-                              |   <nil>""")
-                      case _ => None()
-                    }
-
-                    conns = conns :+
-                      st"""Connection Instance: ${(c.srcPort.path, ".")} -> ${(c.dstPort.path, ".")}
-                          |
-                          |  Connection References: ${(refs, " -> ")}
-                          |  $connCon
-                          |"""
-                  }
-                  val sysRoot = st"${(i.systemRootName, "::")}".render
-
-                  val content =
-                    st"""System Root: $sysRoot [${i.systemRootPos}]
-                        |
-                        |${(conns, "\n")}""".render
-
-                  val expectedConstraintPath = slangDir / s"integration_$sysRoot.txt"
-
-                  if (generateExpected) {
-                    expectedConstraintPath.writeOver(content)
-                    println(s"Wrote: $expectedConstraintPath")
-                  } else {
-                    assert(expectedConstraintPath.exists, expectedConstraintPath.value)
-
-                    val expectedContent = expectedConstraintPath.read
-
-                    if (expectedContent != content) {
-                      val resultsConstraintPath = slangDir / s"integration_${sysRoot}_results.txt"
-                      resultsConstraintPath.writeOver(content)
-
-                      println(s"Testing Dir: ${slangDir.toUri}")
-                      assert(F, "Expected integration constraints did not match the results")
-                    }
-                  }
-                }
               case Either.Right(m) =>
                 assert(F, m)
+            }
+          }
+
+          val integerationConstraints = FrontEnd.getIntegerationConstraints(modelElements, reporter)
+
+          for (i <- integerationConstraints) {
+            var conns: ISZ[ST] = ISZ()
+            for (c <- i.connections) {
+              val refs: ISZ[ST] = for (r <- c.connectionReferences.entries) yield st"[${(r._1, ".")}, ${r._2}]"
+
+              val connCon: Option[ST] = (c.srcConstraint, c.dstConstraint) match {
+                case (Some(s), Some(d)) =>
+                  Some(
+                    st"""
+                        | $s __>:
+                        |   $d""")
+                case (None(), Some(d)) =>
+                  Some(
+                    st"""
+                        | <nil> __>:
+                        |   $d""")
+                case (Some(s), None()) =>
+                  Some(
+                    st"""
+                        | $s __>:
+                        |   <nil>""")
+                case _ => None()
+              }
+
+              conns = conns :+
+                st"""Connection Instance: ${(c.srcPort.path, ".")} -> ${(c.dstPort.path, ".")}
+                    |
+                    |  Connection References: ${(refs, " -> ")}
+                    |  $connCon
+                    |"""
+            }
+            val sysRoot = st"${(i.systemRootName, "::")}".render
+
+            val content =
+              st"""System Root: $sysRoot [${i.systemRootPos}]
+                  |
+                  |${(conns, "\n")}""".render
+
+            val expectedConstraintPath = slangDir / s"integration_$sysRoot.txt"
+
+            if (generateExpected) {
+              expectedConstraintPath.writeOver(content)
+              println(s"Wrote: $expectedConstraintPath")
+            } else {
+              assert(expectedConstraintPath.exists, expectedConstraintPath.value)
+
+              val expectedContent = expectedConstraintPath.read
+
+              if (expectedContent != content) {
+                val resultsConstraintPath = slangDir / s"integration_${sysRoot}_results.txt"
+                resultsConstraintPath.writeOver(content)
+
+                println(s"Testing Dir: ${slangDir.toUri}")
+                assert(F, "Expected integration constraints did not match the results")
+              }
             }
           }
         case _ =>
@@ -225,6 +226,7 @@ abstract class TestFrontEnd extends TestSuite {
   }
 
   val m = TestUtil.AirScrubber()
+
   def scrub(model: Aadl): Aadl = {
     return m.transformAadl(model).get
   }
