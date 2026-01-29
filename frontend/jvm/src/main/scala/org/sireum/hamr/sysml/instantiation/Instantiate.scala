@@ -172,9 +172,10 @@ object Instantiate {
         var ret: ISZ[Info.UsageInfo] = ISZ()
         if (processingDatatype) {
           for (pmember <- p.members.partUsages.values ) {
-            if (isArray){
+            if (isArray) {
               pmember.id match {
                 case "Base_Type" =>
+                  processDatatype(getDefinition(pmember.typedOpt.get).get.name, idPath :+ pmember.id)
                   ret = ret :+ pmember
                 case x =>
                   reportError(pmember.posOpt, s"Unexpected part usage for an AADL array", reporter)
