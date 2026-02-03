@@ -6,8 +6,8 @@ import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.tree.TerminalNodeImpl
 import org.sireum.hamr.sysml.parser.SysMLAstBuilder.{binOpsUifs, interpolates, isReservedSequenceName, kerMLOperations, logikaUifs, numeric_interpolates, portUifs}
 import org.sireum.hamr.ir.SysmlAst._
-import org.sireum.hamr.ir.{Attr, GclAssume, GclCaseStatement, GclCompute, GclComputeSpec, GclGuarantee, GclHandle, GclInitialize, GclIntegration, GclInvariant, GclLib, GclMethod, GclSpec, GclStateVar, GclSubclause, InfoFlowClause, ResolvedAttr, Name => AirName}
-import org.sireum.hamr.sysml.parser.SlangUtil.Placeholders.{emptyOccurrenceUsagePrefix, emptyUsagePrefix}
+import org.sireum.hamr.ir.{Attr, GclAssume, GclCaseStatement, GclCompute, GclGuarantee, GclHandle, GclInitialize, GclIntegration, GclInvariant, GclLib, GclMethod, GclSpec, GclBodyMethod, GclSpecMethod, GclStateVar, GclSubclause, InfoFlowClause, ResolvedAttr, Name => AirName}
+import org.sireum.hamr.sysml.parser.SlangUtil.Placeholders.emptyUsagePrefix
 import org.sireum.hamr.sysml.parser.SysmlAstUtil.isRegularComment
 import org.sireum.hamr.sysml.parser.SlangUtil.{Placeholders, mergePos}
 import org.sireum.hamr.sysml.parser.SysMLv2Parser._
@@ -3086,13 +3086,18 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
 
     val retType = SlangUtil.buildSlangTypedNamed(visitQualifiedNameAsSlangName(o.ruleSlangType().ruleSlangBaseType().ruleQualifiedName()))
 
-    val ret = AST.Stmt.Return(expOpt = Some(visitExpression(o.ruleOwnedExpression())), attr = retType.attr)
-    val body = AST.Body(stmts = ISZ(ret), undecls = ISZ())
+    val optBody: Option[AST.Body] =
+      if (nonEmpty(o.ruleOwnedExpression())) {
+        val ret = AST.Stmt.Return(expOpt = Some(visitExpression(o.ruleOwnedExpression())), attr = retType.attr)
+        Some(AST.Body(stmts = ISZ(ret), undecls = ISZ()))
+      } else {
+        None()
+      }
 
     var hasContract: B = F
 
     var readsClause = AST.MethodContract.Accesses.empty
-    if (nonEmpty(o.ruleSlangDefContract().ruleSlangReads())) {
+    if (nonEmpty(o.ruleSlangDefContract()) && nonEmpty(o.ruleSlangDefContract().ruleSlangReads())) {
       hasContract = T
       var refs: ISZ[AST.Exp.Ref] = ISZ()
       for (read <- o.ruleSlangDefContract().ruleSlangReads().ruleOwnedExpression().asScala) {
@@ -3105,7 +3110,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
     }
 
     var requiresClause = AST.MethodContract.Claims.empty
-    if (nonEmpty(o.ruleSlangDefContract().ruleSlangRequires())) {
+    if (nonEmpty(o.ruleSlangDefContract()) && nonEmpty(o.ruleSlangDefContract().ruleSlangRequires())) {
       hasContract = T
       val exps: ISZ[AST.Exp] =
         for (e <- listToISZ(o.ruleSlangDefContract().ruleSlangRequires().ruleOwnedExpression())) yield
@@ -3114,7 +3119,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
     }
 
     var modifiesClause = AST.MethodContract.Accesses.empty
-    if (nonEmpty(o.ruleSlangDefContract().ruleSlangModifies())) {
+    if (nonEmpty(o.ruleSlangDefContract()) && nonEmpty(o.ruleSlangDefContract().ruleSlangModifies())) {
       hasContract = T
       hasContract = T
       var refs: ISZ[AST.Exp.Ref] = ISZ()
@@ -3128,7 +3133,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
     }
 
     var ensuresClause = AST.MethodContract.Claims.empty
-    if (nonEmpty(o.ruleSlangDefContract().ruleSlangEnsures())) {
+    if (nonEmpty(o.ruleSlangDefContract()) && nonEmpty(o.ruleSlangDefContract().ruleSlangEnsures())) {
       hasContract = T
       val exps: ISZ[AST.Exp] =
         for (e <- listToISZ(o.ruleSlangDefContract().ruleSlangEnsures().ruleOwnedExpression())) yield
@@ -3145,7 +3150,47 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
       AST.MethodContract.Simple.empty
     }
 
-    val purity = if (hasContract) AST.Purity.Pure else AST.Purity.StrictPure
+    var isSpec = F
+    var isPure = F
+    var isStrictpure = F
+
+    if(nonEmpty(o.ruleSlangDefMods())) {
+      /** ruleSlangDefMods:
+        *   '@strictpure' #ruleSlangDefMods1
+        * | '@pure' #ruleSlangDefMods2
+        * | '@spec' #ruleSlangDefMods3;
+        */
+      o.ruleSlangDefMods() match {
+        case r1: RuleSlangDefMods1Context =>
+          assert (r1.K__STRICTPURE() != null)
+          isStrictpure == T
+        case r2: RuleSlangDefMods2Context =>
+          assert (r2.K__PURE() != null)
+          isPure = T
+        case r3: RuleSlangDefMods3Context =>
+          assert (r3.K__SPEC() != null)
+          isSpec = T
+      }
+    }
+
+    val purity =
+      if (hasContract) {
+        if (isSpec | isStrictpure) {
+          reportError(o, "Only pure methods can have contracts")
+        }
+        AST.Purity.Pure
+      } else if(optBody.nonEmpty) {
+        if (isSpec) {
+          reportError(o, "Spec methods cannot have a body");
+        }
+        if (isPure) {
+          reportError(o, "Pure methods must have contracts");
+        }
+        AST.Purity.StrictPure
+      } else {
+        assert (isSpec)
+        AST.Purity.Pure
+      }
 
     val sig = AST.MethodSig(
       purity = purity,
@@ -3156,16 +3201,20 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
       params = params,
       returnType = retType)
 
-    val method = AST.Stmt.Method(
-      typeChecked = F,
-      purity = purity,
-      modifiers = ISZ(),
-      sig = sig,
-      mcontract = mcontract,
-      bodyOpt = Some(body),
-      attr = toSlangResolvedAttr(o))
+    if (isSpec) {
+      return GclSpecMethod(AST.Stmt.SpecMethod(sig = sig, attr = toSlangResolvedAttr(o)))
+    } else {
+      val method = AST.Stmt.Method(
+        typeChecked = F,
+        purity = purity,
+        modifiers = ISZ(),
+        sig = sig,
+        mcontract = mcontract,
+        bodyOpt = optBody,
+        attr = toSlangResolvedAttr(o))
 
-    return GclMethod(method)
+      return GclBodyMethod(method)
+    }
   }
 
   def toSlangAttr(o: ParserRuleContext): AST.Attr = {

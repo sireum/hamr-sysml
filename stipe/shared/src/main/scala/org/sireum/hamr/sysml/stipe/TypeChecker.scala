@@ -3,7 +3,7 @@ package org.sireum.hamr.sysml.stipe
 
 import org.sireum._
 import org.sireum.hamr.ir.SysmlAst.{BinaryConnectorPart, OccurrenceBasicUsagePrefix, RedefinitionsSpecialization, SubsettingsSpecialization, TypingsSpecialization}
-import org.sireum.hamr.ir.{GclLib, GclMethod, GclStateVar, GclSubclause, ResolvedInfo, ResolvedAttr, SysmlAst, Typed}
+import org.sireum.hamr.ir.{GclBodyMethod, GclLib, GclMethod, GclSpecMethod, GclStateVar, GclSubclause, ResolvedAttr, ResolvedInfo, SysmlAst, Typed}
 import org.sireum.hamr.{ir => SAST}
 import org.sireum.hamr.sysml.symbol.Resolver.{NameMap, QName, resolverKind}
 import org.sireum.hamr.sysml.symbol.{Info, Scope, TypeInfo, Util}
@@ -97,7 +97,7 @@ object TypeChecker {
       }
     }
 
-    for(p <- m.method.sig.params) {
+    for(p <- m.sig.params) {
       resolveType(p.tipe) match {
         case Some(t) => params = params :+ p(tipe = t)
         case _ =>
@@ -106,14 +106,19 @@ object TypeChecker {
       }
     }
 
-    val returnType: AST.Type = resolveType(m.method.sig.returnType) match {
+    val returnType: AST.Type = resolveType(m.sig.returnType) match {
       case Some(rt) => rt
       case _ =>
-        reportError(m.method.sig.returnType.posOpt, s"Could not resolve methods return type: ${m.method.sig.returnType.string}", reporter)
-        m.method.sig.returnType
+        reportError(m.sig.returnType.posOpt, s"Could not resolve methods return type: ${m.sig.returnType.string}", reporter)
+        m.sig.returnType
     }
 
-    return m(method = m.method(sig = m.method.sig(params = params, returnType = returnType)))
+    return (
+      m match {
+        case g: GclSpecMethod => g(method = g.method(sig = g.method.sig(params = params, returnType = returnType)))
+        case g: GclBodyMethod => g(method = g.method(sig = g.method.sig(params = params, returnType = returnType)))
+      }
+    )
   }
 
   def reportWarnCond(cond: B, posOpt: Option[Position], message: String, reporter: Reporter): Unit = {

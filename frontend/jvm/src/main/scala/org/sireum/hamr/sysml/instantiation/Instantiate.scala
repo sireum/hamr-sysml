@@ -93,7 +93,7 @@ object Instantiate {
                           val rmethod = TypeChecker.resolveMethod(m, scope, typeHierarchy, reporter)
                           methods = methods :+ rmethod
 
-                          for (p <- rmethod.method.sig.params) {
+                          for (p <- rmethod.sig.params) {
                             val t1 =  p.tipe.typedOpt.get.asInstanceOf[AST.Typed.Name].ids
                             processDatatype(t1, ISZ()) match {
                               case Some(x) =>
@@ -102,7 +102,7 @@ object Instantiate {
                             }
                           }
 
-                          val t2 = rmethod.method.sig.returnType.typedOpt.get.asInstanceOf[AST.Typed.Name].ids
+                          val t2 = rmethod.sig.returnType.typedOpt.get.asInstanceOf[AST.Typed.Name].ids
                           processDatatype(t2, ISZ()) match {
                             case Some(x) =>
                             case _ =>
@@ -432,15 +432,15 @@ object Instantiate {
                       hasGumbo = T
 
                       for (m <- gumbo.methods) {
-                        for (p <- m.method.sig.params) {
+                        for (p <- m.sig.params) {
                           val t1 = p.tipe.typedOpt.get.asInstanceOf[AST.Typed.Name].ids
                           val d1 = processDatatype(t1, ISZ())
-                          assert(d1.nonEmpty, s"Type $t1 not resolved for subclause method ${m.method.sig.id.value}'s ${p.id.value} param")
+                          assert(d1.nonEmpty, s"Type $t1 not resolved for subclause method ${m.sig.id.value}'s ${p.id.value} param")
                         }
 
-                        val t2 = m.method.sig.returnType.typedOpt.get.asInstanceOf[AST.Typed.Name].ids
+                        val t2 = m.sig.returnType.typedOpt.get.asInstanceOf[AST.Typed.Name].ids
                         val d2 = processDatatype(t2, ISZ())
-                        assert(d2.nonEmpty, s"Return type $t2 not resolved for subclause method ${m.method.sig.id.value}")
+                        assert(d2.nonEmpty, s"Return type $t2 not resolved for subclause method ${m.sig.id.value}")
                       }
 
                       for (s <- gumbo.state) {
