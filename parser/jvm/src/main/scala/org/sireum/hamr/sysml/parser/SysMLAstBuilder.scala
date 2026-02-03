@@ -3163,7 +3163,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
       o.ruleSlangDefMods() match {
         case r1: RuleSlangDefMods1Context =>
           assert (r1.K__STRICTPURE() != null)
-          isStrictpure == T
+          isStrictpure = T
         case r2: RuleSlangDefMods2Context =>
           assert (r2.K__PURE() != null)
           isPure = T
@@ -3173,22 +3173,33 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
       }
     }
 
+    // @spec, @pure and @strictpure are optional, but they must be applied correctly if used
+
     val purity =
       if (hasContract) {
         if (isSpec | isStrictpure) {
           reportError(o, "Only pure methods can have contracts")
         }
+        if (optBody.isEmpty) {
+          reportError(o, "Pure methods must have a body");
+        }
         AST.Purity.Pure
       } else if(optBody.nonEmpty) {
-        if (isSpec) {
-          reportError(o, "Spec methods cannot have a body");
-        }
         if (isPure) {
           reportError(o, "Pure methods must have contracts");
         }
+        if (isSpec) {
+          reportError(o, "Spec methods cannot have a body");
+        }
         AST.Purity.StrictPure
       } else {
-        assert (isSpec)
+        if (isPure) {
+          reportError(o, "Pure methods must have a contract and a body");
+        }
+        if (isStrictpure) {
+          reportError(o, "Strictpure methods must have a body");
+        }
+        isSpec = T
         AST.Purity.Pure
       }
 
@@ -3204,6 +3215,8 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
     if (isSpec) {
       return GclSpecMethod(AST.Stmt.SpecMethod(sig = sig, attr = toSlangResolvedAttr(o)))
     } else {
+      assert (optBody.nonEmpty, "A non-spec version must have a body")
+
       val method = AST.Stmt.Method(
         typeChecked = F,
         purity = purity,
