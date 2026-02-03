@@ -113,12 +113,10 @@ object TypeChecker {
         m.sig.returnType
     }
 
-    return (
-      m match {
-        case g: GclSpecMethod => g(method = g.method(sig = g.method.sig(params = params, returnType = returnType)))
-        case g: GclBodyMethod => g(method = g.method(sig = g.method.sig(params = params, returnType = returnType)))
-      }
-    )
+    m match {
+      case g: GclSpecMethod => return g(method = g.method(sig = g.method.sig(params = params, returnType = returnType)))
+      case g: GclBodyMethod => return g(method = g.method(sig = g.method.sig(params = params, returnType = returnType)))
+    }
   }
 
   def reportWarnCond(cond: B, posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
