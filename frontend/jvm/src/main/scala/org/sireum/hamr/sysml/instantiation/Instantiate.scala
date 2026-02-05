@@ -129,20 +129,12 @@ object Instantiate {
       return gumboLibraries
     }
 
-    def getDirection(v: Option[SysmlAst.FeatureDirection.Type]): ir.Direction.Type = {
+    def getDirection(v: Option[SysmlAst.FeatureDirection.Type]): Option[ir.Direction.Type] = {
       v match {
-        case Some(SysmlAst.FeatureDirection.In) => return ir.Direction.In
-        case Some(SysmlAst.FeatureDirection.Out) => return ir.Direction.Out
-        case Some(SysmlAst.FeatureDirection.InOut) => return ir.Direction.InOut
-        case _ =>
-          halt("Infeasible: type checking should have insured a direction was provided")
-      }
-    }
-
-    def getDirectionFromUsage(usage: OccurrenceUsagePrefix): Direction.Type = {
-      usage match {
-        case b: OccurrenceBasicUsagePrefix => return getDirection(b.refPrefix.direction)
-        case e: OccurrenceEndUsagePrefix => halt("Infeasible: a port cannot also be a cross feature")
+        case Some(SysmlAst.FeatureDirection.In) => return Some(ir.Direction.In)
+        case Some(SysmlAst.FeatureDirection.Out) => return Some(ir.Direction.Out)
+        case Some(SysmlAst.FeatureDirection.InOut) => return Some(ir.Direction.InOut)
+        case _ => return None()
       }
     }
 
@@ -162,18 +154,30 @@ object Instantiate {
         reportError(p.posOpt, s"Only expecting system, processor, process, thread, data or abstract components: ${p}")
       }
       if (p.members.itemUsages.nonEmpty) {
-        reportError(p.posOpt, s"Currently not expecting item usages at the AADL process level")
-      }
-      for (m <- p.members.referenceUsages.values) {
-        reportError(m.posOpt, s"Currently not expecting reference usages at the AADL process level")
+        reportError(p.posOpt, s"Currently not expecting item usages for a $category component")
       }
 
       val componentName = st"${(p.name, "::")}".render
 
       val isArray = InstantiateUtil.isAadlArray(p, typeHierarchy)
+      val isStruct = InstantiateUtil.isAadlStruct(p, typeHierarchy)
 
       val members: ISZ[Info.UsageInfo] = {
         var ret: ISZ[Info.UsageInfo] = ISZ()
+
+        for (m <- p.members.referenceUsages.values) {
+          if (isStruct) {
+            assert (processingDatatype)
+            if (isDatatype(m.typedOpt.get)) {
+              ret = ret :+ m
+            } else {
+              reportError(p.posOpt, s"Unexpected reference usage for an AADL $category component")
+            }
+          } else {
+            reportError(m.posOpt, s"Currently not expecting reference usages for a $category component")
+          }
+        }
+
         if (processingDatatype) {
           for (pmember <- p.members.partUsages.values ) {
             if (isArray) {
@@ -188,7 +192,7 @@ object Instantiate {
             else if (isDatatype(pmember.typedOpt.get)) {
               ret = ret :+ pmember
             } else if (!allowedDataComponentMembers(p, pmember)) {
-              reportError(pmember.posOpt, s"Unexpected part usage for an AADL Data Component")
+              reportError(pmember.posOpt, s"Unexpected part usage for an AADL $category component")
             }
           }
 
@@ -207,7 +211,7 @@ object Instantiate {
             else if (isDatatype(pmember.typedOpt.get)) {
               ret = ret :+ pmember
             } else if (!allowedDataComponentMembers(p, pmember)) {
-              reportError(p.posOpt, s"Unexpected attribute usage for an AADL Data Component")
+              reportError(p.posOpt, s"Unexpected attribute usage for an AADL $category component")
             }
           }
         } else {
@@ -248,34 +252,29 @@ object Instantiate {
         }
       }
 
-      def getPayloadType(portName: String, optPosOpt: Option[Position], definitionBodyItems: ISZ[SysmlAst.DefinitionBodyItem]): (Option[ir.Classifier], Option[SysmlAst.FeatureDirection.Type]) = {
-        if (definitionBodyItems.size != 1) {
-          reportError(optPosOpt, "Currently expecting a single body item for data ports that refines 'type'")
-          return (None(), None())
-        }
-
+      def getPayloadType(portName: String, optPosOpt: Option[Position], definitionBodyItems: ISZ[SysmlAst.DefinitionBodyItem]): Option[ir.Classifier] = {
         for (b <- definitionBodyItems) {
           b match {
-            case r: SysmlAst.ReferenceUsage =>
-              r.commonUsageElements.attr.typedOpt match {
+            case SysmlAst.ReferenceUsage (prefix, cue @ SysmlAst.CommonUsageElements(
+              _, _, ISZ(SysmlAst.RedefinitionsSpecialization(ISZ(SysmlAst.Name(ISZ(SysmlAst.Id("type"))))), _), _, _, _)) =>
+              cue.attr.typedOpt match {
                 case Some(n: Typed.Name) =>
-
                   if (isValidDatatype(n.ids)) {
                     processDatatype(n.ids, ISZ(portName))
-                    return (Some(ir.Classifier(st"${(n.ids, "::")}".render)), r.prefix.direction)
+                    return Some(ir.Classifier(st"${(n.ids, "::")}".render))
                   } else {
                     reportError(optPosOpt,
                       st"Data port type must be an enum or a descendant of ${(InstantiateUtil.AadlDataName, "::")}".render)
                   }
                 case _ =>
-                  reportWarn(r.posOpt, s"The payload type for ${componentName}'s $portName data port was not resolved")
-                  return (None(), None())
+                  reportWarn(b.posOpt, s"The payload type for ${componentName}'s $portName data port was not resolved")
+                  return None()
               }
-            case x =>
-              reportError(optPosOpt, s"Currently only expecting reference usages in port bodies")
+            case q =>
+              reportError(optPosOpt, s"Currently only expecting a redefinition of 'type' in port bodies: $q")
           }
         }
-        return (None(), None())
+        return None()
       }
 
       assert(isArray -->: p.members.portUsages.isEmpty)
@@ -287,35 +286,61 @@ object Instantiate {
           case Some(t: Typed.Name) =>
             t.ids match {
               case ISZ("AADL", "DataPort") =>
-                val usageDir = getDirectionFromUsage(portUsage._2.ast.occurrenceUsagePrefix)
-                val (pType, refDir) = getPayloadType(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
-                if (refDir.nonEmpty && usageDir != getDirection(refDir)) {
-                  reportError(portUsage._2.posOpt, "Port usage direction and the direction of the body reference usage must be the same")
+                val pType = getPayloadType(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
+                val direction: Direction.Type = getPortUsageDirection(portUsage._2.ast) match {
+                  case (Some(u), Some(r)) =>
+                    if (u != r) {
+                      reportError(portUsage._2.posOpt, "Port usage direction and feature direction must be the same")
+                    }
+                    u
+                  case (None(), Some(r)) => r
+                  case (Some(u), None()) =>
+                    reportWarn(portUsage._2.posOpt, "Port direction must be supplied on the feature")
+                    u
+                  case _ =>
+                    reportError(portUsage._2.posOpt, "Port usage direction must be supplied on the feature")
+                    Direction.None
                 }
                 features = features + portName ~> ir.FeatureEnd(
                   identifier = ir.Name(portName, portUsage._2.posOpt),
-                  direction = usageDir,
+                  direction = direction,
                   category = ir.FeatureCategory.DataPort,
                   classifier = pType,
                   properties = ISZ(),
                   uriFrag = "")
               case ISZ("AADL", "EventDataPort") =>
-                val usageDir = getDirectionFromUsage(portUsage._2.ast.occurrenceUsagePrefix)
-                val (pType, refDir) = getPayloadType(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
-                if (refDir.nonEmpty && usageDir != getDirection(refDir)) {
-                  reportError(portUsage._2.posOpt, "Port usage direction and the direction of the body reference usage must be the same")
+                val pType = getPayloadType(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
+                val direction: Direction.Type = getPortUsageDirection(portUsage._2.ast) match {
+                  case (Some(u), Some(r)) =>
+                    if (u != r) {
+                      reportError(portUsage._2.posOpt, "Port usage direction and feature direction")
+                    }
+                    u
+                  case (None(), Some(r)) => r
+                  case (Some(u), None()) =>
+                    reportWarn(portUsage._2.posOpt, "Port direction must be supplied on the feature")
+                    u
+                  case _ =>
+                    reportError(portUsage._2.posOpt, "Port direction must be supplied on the feature")
+                    Direction.None
                 }
                 features = features + portName ~> ir.FeatureEnd(
                   identifier = ir.Name(portName, portUsage._2.posOpt),
-                  direction = usageDir,
+                  direction = direction,
                   category = ir.FeatureCategory.EventDataPort,
                   classifier = pType,
                   properties = ISZ(),
                   uriFrag = "")
               case ISZ("AADL", "EventPort") =>
+                val direction: Direction.Type = getPortUsageDirection(portUsage._2.ast) match {
+                  case (Some(d), _) => d
+                  case _ =>
+                    reportError(portUsage._2.posOpt, "Port direction must be supplied on the usage for event ports")
+                    Direction.None
+                }
                 features = features + portName ~> ir.FeatureEnd(
                   identifier = ir.Name(portName, portUsage._2.posOpt),
-                  direction = getDirectionFromUsage(portUsage._2.ast.occurrenceUsagePrefix),
+                  direction = direction,
                   category = ir.FeatureCategory.EventPort,
                   classifier = None(),
                   properties = ISZ(),
@@ -541,6 +566,16 @@ object Instantiate {
                 case x =>
                   halt(s"Infeasible: attribute usages can only refer to other attribute usages but found $x")
               }
+            case Some(v: AST.ResolvedInfo.BuiltIn) =>
+              v.kind match {
+                case AST.ResolvedInfo.BuiltIn.Kind.AsInstanceOf =>
+                  sel.asExp match {
+                    case AST.Exp.Select(Some(receiver), _, _) => return processValue(receiver)
+                    case se =>
+                      halt(s"Unexpected application of 'as' on $se")
+                  }
+                case k => halt(s"Unexpected build in kind: $k")
+              }
             case x =>
               halt(s"Unexpected select: $sel: $x")
           }
@@ -640,6 +675,26 @@ object Instantiate {
       return props
     }
 
+    def getPortUsageDirection(p: SysmlAst.PortUsage): (Option[ir.Direction.Type], Option[ir.Direction.Type]) = {
+
+      val usageDir: Option[Direction.Type] = p.occurrenceUsagePrefix match {
+        case b: OccurrenceBasicUsagePrefix => getDirection(b.refPrefix.direction)
+        case e: OccurrenceEndUsagePrefix => halt("Infeasible: a port cannot also be a cross feature")
+      }
+
+      var featureDir: Option[Direction.Type] = None()
+      for (b <- p.commonUsageElements.definitionBodyItems) {
+        b match {
+          case SysmlAst.ReferenceUsage(prefix, SysmlAst.CommonUsageElements(
+            _, _, ISZ(SysmlAst.RedefinitionsSpecialization(ISZ(SysmlAst.Name(ISZ(SysmlAst.Id("type"))))), _), _, _, _)) =>
+            featureDir = getDirection(prefix.direction)
+          case _ =>
+        }
+      }
+
+      return (usageDir, featureDir)
+    }
+
     def processConnection(idPath: ISZ[String],
                           connectionName: String,
                           c: Info.ConnectionUsage,
@@ -655,7 +710,11 @@ object Instantiate {
             srcComponentName = srcComponentName ++ Util.ids2string(n.ids)
           }
           val srcFeatureName = srcComponentName ++ Util.ids2string(b.src.reference(b.src.reference.lastIndex).ids)
-          val srcDirection = getDirectionFromUsage(c.srcAst.get.occurrenceUsagePrefix)
+          val srcDirection: Direction.Type = getPortUsageDirection(c.srcAst.get) match {
+            case (Some(u), _) => u
+            case (_, Some(f)) => f
+            case _ => Direction.None
+          }
           val src_ = ir.EndPoint(
             component = ir.Name(name = srcComponentName, pos = b.src.reference(0).posOpt),
             feature = Some(ir.Name(srcFeatureName, b.src.reference(0).posOpt)),
@@ -668,7 +727,11 @@ object Instantiate {
           }
           val dstFeatureName = dstComponentName ++ Util.ids2string(b.dst.reference(b.dst.reference.lastIndex).ids)
 
-          val dstDirection = getDirectionFromUsage(c.dstAst.get.occurrenceUsagePrefix)
+          val dstDirection: Direction.Type = getPortUsageDirection(c.dstAst.get) match {
+            case (Some(u), _) => u
+            case (_, Some(f)) => f
+            case _ => Direction.None
+          }
           val dst_ = ir.EndPoint(
             component = ir.Name(name = dstComponentName, pos = b.dst.reference(0).posOpt),
             feature = Some(ir.Name(dstFeatureName, b.dst.reference(0).posOpt)),

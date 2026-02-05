@@ -103,13 +103,11 @@ package Data_Invariants {
 
     part def t :> AADL::Thread {
         out port setPoint : AADL::DataPort {
-            //out item :>> type : SetPoint_i;
-            out :> type : SetPoint_i;
+            out :>> type : SetPoint_i;
         }
 
         out port temp : AADL::DataPort {
-            //out item :>> type : Temperature_i;
-            out :> type : Temperature_i;
+            out :>> type : Temperature_i;
         }
     }
 }

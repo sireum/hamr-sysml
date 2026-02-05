@@ -33,7 +33,7 @@ object InstantiateUtil {
 
 
   val HAMR_AADL_Array: ISZ[String]= ISZ("HAMR_AADL", "Array")
-
+  val HAMR_AADL_Struct: ISZ[String]= ISZ("HAMR_AADL", "Struct")
 
   val AadlBaseTypeNames: ISZ[ISZ[String]] = for(t <- ISZ(
     "Boolean",
@@ -60,6 +60,10 @@ object InstantiateUtil {
 
   @pure def isAadlArray(p: TypeInfo.DefinitionTypeInfo, th: TypeHierarchy): B = {
     return th.poset.ancestorsOf(p.name).contains(HAMR_AADL_Array)
+  }
+
+  @pure def isAadlStruct(p: TypeInfo.DefinitionTypeInfo, th: TypeHierarchy): B = {
+    return th.poset.ancestorsOf(p.name).contains(HAMR_AADL_Struct)
   }
 
   def isAadlAttribute(name: ISZ[String]): B = {

@@ -50,6 +50,7 @@ object TypeHierarchy {
             val typed = SAST.Typed.Name(parentType.name)
             ret = ret :+ Type.Named(
               name = parentName,
+              typeArgs = ISZ(),
               attr = SAST.TypedAttr(parentName.posOpt, Some(typed)))
           case _ =>
             reportError(posOpt, st"Could not resolve type named '${(pName, "::")}'".render, reporter)
@@ -352,5 +353,16 @@ object TypeHierarchy {
       case _ =>
     }
     return F
+  }
+
+  @pure def glb(ts: ISZ[SAST.Typed]): Option[SAST.Typed] = {
+    var same = T
+    for (i <- 0 until ts.size - 2 if same) {
+      same = same & ts(i) == ts(i + 1)
+    }
+    if (same) {
+      return Some(ts(0))
+    }
+    halt("TODO")
   }
 }

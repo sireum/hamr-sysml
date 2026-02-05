@@ -66,6 +66,12 @@ object Util {
       return None()
     }
     r.get match {
+      case SAST.ResolvedInfo.BuiltIn(_, kind) =>
+        kind match {
+          case SAST.ResolvedInfo.BuiltIn.Kind.AsInstanceOf =>
+            return Some(AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.AsInstanceOf))
+          case _ => halt(kind.string)
+        }
       case SAST.ResolvedInfo.Package(name) => return None()
       case SAST.ResolvedInfo.Enum(name) =>
         return Some(AST.ResolvedInfo.Enum(name = name))
@@ -100,11 +106,35 @@ object Util {
     }
   }
 
+  def toSysmlName(t: AST.Name): SysmlAst.Name = {
+    val ids: ISZ[SysmlAst.Id] = for (i <- t.ids) yield SysmlAst.Id(value = i.value, attr = SAST.Attr(i.attr.posOpt))
+    return SysmlAst.Name(ids = ids, attr = SAST.Attr(t.attr.posOpt))
+  }
+
+  def toSysmlType(t: AST.Type): SAST.Type = {
+    t match {
+      case t: AST.Type.Named => return SAST.Type.Named(
+        name = toSysmlName(t.name),
+        typeArgs = for (ta <- t.typeArgs) yield toSysmlType(ta),
+        attr = SAST.TypedAttr(posOpt = t.attr.posOpt, typedOpt = toSysmlTypedOpt(t.attr.typedOpt)))
+      case _ => halt(t.string)
+    }
+  }
+
+  def toSysmlTypeOpt(tOpt: Option[AST.Type]): Option[SAST.Type] = {
+    tOpt match {
+      case Some(t) => return Some(toSysmlType(t))
+      case _ => return None()
+    }
+  }
+
+
   def toSysmlTypedOpt(tOpt: Option[AST.Typed]): Option[SAST.Typed] = {
     val ret: Option[SAST.Typed] =
       tOpt match {
         case Some(t: AST.Typed.Name) => return Some(SAST.Typed.Name(t.ids))
-        case _ => None()
+        case Some(x) => halt(x.string)
+        case _ => return None()
       }
     return ret
   }

@@ -1922,6 +1922,13 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
       return SlangUtil.collapse2(lhs, s)
     }
 
+    /** ruleClassificationExpression:
+      * ruleRelationalExpression ( ruleClassificationTestOperator ruleTypeReferenceMember |  ruleCastOperator ruleTypeResultMember)? #ruleClassificationExpression1
+      * |  ruleSelfReferenceExpression ruleClassificationTestOperator ruleTypeReferenceMember #ruleClassificationExpression2
+      * |  ruleMetadataReference ruleMetaClassificationTestOperator ruleTypeReferenceMember #ruleClassificationExpression3
+      * |  ruleSelfReferenceExpression ruleCastOperator ruleTypeResultMember #ruleClassificationExpression4
+      * |  ruleMetadataReference ruleMetaCastOperator ruleTypeResultMember #ruleClassificationExpression5;
+      */
     def visitClassificationExpression(o: RuleClassificationExpressionContext): AST.Exp = {
       o match {
         case i1: RuleClassificationExpression1Context =>
@@ -1929,11 +1936,18 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
 
           if (i1.ruleClassificationTestOperator() != null) {
             reportError(i1.ruleClassificationTestOperator(), "Classification Test operations are not currently supported")
+            return lhs
           } else if (i1.ruleCastOperator() != null) {
-            reportError(i1.ruleCastOperator(), "Cast operations are not currently supported")
+            val name = i1.ruleTypeResultMember().ruleTypeReference().ruleReferenceTyping().ruleQualifiedName()
+            val typeMember = visitQualifiedNameAsSlangName(name)
+            return AST.Exp.Select(
+              receiverOpt = Some(lhs),
+              id = AST.Id(value = "asInstanceOf", attr = toSlangAttr(o)),
+              targs = ISZ(AST.Type.Named(name = typeMember, typeArgs = ISZ(), attr = toSlangTypedAttr(name))),
+              attr = toSlangResolvedAttr(o))
+          } else {
+            return lhs
           }
-
-          return lhs
 
         case i2: RuleClassificationExpression2Context =>
           reportError(o, "Need example of ruleClassification2")

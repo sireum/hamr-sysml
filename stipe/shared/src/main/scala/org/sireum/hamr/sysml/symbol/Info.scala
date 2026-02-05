@@ -618,6 +618,40 @@ object TypeInfo {
     }
 
     @strictpure override def tpe: Typed = typedOpt.get
+
+    @pure def typeRes(id: String): (Option[SAST.Typed], Option[SAST.ResolvedInfo]) = {
+
+      members.attributeUsages.get(id) match {
+        case Some(x) => return (x.typedOpt, x.resOpt)
+        case _ =>
+      }
+      members.allocationUsages.get(id)match {
+        case Some(x) => return (x.typedOpt, x.resOpt)
+        case _ =>
+      }
+      members.connectionUsages.get(id)match {
+        case Some(x) => return (x.typedOpt, x.resOpt)
+        case _ =>
+      }
+      members.itemUsages.get(id)match {
+        case Some(x) => return (x.typedOpt, x.resOpt)
+        case _ =>
+      }
+      members.partUsages.get(id) match {
+        case Some(x) => return (x.typedOpt, x.resOpt)
+        case _ =>
+      }
+      members.portUsages.get(id)match {
+        case Some(x) => return (x.typedOpt, x.resOpt)
+        case _ =>
+      }
+      members.referenceUsages.get(id)match {
+        case Some(x) => return (x.typedOpt, x.resOpt)
+        case _ =>
+      }
+
+      return (None(), None())
+    }
   }
 
   @datatype class AllocationDefinition(val owner: ISZ[String],

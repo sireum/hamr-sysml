@@ -138,6 +138,10 @@ object TypeChecker {
   def reportError(posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
     reporter.error(posOpt, typeCheckerKind, s"TypeChecker Error: $message")
   }
+
+  val asInstanceOfResOpt: Option[SAST.ResolvedInfo] = Some(
+    SAST.ResolvedInfo.BuiltIn(qname = ISZ(), kind = SAST.ResolvedInfo.BuiltIn.Kind.AsInstanceOf)
+  )
 }
 
 @datatype class TypeChecker(val typeHierarchy: TypeHierarchy,
@@ -199,9 +203,6 @@ object TypeChecker {
   }
 
   def checkAttributeDefinition(info: TypeInfo.AttributeDefinition): TypeHierarchy => (TypeHierarchy, ISZ[Message]) @pure = {
-    if (!info.outlined) {
-      assume(T)
-    }
     val reporter = Reporter.create
 
     var scope = Scope.Local.create(info.scope)
@@ -573,6 +574,7 @@ object TypeChecker {
                                       } else {
                                         Some(SAST.Type.Named(
                                           name = redefinedTypeName,
+                                          typeArgs = ISZ(),
                                           attr = SAST.TypedAttr(
                                             posOpt = redefinedTypeName.posOpt,
                                             typedOpt = Some(redefiningType.tpe))))
@@ -652,6 +654,7 @@ object TypeChecker {
                 //reporter.warn(fv.exp.posOpt, TypeChecker.typeCheckerKind,
                 //  "This is a bound/constant feature value so need to ensure any children do not reassign to it")
               }
+
               val (exp, to) = tc.checkExp(expectedOpt, scope, fv.exp, reporter)
               (Some(fv(exp = exp)), to)
             case _ => (None(), expectedOpt)
@@ -782,12 +785,6 @@ object TypeChecker {
       case item: SysmlAst.PortUsage =>
         val origResAttr = item.commonUsageElements.attr
 
-        item.occurrenceUsagePrefix match {
-          case obup: OccurrenceBasicUsagePrefix if obup.refPrefix.direction.isEmpty =>
-            TypeChecker.reportError(item.posOpt, "Port direction must be supplied at the port usage level", reporter)
-          case _ =>
-        }
-
         val updated = item(commonUsageElements = update(item.commonUsageElements))
 
         sanityResCheck(origResAttr, updated.commonUsageElements.attr)
@@ -851,6 +848,7 @@ object TypeChecker {
 
   def checkId(scope: Scope, id: AST.Id, reporter: Reporter): (Option[SAST.Typed], Option[SAST.ResolvedInfo]) = {
     val nid = ISZ(id.value)
+
     val infoOpt = scope.resolveName(typeHierarchy, nid)
     infoOpt match {
       case Some(info) => return checkInfo(Some(scope), info, id.attr.posOpt, reporter)
@@ -864,55 +862,83 @@ object TypeChecker {
   def checkSelectH(scope: Scope.Local,
                    receiverTyped: SAST.Typed,
                    ident: AST.Id,
-                   reporter: Reporter): (Option[SAST.Typed], Option[SAST.ResolvedInfo]) = {
+                   typeArgs: ISZ[SAST.Typed],
+                   reporter: Reporter): (Option[SAST.Typed], Option[SAST.ResolvedInfo], ISZ[SAST.Typed]) = {
     val id = ident.value
 
-    @pure def noResult: (Option[SAST.Typed], Option[SAST.ResolvedInfo]) = {
-      return (None(), None())
+    @pure def noResult: (Option[SAST.Typed], Option[SAST.ResolvedInfo], ISZ[SAST.Typed]) = {
+      return (None(), None(), typeArgs)
     }
 
     def errAccess(t: SAST.Typed): Unit = {
       TypeChecker.reportError(ident.attr.posOpt, s"'$id' is not a member of type '$t'.", reporter)
     }
 
+    def checkAccess(t: SAST.Typed): (Option[SAST.Typed], Option[SAST.ResolvedInfo], ISZ[SAST.Typed]) = {
+      id.native match {
+        case "asInstanceOf" if typeArgs.size == 1 =>
+          val asT = typeArgs(0)
+          if (!asT.isInstanceOf[SAST.Typed.Name]) {
+            reportError(ident.attr.posOpt, s"Cannot use 'as' on '$t'.", reporter)
+          } else {
+            checkTypeRelation("asInstanceOf", ident.attr.posOpt, t, asT, reporter)
+          }
+          return (Some(asT), asInstanceOfResOpt, ISZ())
+        case _ =>
+          errAccess(t)
+          return noResult
+      }
+    }
+
     receiverTyped match {
       case receiverType: SAST.Typed.Name =>
-        typeHierarchy.nameMap.get(receiverType.ids) match {
-          case Some(info: Info.EnumDefinition) =>
-            info.elements.get(id) match {
-              case Some(res) =>
-                return (info.elementTypedOpt, Some(res))
+        typeHierarchy.typeMap.get(receiverType.ids).get match {
+          case ti: TypeInfo.EnumDefinition => {
+            typeHierarchy.nameMap.get(receiverType.ids) match {
+              case Some(info: Info.EnumDefinition) =>
+                info.elements.get(id) match {
+                  case Some(res) =>
+                    return (info.elementTypedOpt, Some(res), typeArgs)
+                  case _ =>
+                    return checkAccess(receiverType)
+                }
               case _ =>
-                errAccess(receiverType)
+                reportError(ident.attr.posOpt, st"Could not resolve ${(receiverType.ids, "::")}::${id}".render, reporter)
                 return noResult
             }
-          case _ =>
-            reportError(ident.attr.posOpt, st"Could not resolve ${(receiverType.ids, "::")}::${id}".render, reporter)
-            return noResult
-        }
+          }
+          case info: TypeInfo.AttributeDefinition =>
+            info.typeRes(id) match {
+              case (Some(rt), ro) =>
+                halt("")
+              case (_, _) =>
+                return checkAccess(receiverType)
+            }
 
-      case receiverType: SAST.Typed.Enum =>
-        typeHierarchy.nameMap.get(receiverType.name) match {
+          case x =>
+            halt(s"Infeasible: $x $receiverTyped")
+        }
+      case te: Typed.Enum =>
+        typeHierarchy.nameMap.get(te.name) match {
           case Some(info: Info.EnumDefinition) =>
             info.elements.get(id) match {
               case Some(res) =>
-                return (info.elementTypedOpt, Some(res))
+                return (info.elementTypedOpt, Some(res), typeArgs)
               case _ =>
-                errAccess(receiverType)
+                errAccess(te)
                 return noResult
             }
           case _ =>
             halt("Unexpected situation while type checking enum access.")
         }
-      case receiverType: SAST.Typed.Package =>
-        val r = checkInfoOpt(None(), typeHierarchy.nameMap.get(receiverType.name :+ id), ident.attr.posOpt, reporter)
+      case p: Typed.Package =>
+        val r = checkInfoOpt(None(), typeHierarchy.nameMap.get(p.name :+ id), ident.attr.posOpt, reporter)
         if (r._1.isEmpty) {
-          val tt = typeHierarchy.typeMap.get(receiverType.name :+ id)
-          TypeChecker.reportError(ident.attr.posOpt, st"'$id' is not a member of package '${(receiverType.name, ".")}'.".render, reporter)
+          TypeChecker.reportError(ident.attr.posOpt, st"'$id' is not a member of package '${(p.name, ".")}'.".render, reporter)
         }
-        return (r._1, r._2)
-      case _ =>
-        halt(s"Infeasible: $receiverTyped")
+        return (r._1, r._2, typeArgs)
+
+      case x => halt(x.string)
     }
   }
 
@@ -924,7 +950,9 @@ object TypeChecker {
       def checkInvokeH(tOpt: Option[SAST.Typed],
                        rOpt: Option[SAST.ResolvedInfo],
                        receiverOpt: Option[AST.Exp],
-                       ident: Exp.Ident): (AST.Exp, Option[SAST.Typed]) = {
+                       ident: Exp.Ident,
+                       targs: ISZ[SAST.Type],
+                       typeArguments: ISZ[SAST.Typed]): (AST.Exp, Option[SAST.Typed]) = {
         if (tOpt.isEmpty) {
           println(
             st"""tOpt $tOpt
@@ -935,7 +963,15 @@ object TypeChecker {
         }
 
         return (invokeExp, tOpt)
+      }
 
+      val (typeArgs, newTargs): (ISZ[SAST.Typed], ISZ[SAST.Type]) = {
+        val pOpt = checkTypeArgs(invokeExp.targs)
+        if (pOpt.nonEmpty) {
+          pOpt.get
+        } else {
+          return (invokeExp, None())
+        }
       }
 
       invokeExp.receiverOpt match {
@@ -946,7 +982,8 @@ object TypeChecker {
             case Some(t) => t
             case _ => return (invokeExp(receiverOpt = Some(newReceiver)), None())
           }
-          val (typedOpt, resOpt) = checkSelectH(scope, receiverType, invokeExp.ident.id, reporter)
+          val (typedOpt, resOpt, _) = checkSelectH(
+            scope = scope, receiverTyped = receiverType, ident = invokeExp.ident.id, typeArgs = typeArgs, reporter = reporter)
 
           val iexp = invokeExp.ident(
             attr = invokeExp.ident.attr(
@@ -954,7 +991,8 @@ object TypeChecker {
               resOpt = Util.toSlangResolvedOpt(resOpt),
               typedOpt = Util.toSlangTypedOpt(typedOpt)))
 
-          val r = checkInvokeH(typedOpt, resOpt, Some(newReceiver), iexp)
+          val r = checkInvokeH(tOpt = typedOpt, rOpt = resOpt, receiverOpt = Some(newReceiver), ident = iexp,
+            targs = newTargs, typeArguments = typeArgs)
           return r
 
         case _ if UIF.isUif(invokeExp.ident.id.value) =>
@@ -1010,7 +1048,8 @@ object TypeChecker {
               posOpt = invokeExp.ident.id.attr.posOpt,
               resOpt = Util.toSlangResolvedOpt(resOpt),
               typedOpt = Util.toSlangTypedOpt(typedOpt)))
-          val r = checkInvokeH(typedOpt, resOpt, None(), iexp)
+          val r = checkInvokeH(tOpt = typedOpt, rOpt = resOpt, receiverOpt = None(), ident = iexp,
+            targs = newTargs, typeArguments = typeArgs)
           return r
       }
     }
@@ -1051,14 +1090,41 @@ object TypeChecker {
       return (binary, None())
     }
 
+    def checkTypeArgs(tas: ISZ[AST.Type]): Option[(ISZ[SAST.Typed], ISZ[SAST.Type])] = {
+      var typeArgs = ISZ[SAST.Typed]()
+      var newTargs = ISZ[SAST.Type]()
+      for (targ <- for(t <- tas) yield Util.toSysmlType(t)) {
+        val tipeOpt = typeHierarchy.typed(scope, targ, reporter)
+        tipeOpt match {
+          case Some(tipe) if tipe.typedOpt.nonEmpty =>
+            typeArgs = typeArgs :+ tipe.typedOpt.get
+            newTargs = newTargs :+ tipe
+          case _ =>
+            return None()
+        }
+      }
+      return Some((typeArgs, newTargs))
+    }
+
     def checkSelect(selectExp: AST.Exp.Select): (AST.Exp, Option[SAST.Typed]) = {
+
+      val (typeArgs, newTargs): (ISZ[SAST.Typed], ISZ[SAST.Type]) = {
+        val pOpt = checkTypeArgs(selectExp.targs)
+        if (pOpt.nonEmpty) {
+          pOpt.get
+        } else {
+          return (selectExp, None())
+        }
+      }
+
       val tr: (AST.Exp.Select, Option[SAST.Typed]) = {
         selectExp.receiverOpt match {
           case Some(receiverType) =>
             val (newReceiver, receiverTypeOpt) = checkExp(None(), scope, receiverType, reporter)
             receiverTypeOpt match {
               case Some(rcvType) =>
-                val (typedOpt, resOpt) = checkSelectH(scope, rcvType, selectExp.id, reporter)
+                val (typedOpt, resOpt, typedArgsOpt) = checkSelectH(
+                  scope = scope, receiverTyped = rcvType, ident = selectExp.id, typeArgs = typeArgs, reporter = reporter)
                 (selectExp(
                   receiverOpt = Some(newReceiver),
                   attr = selectExp.attr(
@@ -1134,5 +1200,22 @@ object TypeChecker {
       case _ =>
     }
     return r
+  }
+
+  def checkTypeRelation(title: String, posOpt: Option[Position], expectedType: SAST.Typed, t: SAST.Typed, reporter: Reporter): B = {
+    if (t != expectedType && typeHierarchy.isSubType(expectedType, t)) {
+      // OK
+    } else {
+      if (t == expectedType) {
+        reportWarn(posOpt,
+          s"Unnecessary $title because it is always going to be successful (i.e.,  $t ≡ $expectedType).", reporter)
+        return F
+      } else if (typeHierarchy.glb(ISZ(expectedType, t)).isEmpty) {
+        reportError(posOpt,
+          s"Fruitless $title because it is always going to be unsuccessful (i.e., $t and $expectedType do not have a common subtype).", reporter)
+        return F
+      }
+    }
+    return T
   }
 }

@@ -258,9 +258,6 @@ object TypeOutliner {
 
     val members = outlineMembers(info.members, scope, reporter)
 
-    if (info.id == "MyArrayStruct") {
-      assume(T)
-    }
     val (
       newMembers,
       ancestors, newParents) =
@@ -702,7 +699,7 @@ object TypeOutliner {
           case ISZ(TypingsSpecialization(ISZ(name))) =>
             // TODO should the name be linked to the specialization name or to the actual
             // SysmlAST.Name of the the thing being specialized?
-            Some(SAST.Type.Named(name = name, attr = TypedAttr(name.posOpt, None())))
+            Some(SAST.Type.Named(name = name, typeArgs = ISZ(), attr = TypedAttr(name.posOpt, None())))
           case ISZ() =>
             TypeOutliner.reportError(ownerPos,
               s"Usage members must be typed by a usage definition", reporter)
