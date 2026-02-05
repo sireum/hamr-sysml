@@ -10,13 +10,17 @@ import org.sireum.hamr.sysml.parser.UIF
 import org.sireum.hamr.sysml.stipe.{TypeChecker, TypeHierarchy}
 import org.sireum.hamr.sysml.symbol.{Info, Scope, TypeInfo, Util}
 import org.sireum.lang.{ast => AST}
-import org.sireum.message.{Position, Reporter}
+import org.sireum.message.{FlatPos, Position, Reporter}
+import org.sireum.U32._
 
 object Instantiate {
 
   val instantiatorKey: String = "Declarative AIR Instantiator"
 
   def instantiate(topUnits: ISZ[SysmlAst.TopUnit], typeHierarchy: TypeHierarchy, reporter: Reporter): (Option[(TypeHierarchy, ISZ[(Aadl, Option[Position])])]) = {
+
+    val defaultFileUri: Option[String] = if (topUnits.nonEmpty) topUnits(0).fileUri else None()
+    val defaultReporterPos: Option[Position] = Some(FlatPos(uriOpt = defaultFileUri, beginLine32 = u32"0", beginColumn32 = u32"0", endLine32 = u32"0", endColumn32 = u32"0", offset32 = u32"0", length32 = u32"0"))
 
     var actualProcessorBindings: HashMap[ISZ[String], ir.Property] = HashMap.empty
 
@@ -41,7 +45,7 @@ object Instantiate {
       val systemRoots: ISZ[TypeInfo.PartDefinition] = InstantiateUtil.getSystemRoots(typeHierarchy)
 
       if (systemRoots.isEmpty) {
-        reportWarn(None(), "Could not find any system roots to instantiate", reporter)
+        reportError(None(), "Could not find any system roots to instantiate")
         return (None())
       }
 
@@ -98,7 +102,7 @@ object Instantiate {
                             processDatatype(t1, ISZ()) match {
                               case Some(x) =>
                               case _ =>
-                                reportError(p.id.attr.posOpt, s"Unable to resolve parameter's type: ${p.id.value}", reporter)
+                                reportError(p.id.attr.posOpt, s"Unable to resolve parameter's type: ${p.id.value}")
                             }
                           }
 
@@ -106,7 +110,7 @@ object Instantiate {
                           processDatatype(t2, ISZ()) match {
                             case Some(x) =>
                             case _ =>
-                              reportError(m.posOpt, s"Unable to resolve method's return type", reporter)
+                              reportError(m.posOpt, s"Unable to resolve method's return type")
                           }
                         }
 
@@ -114,7 +118,7 @@ object Instantiate {
                           containingPackage = ir.Name(ISZ(id), posOpt),
                           methods = methods)
                       case _ =>
-                        reportError(p.posOpt, "Could not resolve package name", reporter)
+                        reportError(p.posOpt, "Could not resolve package name")
                     }
                   case _ =>
                 }
@@ -155,13 +159,13 @@ object Instantiate {
         else ir.ComponentCategory.Subprogram
       }
       if (category == ir.ComponentCategory.Subprogram) {
-        reportError(p.posOpt, s"Only expecting system, processor, process, thread, data or abstract components: ${p}", reporter)
+        reportError(p.posOpt, s"Only expecting system, processor, process, thread, data or abstract components: ${p}")
       }
       if (p.members.itemUsages.nonEmpty) {
-        reportError(p.posOpt, s"Currently not expecting item usages at the AADL process level", reporter)
+        reportError(p.posOpt, s"Currently not expecting item usages at the AADL process level")
       }
       for (m <- p.members.referenceUsages.values) {
-        reportError(m.posOpt, s"Currently not expecting reference usages at the AADL process level", reporter)
+        reportError(m.posOpt, s"Currently not expecting reference usages at the AADL process level")
       }
 
       val componentName = st"${(p.name, "::")}".render
@@ -178,13 +182,13 @@ object Instantiate {
                   processDatatype(getDefinition(pmember.typedOpt.get).get.name, idPath :+ pmember.id)
                   ret = ret :+ pmember
                 case x =>
-                  reportError(pmember.posOpt, s"Unexpected part usage for an AADL array", reporter)
+                  reportError(pmember.posOpt, s"Unexpected part usage for an AADL array")
               }
             }
             else if (isDatatype(pmember.typedOpt.get)) {
               ret = ret :+ pmember
             } else if (!allowedDataComponentMembers(p, pmember)) {
-              reportError(pmember.posOpt, s"Unexpected part usage for an AADL Data Component", reporter)
+              reportError(pmember.posOpt, s"Unexpected part usage for an AADL Data Component")
             }
           }
 
@@ -196,14 +200,14 @@ object Instantiate {
                 case "Array_Size_Kind" =>  ret = ret :+ pmember
                 case x =>
                   if (!allowedDataComponentMembers(p, pmember)) {
-                    reportError(p.posOpt, s"Unexpected attribute usage for an AADL array", reporter)
+                    reportError(p.posOpt, s"Unexpected attribute usage for an AADL array")
                   }
               }
             }
             else if (isDatatype(pmember.typedOpt.get)) {
               ret = ret :+ pmember
             } else if (!allowedDataComponentMembers(p, pmember)) {
-              reportError(p.posOpt, s"Unexpected attribute usage for an AADL Data Component", reporter)
+              reportError(p.posOpt, s"Unexpected attribute usage for an AADL Data Component")
             }
           }
         } else {
@@ -239,14 +243,14 @@ object Instantiate {
 
           } else {
             reportError(member.posOpt,
-              st"Part usages of $category must be a descendant of one of the following: ${(AadlUtil.validSubcomponents.get(category).get, ", ")}".render, reporter)
+              st"Part usages of $category must be a descendant of one of the following: ${(AadlUtil.validSubcomponents.get(category).get, ", ")}".render)
           }
         }
       }
 
       def getPayloadType(portName: String, optPosOpt: Option[Position], definitionBodyItems: ISZ[SysmlAst.DefinitionBodyItem]): (Option[ir.Classifier], Option[SysmlAst.FeatureDirection.Type]) = {
         if (definitionBodyItems.size != 1) {
-          reportError(optPosOpt, "Currently expecting a single body item for data ports that refines 'type'", reporter)
+          reportError(optPosOpt, "Currently expecting a single body item for data ports that refines 'type'")
           return (None(), None())
         }
 
@@ -261,14 +265,14 @@ object Instantiate {
                     return (Some(ir.Classifier(st"${(n.ids, "::")}".render)), r.prefix.direction)
                   } else {
                     reportError(optPosOpt,
-                      st"Data port type must be an enum or a descendant of ${(InstantiateUtil.AadlDataName, "::")}".render, reporter)
+                      st"Data port type must be an enum or a descendant of ${(InstantiateUtil.AadlDataName, "::")}".render)
                   }
                 case _ =>
-                  reportWarn(r.posOpt, s"The payload type for ${componentName}'s $portName data port was not resolved", reporter)
+                  reportWarn(r.posOpt, s"The payload type for ${componentName}'s $portName data port was not resolved")
                   return (None(), None())
               }
             case x =>
-              reportError(optPosOpt, s"Currently only expecting reference usages in port bodies", reporter)
+              reportError(optPosOpt, s"Currently only expecting reference usages in port bodies")
           }
         }
         return (None(), None())
@@ -286,7 +290,7 @@ object Instantiate {
                 val usageDir = getDirectionFromUsage(portUsage._2.ast.occurrenceUsagePrefix)
                 val (pType, refDir) = getPayloadType(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
                 if (refDir.nonEmpty && usageDir != getDirection(refDir)) {
-                  reportError(portUsage._2.posOpt, "Port usage direction and the direction of the body reference usage must be the same", reporter)
+                  reportError(portUsage._2.posOpt, "Port usage direction and the direction of the body reference usage must be the same")
                 }
                 features = features + portName ~> ir.FeatureEnd(
                   identifier = ir.Name(portName, portUsage._2.posOpt),
@@ -299,7 +303,7 @@ object Instantiate {
                 val usageDir = getDirectionFromUsage(portUsage._2.ast.occurrenceUsagePrefix)
                 val (pType, refDir) = getPayloadType(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
                 if (refDir.nonEmpty && usageDir != getDirection(refDir)) {
-                  reportError(portUsage._2.posOpt, "Port usage direction and the direction of the body reference usage must be the same", reporter)
+                  reportError(portUsage._2.posOpt, "Port usage direction and the direction of the body reference usage must be the same")
                 }
                 features = features + portName ~> ir.FeatureEnd(
                   identifier = ir.Name(portName, portUsage._2.posOpt),
@@ -317,10 +321,10 @@ object Instantiate {
                   properties = ISZ(),
                   uriFrag = "")
               case x =>
-                reportError(portUsage._2.posOpt, s"Unexpected port type $x p", reporter)
+                reportError(portUsage._2.posOpt, s"Unexpected port type $x p")
             }
           case x =>
-            reportError(portUsage._2.posOpt, s"Port usages should have been resolved to Typed.Name but found $x", reporter)
+            reportError(portUsage._2.posOpt, s"Port usages should have been resolved to Typed.Name but found $x")
         }
       }
 
@@ -510,7 +514,7 @@ object Instantiate {
                   appliesTo = ISZ())
                 actualProcessorBindings = actualProcessorBindings + srcPath ~> prop
               case _ =>
-                reportError(au._2.posOpt, "Did not resolve one of the part usages", reporter)
+                reportError(au._2.posOpt, "Did not resolve one of the part usages")
             }
             assert(T)
           case _ =>
@@ -531,7 +535,7 @@ object Instantiate {
                     case Some(fv) =>
                       return processValue(fv.exp)
                     case _ =>
-                      reportError(exp.posOpt, "Attribute requires a feature value", reporter)
+                      reportError(exp.posOpt, "Attribute requires a feature value")
                       return ISZ(ir.ValueProp("INVALID"))
                   }
                 case x =>
@@ -585,7 +589,7 @@ object Instantiate {
                               halt(s"Unexpected duration unit ${v.id}")
                             }
                           case x =>
-                            reportError(unitExp.posOpt, st"Unexpected feature value: ${(v.owner, "::")}::${v.id}".render, reporter)
+                            reportError(unitExp.posOpt, st"Unexpected feature value: ${(v.owner, "::")}::${v.id}".render)
                             return ISZ()
                         }
                       case x =>
@@ -596,11 +600,11 @@ object Instantiate {
                     halt(s"Expected a resolved Ref for the unit exp: $x ${unitExp.posOpt}")
                 }
               case x =>
-                reportError(f.posOpt, s"Wasn't expecting UIF: $x", reporter)
+                reportError(f.posOpt, s"Wasn't expecting UIF: $x")
                 return ISZ()
             }
           } else {
-            reportError(f.posOpt, s"Unable function: ${f.ident.id.value}", reporter)
+            reportError(f.posOpt, s"Unable function: ${f.ident.id.value}")
             return ISZ()
           }
         case _ =>
@@ -821,27 +825,29 @@ object Instantiate {
       }
     }
 
+    def reportWarnCond(cond: B, posOpt: Option[Position], message: String): Unit = {
+      if (!cond) {
+        reportWarn(posOpt, message)
+      }
+    }
+
+    def reportWarn(posOpt: Option[Position], message: String): Unit = {
+      val po: Option[Position] = if (posOpt.nonEmpty) posOpt else defaultReporterPos
+      reporter.warn(po, Instantiate.instantiatorKey, s"Instantiation Warning: $message")
+    }
+
+    def reportErrorCond(cond: B, posOpt: Option[Position], message: String): Unit = {
+      if (!cond) {
+        reportError(posOpt, message)
+      }
+    }
+
+    def reportError(posOpt: Option[Position], message: String): Unit = {
+      val po: Option[Position] = if (posOpt.nonEmpty) posOpt else defaultReporterPos
+      reporter.error(po, Instantiate.instantiatorKey, s"Instantiation Error: $message")
+    }
+
+
     return process()
   }
-
-  def reportWarnCond(cond: B, posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
-    if (!cond) {
-      reportWarn(posOpt, message, reporter)
-    }
-  }
-
-  def reportWarn(posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
-    reporter.warn(posOpt, Instantiate.instantiatorKey, s"Instantiation Warning: $message")
-  }
-
-  def reportErrorCond(cond: B, posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
-    if (!cond) {
-      reportError(posOpt, message, reporter)
-    }
-  }
-
-  def reportError(posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
-    reporter.error(posOpt, Instantiate.instantiatorKey, s"Instantiation Error: $message")
-  }
-
 }
