@@ -1,10 +1,10 @@
 package org.sireum.hamr.sysml
 
-import org.sireum.{Either, _}
-import org.sireum.hamr.sysml.FrontEnd.Input
 import org.sireum.hamr.ir.{Aadl, JSON => irJSON}
+import org.sireum.hamr.sysml.FrontEnd.Input
 import org.sireum.message.Reporter
 import org.sireum.test.TestSuite
+import org.sireum.{Either, _}
 
 abstract class TestFrontEnd extends TestSuite {
 
@@ -157,7 +157,7 @@ abstract class TestFrontEnd extends TestSuite {
 
           for (i <- integerationConstraints) {
             var conns: ISZ[ST] = ISZ()
-            for (c <- i.connections) {
+            for (c <- i.connections.values) {
               val refs: ISZ[ST] = for (r <- c.connectionReferences.entries) yield st"[${(r._1, ".")}, ${r._2}]"
 
               val connCon: Option[ST] = (c.srcConstraint, c.dstConstraint) match {
