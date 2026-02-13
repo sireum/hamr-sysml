@@ -148,10 +148,6 @@ object GlobalDeclarationResolver {
               i = i + 1
             }
 
-            if (e.subClassifications.nonEmpty) {
-              GlobalDeclarationResolver.reportWarn(e.subClassifications(0).attr.posOpt, "Enum subclassifications are not currently handled", reporter)
-            }
-
             if (e.annotations.nonEmpty) {
               GlobalDeclarationResolver.reportWarn(e.annotations(0).posOpt, "Annotation attached to enums are not currently handled", reporter)
             }

@@ -631,7 +631,6 @@ object Instantiate {
                         halt(s"Expected unit exp to resolve to a var: $x")
                     }
                   case x =>
-                    reporter.printMessages()
                     halt(s"Expected a resolved Ref for the unit exp: $x ${unitExp.posOpt}")
                 }
               case x =>

@@ -325,7 +325,6 @@ object SysMLGrammar_Ext {
     val reporter = message.Reporter.create
     val tree = parseGrammar(inputUri, content, reporter)
     if (reporter.hasIssue) {
-      reporter.printMessages()
       return PARSING_FAILED
     }
     val treeST = printGrammar(tree)

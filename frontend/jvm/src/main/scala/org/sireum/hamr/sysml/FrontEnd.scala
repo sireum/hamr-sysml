@@ -79,7 +79,6 @@ object FrontEnd {
     val (thl, rep) = libraryReporter(par)
 
     if (rep.hasError) {
-      rep.printMessages()
       return (None(), ISZ(), localStore)
     }
 
@@ -169,7 +168,6 @@ object FrontEnd {
               reporter.reports(c._1)
 
               if(reporter.hasError) {
-                reporter.printMessages()
                 return ISZ()
               }
 
