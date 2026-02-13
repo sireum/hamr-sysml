@@ -153,9 +153,9 @@ abstract class TestFrontEnd extends TestSuite {
             }
           }
 
-          val integerationConstraints = FrontEnd.getIntegerationConstraints(modelElements, reporter)
+          val integrationConstraints = FrontEnd.getIntegrationConstraints(modelElements, reporter)
 
-          for (i <- integerationConstraints) {
+          for (i <- integrationConstraints) {
             var conns: ISZ[ST] = ISZ()
             for (c <- i.connections.values) {
               val refs: ISZ[ST] = for (r <- c.connectionReferences.entries) yield st"[${(r._1, ".")}, ${r._2}]"

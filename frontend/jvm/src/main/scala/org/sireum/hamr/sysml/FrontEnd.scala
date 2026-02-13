@@ -2,7 +2,7 @@
 package org.sireum.hamr.sysml
 
 import org.sireum._
-import org.sireum.hamr.codegen.common.CommonUtil.Store
+import org.sireum.hamr.codegen.common.CommonUtil.{Store, toolName}
 import org.sireum.hamr.codegen.common.symbols.{AadlPort, AadlThread, GclAnnexClauseInfo}
 import org.sireum.hamr.codegen.common.util.HamrCli.{CodegenHamrPlatform, CodegenLaunchCodeLanguage, CodegenNodesCodeLanguage, CodegenOption}
 import org.sireum.hamr.codegen.common.util.ModelUtil
@@ -11,6 +11,7 @@ import org.sireum.hamr.ir.SysmlAst.TopUnit
 import org.sireum.hamr.ir.instantiation.ConnectionInstantiator
 import org.sireum.hamr.ir.{GclAssume, GclGuarantee, GclSpec}
 import org.sireum.hamr.sysml.instantiation.Instantiate
+import org.sireum.hamr.sysml.integration.IntegrationConstraints.{IntegrationConnection, IntegrationConstraints}
 import org.sireum.hamr.sysml.library.Sysmlv2Library
 import org.sireum.hamr.sysml.parser.{SlangUtil, SysMLParser}
 import org.sireum.hamr.sysml.stipe.{TypeChecker, TypeHierarchy, TypeOutliner}
@@ -22,56 +23,6 @@ import org.sireum.lang.{symbol, FrontEnd => SlangFrontEnd, ast => AST}
 import org.sireum.message.{Message, Position, Reporter}
 
 object FrontEnd {
-
-  val integration_constraint_title_prefix: String = "Integration constraint of"
-
-  @datatype class IntegerationConstraints (val systemRootName: ISZ[String],
-                                           val systemRootPos: Option[Position],
-                                           val typeHierarchy: SlangTypeHierarchy,
-
-                                           // title ~> IntegrationConnection
-                                           val connections: HashSMap[String, IntegerationConnection])
-
-  @datatype class IntegerationConnection(val srcPort: AadlPort,
-                                         val srcPortExp: AST.Exp,
-                                         val srcGclSpec: Option[GclGuarantee],
-
-                                         val dstPort: AadlPort,
-                                         val dstPortExp: AST.Exp,
-                                         val dstGclSpec: Option[GclAssume],
-
-                                         val srcConstraint: Option[AST.Exp], // assume this
-                                         val dstConstraint: Option[AST.Exp], // assert this
-
-                                         // connectionMidPoint is the identifier path and position info of the
-                                         // connection references where out connections change to in connections
-                                         val connectionMidPoint: (ISZ[String], Option[Position]),
-
-                                         val connectionReferences: HashSMap[ISZ[String], Option[Position]]) {
-
-    val title: String = st"$integration_constraint_title_prefix ${(connectionMidPoint._1, ".")}".render
-
-    @pure def claim: AST.Exp = {
-      val andResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryAnd)
-      val equivResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryEquiv)
-      val implyResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryImply)
-
-      val src: AST.Exp = srcConstraint match {
-        case Some(e) => e
-        case _ => AST.Exp.LitB(T, AST.Attr(srcPort.feature.identifier.pos))
-      }
-
-      val dst = dstConstraint.get
-
-      val (ids, midPointPos) = connectionMidPoint
-      val portEquiv = AST.Exp.Binary(srcPortExp, AST.Exp.BinaryOp.Equiv, dstPortExp,
-        AST.ResolvedAttr(midPointPos, Some(equivResOpt), AST.Typed.bOpt), midPointPos)
-      val lhs = AST.Exp.Binary(portEquiv, AST.Exp.BinaryOp.And, src,
-        AST.ResolvedAttr(midPointPos, Some(andResOpt), AST.Typed.bOpt), midPointPos)
-      return AST.Exp.Binary(lhs, AST.Exp.BinaryOp.CondImply, dst,
-        AST.ResolvedAttr(midPointPos, Some(implyResOpt), AST.Typed.bOpt), midPointPos)
-    }
-  }
 
   def typeCheck(par: Z, inputs: ISZ[Input], store: Store, reporter: Reporter): (Option[TypeHierarchy], ISZ[ModelUtil.ModelElements], Store) = {
     var localStore = store
@@ -144,9 +95,9 @@ object FrontEnd {
     }
   }
 
-  def getIntegerationConstraints(modelElements: ISZ[ModelUtil.ModelElements], reporter: Reporter): ISZ[IntegerationConstraints]= {
+  def getIntegrationConstraints(modelElements: ISZ[ModelUtil.ModelElements], reporter: Reporter): ISZ[IntegrationConstraints]= {
 
-    var integrationConstraints: ISZ[IntegerationConstraints] = ISZ()
+    var integrationConstraints: ISZ[IntegrationConstraints] = ISZ()
 
     for(me <- modelElements) {
 
@@ -179,7 +130,7 @@ object FrontEnd {
         }
       }
 
-      var integrationConnections: HashSMap[String, IntegerationConnection] = HashSMap.empty
+      var integrationConnections: HashSMap[String, IntegrationConnection] = HashSMap.empty
       for(ci <- me.symbolTable.connections) {
         def resolve(fname: ISZ[String], cname: ISZ[String]): (AadlPort, Option[AST.Exp], Option[GclSpec]) = {
           portConstraints.get(fname) match {
@@ -223,13 +174,34 @@ object FrontEnd {
         val srcCon = resolve(ci.src.feature.get.name, ci.src.component.name)
         val dstCon = resolve(ci.dst.feature.get.name, ci.dst.component.name)
 
+        def eval(e: Option[AST.Exp]): Option[AST.Exp] = {
+          return (
+            if (e.isEmpty) None()
+            else integration.IntegrationConstraints.getArrayConstraints(e.get, th, reporter))
+        }
+
+        val andResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryAnd)
+
+        val arrayConstraints: Option[AST.Exp] =
+          (eval(srcCon._2), eval(dstCon._2)) match {
+            case (Some(s), Some(d)) =>
+              Some(AST.Exp.Binary(left = s, op = AST.Exp.BinaryOp.And, right = d,
+                attr = AST.ResolvedAttr(s.posOpt, Some(andResOpt), AST.Typed.bOpt), opPosOpt = s.posOpt))
+            case (Some(s), _) =>
+              Some(s)
+            case (_, Some(d)) =>
+              Some(d)
+            case _ =>
+              None()
+          }
+
         var connRefs: HashSMap[ISZ[String], Option[Position]] = HashSMap.empty
         for(cr <- ci.connectionRefs) {
           connRefs = connRefs + cr.name.name ~> cr.name.pos
         }
 
         if (srcCon._2.nonEmpty || dstCon._2.nonEmpty) {
-          val ic = IntegerationConnection(
+          val ic = IntegrationConnection(
             srcPort = srcCon._1,
             srcPortExp = buildExp(srcCon._1),
             srcGclSpec = srcCon._3.asInstanceOf[Option[GclGuarantee]],
@@ -241,6 +213,8 @@ object FrontEnd {
             srcConstraint = srcCon._2,
             dstConstraint = dstCon._2,
 
+            arrayConstraints = arrayConstraints,
+
             connectionMidPoint = midPoint,
             connectionReferences = connRefs)
           integrationConnections = integrationConnections + ic.title ~> ic
@@ -249,7 +223,7 @@ object FrontEnd {
 
       if (integrationConnections.nonEmpty) {
         integrationConstraints = integrationConstraints :+
-          IntegerationConstraints(
+          IntegrationConstraints(
             systemRootName = me.symbolTable.rootSystem.path,
             systemRootPos = me.symbolTable.rootSystem.component.identifier.pos,
             typeHierarchy = th,
