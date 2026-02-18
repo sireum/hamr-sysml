@@ -72,7 +72,7 @@ import org.sireum.lang.tipe.{TypeHierarchy => SlangTypeHierarchy}
 object IntegrationConstraints {
 
 
-  val integration_constraint_title_prefix: String = "Integration constraint of"
+  val integration_constraint_title_prefix: String = "Integration constraints of"
 
   @datatype class IntegrationConstraints(val systemRootName: ISZ[String],
                                          val systemRootPos: Option[Position],
@@ -103,11 +103,8 @@ object IntegrationConstraints {
     val title: String = st"$integration_constraint_title_prefix ${(connectionMidPoint._1, ".")}".render
 
     @pure def claim: AST.Exp = {
-      val andResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryAnd)
       val condAndResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryCondAnd)
       val eqResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryEq)
-      val equivResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryEquiv)
-      val implyResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryImply)
       val condImplyResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryImply)
 
       val src: AST.Exp = srcConstraint match {
@@ -122,22 +119,10 @@ object IntegrationConstraints {
       val lhs_portEquiv = AST.Exp.Binary(srcPortExp, AST.Exp.BinaryOp.Eq, dstPortExp,
         AST.ResolvedAttr(midPointPos, Some(eqResOpt), AST.Typed.bOpt), midPointPos)
 
-      val optArrayConstraint: AST.Exp = arrayConstraints match {
-        case Some(e) => AST.Exp.Binary(e, AST.Exp.BinaryOp.And, lhs_portEquiv,
-          AST.ResolvedAttr(midPointPos, Some(andResOpt), AST.Typed.bOpt), midPointPos)
-        case _ => lhs_portEquiv
-      }
-
-      val lhsImply = AST.Exp.Binary(optArrayConstraint, AST.Exp.BinaryOp.CondAnd, src,
+      val lhsImply = AST.Exp.Binary(lhs_portEquiv, AST.Exp.BinaryOp.CondAnd, src,
         AST.ResolvedAttr(midPointPos, Some(condAndResOpt), AST.Typed.bOpt), midPointPos)
 
-      val rhs: AST.Exp = arrayConstraints match {
-        case Some(e) => AST.Exp.Binary(e, AST.Exp.BinaryOp.CondAnd, dst,
-          AST.ResolvedAttr(midPointPos, Some(condAndResOpt), AST.Typed.bOpt), midPointPos)
-        case _ => lhs_portEquiv
-      }
-
-      val impl = AST.Exp.Binary(lhsImply, AST.Exp.BinaryOp.CondImply, rhs,
+      val impl = AST.Exp.Binary(lhsImply, AST.Exp.BinaryOp.CondImply, dst,
         AST.ResolvedAttr(midPointPos, Some(condImplyResOpt), AST.Typed.bOpt), midPointPos)
 
       return impl
