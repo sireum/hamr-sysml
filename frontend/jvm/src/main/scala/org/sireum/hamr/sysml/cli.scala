@@ -83,6 +83,9 @@ object cli {
     usage = "<option>* <sysmlv2-file>*",
     usageDescOpt = None(),
     opts = ISZ(
+      Opt(name = "integrationOnly", longKey = "integration-feedback-only", shortKey = None(),
+        tpe = Type.Flag(F),
+        description = "Only output integration feedback"),
       Opt(name = "exclude", longKey = "exclude", shortKey = None(),
         tpe = Type.Str(Some(','), None()),
         description = "Sourcepath exclusion as URI segment"),
