@@ -90,10 +90,12 @@ object Instantiate {
                       posOpt = p.posOpt, toolKind = Instantiate.instantiatorKey, reporter = reporter) match {
                       case (Some(id), posOpt) =>
 
+                        val imports = p.packageElements.filter(i => i.isInstanceOf[SysmlAst.Import]).asInstanceOf[ISZ[SysmlAst.Import]]
+
                         // FIXME: package level gumbo libraries should be resolved during type checking
                         var methods: ISZ[GclMethod] = ISZ()
                         for (m <- lib.methods) {
-                          val scope = Scope.Global(ISZ(id), ISZ(), ISZ(id))
+                          val scope = Scope.Global(ISZ(id), imports, ISZ(id))
                           val rmethod = TypeChecker.resolveMethod(m, scope, typeHierarchy, reporter)
                           methods = methods :+ rmethod
 
