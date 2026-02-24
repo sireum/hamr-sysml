@@ -180,6 +180,8 @@ object InstantiateUtil {
 
       case ISZ("HAMR", "Implementation_Language") => return T
 
+      case ISZ("HAMR_Microkit", "Scheduling") => return T
+
       case ISZ("Thread_Properties", "Dispatch_Protocol") => return T
 
       case ISZ("Timing_Properties", "Clock_Period") => return T
