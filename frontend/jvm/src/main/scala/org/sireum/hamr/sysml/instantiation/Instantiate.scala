@@ -254,6 +254,32 @@ object Instantiate {
         }
       }
 
+      def getQueueSize(portName: String, optPosOpt: Option[Position], definitionBodyItems: ISZ[SysmlAst.DefinitionBodyItem]): Property = {
+        var queueSize: Z = 1
+        for (b <- definitionBodyItems) {
+          b match {
+            case SysmlAst.AttributeUsage(prefix, cue @ SysmlAst.CommonUsageElements(
+              _, _, ISZ(SysmlAst.RedefinitionsSpecialization(ISZ(SysmlAst.Name(ISZ(SysmlAst.Id("Queue_Size")))))), fv, _, _))=>
+              fv match {
+                case Some(SysmlAst.FeatureValue(_, _, _, AST.Exp.LitZ(value))) =>
+                  if (value < 1) {
+                    reportError(optPosOpt, "Queue size must be greater than 0")
+                  }
+                  queueSize = value
+                case Some(_) =>
+                  reportError(optPosOpt, "Expected an integer")
+                case _ =>
+                  reportError(optPosOpt, "Queue size must be provided")
+              }
+            case _ =>
+          }
+        }
+        return Property(
+          name = ir.Name(name = ISZ("Communication_Properties::Queue_Size"), pos = optPosOpt),
+          propertyValues = ISZ(UnitProp(value = queueSize.string, unit = None())),
+          appliesTo = ISZ())
+      }
+
       def getPayloadType(portName: String, optPosOpt: Option[Position], definitionBodyItems: ISZ[SysmlAst.DefinitionBodyItem]): Option[ir.Classifier] = {
         for (b <- definitionBodyItems) {
           b match {
@@ -272,8 +298,7 @@ object Instantiate {
                   reportWarn(b.posOpt, s"The payload type for ${componentName}'s $portName data port was not resolved")
                   return None()
               }
-            case q =>
-              reportError(optPosOpt, s"Currently only expecting a redefinition of 'type' in port bodies: $q")
+            case _ =>
           }
         }
         return None()
@@ -289,6 +314,7 @@ object Instantiate {
             t.ids match {
               case ISZ("AADL", "DataPort") =>
                 val pType = getPayloadType(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
+                val queueSize = getQueueSize(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
                 val direction: Direction.Type = getPortUsageDirection(portUsage._2.ast) match {
                   case (Some(u), Some(r)) =>
                     if (u != r) {
@@ -308,10 +334,11 @@ object Instantiate {
                   direction = direction,
                   category = ir.FeatureCategory.DataPort,
                   classifier = pType,
-                  properties = ISZ(),
+                  properties = ISZ(queueSize),
                   uriFrag = "")
               case ISZ("AADL", "EventDataPort") =>
                 val pType = getPayloadType(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
+                val queueSize = getQueueSize(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
                 val direction: Direction.Type = getPortUsageDirection(portUsage._2.ast) match {
                   case (Some(u), Some(r)) =>
                     if (u != r) {
@@ -331,7 +358,7 @@ object Instantiate {
                   direction = direction,
                   category = ir.FeatureCategory.EventDataPort,
                   classifier = pType,
-                  properties = ISZ(),
+                  properties = ISZ(queueSize),
                   uriFrag = "")
               case ISZ("AADL", "EventPort") =>
                 val direction: Direction.Type = getPortUsageDirection(portUsage._2.ast) match {
