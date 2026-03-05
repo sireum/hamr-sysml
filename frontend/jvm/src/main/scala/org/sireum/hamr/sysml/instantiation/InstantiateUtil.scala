@@ -21,6 +21,8 @@ object InstantiateUtil {
 
   val AadlSystemName: ISZ[String] = ISZ("AADL", "System")
 
+  val AadlVirtualProcessorName: ISZ[String] = ISZ("AADL", "VirtualProcessor")
+
   val AadlProcessorName: ISZ[String] = ISZ("AADL", "Processor")
 
   val AadlProcessName: ISZ[String] = ISZ("AADL", "Process")
@@ -77,6 +79,7 @@ object InstantiateUtil {
   def isAadlComponent(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {
     return (
       InstantiateUtil.isAadlSystem(name, typeHierarchy) ||
+        InstantiateUtil.isAadlVirtualProcesssor(name, typeHierarchy) ||
         InstantiateUtil.isAadlProcesssor(name, typeHierarchy) ||
         InstantiateUtil.isAadlProcesss(name, typeHierarchy) ||
         InstantiateUtil.isAadlThread(name, typeHierarchy) ||
@@ -104,6 +107,17 @@ object InstantiateUtil {
 
   def isAadlSystemDefinition(pd: TypeInfo.PartDefinition, typeHierarchy: TypeHierarchy): B = {
     return isAadlSystem(pd.name, typeHierarchy)
+  }
+
+  def isAadlVirtualProcesssor(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {
+    return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlVirtualProcessorName)
+  }
+
+  def isAadlVirtualProcessorOpt(opt: Option[Typed], typeHierarchy: TypeHierarchy): B = {
+    opt match {
+      case Some(t: Typed.Name) => return isAadlVirtualProcesssor(t.ids, typeHierarchy)
+      case _ => return F
+    }
   }
 
   def isAadlProcesssor(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {

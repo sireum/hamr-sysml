@@ -145,6 +145,7 @@ object Instantiate {
 
       val category: ir.ComponentCategory.Type = {
         if (InstantiateUtil.isAadlSystemOpt(p.typedOpt, typeHierarchy)) ir.ComponentCategory.System
+        else if (InstantiateUtil.isAadlVirtualProcessorOpt(p.typedOpt, typeHierarchy)) ir.ComponentCategory.VirtualProcessor
         else if (InstantiateUtil.isAadlProcessorOpt(p.typedOpt, typeHierarchy)) ir.ComponentCategory.Processor
         else if (InstantiateUtil.isAadlProcessOpt(p.typedOpt, typeHierarchy)) ir.ComponentCategory.Process
         else if (InstantiateUtil.isAadlThreadOpt(p.typedOpt, typeHierarchy)) ir.ComponentCategory.Thread
