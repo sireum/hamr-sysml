@@ -2990,7 +2990,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
 
   def visitCaseStatementClause(o: RuleCaseStatementClauseContext): GclCaseStatement = {
     val assumes: Option[Exp] =
-      if (nonEmpty(o.ruleAnonAssumeStatement().ruleOwnedExpression()))
+      if (nonEmpty(o.ruleAnonAssumeStatement()) && nonEmpty(o.ruleAnonAssumeStatement().ruleOwnedExpression()))
         Some(visitExpression(o.ruleAnonAssumeStatement().ruleOwnedExpression()))
       else None()
     return GclCaseStatement(
