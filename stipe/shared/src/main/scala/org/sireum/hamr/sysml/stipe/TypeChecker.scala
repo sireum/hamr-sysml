@@ -290,7 +290,7 @@ object TypeChecker {
           newMembers = newMembers(partUsages = newMembers.partUsages + i.name ~>
             Info.PartUsage(owner = i.owner, id = i.name, hasId = T, scope = scope, ast = a.asInstanceOf[SysmlAst.PartUsage]))
         case x =>
-          halt(s"Need to handle refined resolution for ${a}")
+          //halt(s"Need to handle refined resolution for ${a}")
       }
     }
 

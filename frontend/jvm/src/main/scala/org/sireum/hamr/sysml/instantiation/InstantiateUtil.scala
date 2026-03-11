@@ -2,10 +2,11 @@
 package org.sireum.hamr.sysml.instantiation
 
 import org.sireum._
-import org.sireum.hamr.ir.Typed
+import org.sireum.hamr.ir
 import org.sireum.hamr.sysml.stipe.TypeHierarchy
 import org.sireum.hamr.sysml.symbol.TypeInfo
 import org.sireum.hamr.sysml.symbol.TypeInfo.PartDefinition
+import org.sireum.message.{Position, Reporter}
 
 object InstantiateUtil {
 
@@ -87,9 +88,9 @@ object InstantiateUtil {
         InstantiateUtil.isAadlAbstract(name, typeHierarchy))
   }
 
-  def isAadlComponentOpt(opt: Option[Typed], typeHierarchy: TypeHierarchy): B = {
+  def isAadlComponentOpt(opt: Option[ir.Typed], typeHierarchy: TypeHierarchy): B = {
     opt match {
-      case Some(t: Typed.Name) => return isAadlComponent(t.ids, typeHierarchy)
+      case Some(t: ir.Typed.Name) => return isAadlComponent(t.ids, typeHierarchy)
       case _ => return F
     }
   }
@@ -98,9 +99,9 @@ object InstantiateUtil {
     return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlSystemName)
   }
 
-  def isAadlSystemOpt(opt: Option[Typed], typeHierarchy: TypeHierarchy): B = {
+  def isAadlSystemOpt(opt: Option[ir.Typed], typeHierarchy: TypeHierarchy): B = {
     opt match {
-      case Some(t: Typed.Name) => return isAadlSystem(t.ids, typeHierarchy)
+      case Some(t: ir.Typed.Name) => return isAadlSystem(t.ids, typeHierarchy)
       case _ => return F
     }
   }
@@ -113,9 +114,9 @@ object InstantiateUtil {
     return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlVirtualProcessorName)
   }
 
-  def isAadlVirtualProcessorOpt(opt: Option[Typed], typeHierarchy: TypeHierarchy): B = {
+  def isAadlVirtualProcessorOpt(opt: Option[ir.Typed], typeHierarchy: TypeHierarchy): B = {
     opt match {
-      case Some(t: Typed.Name) => return isAadlVirtualProcesssor(t.ids, typeHierarchy)
+      case Some(t: ir.Typed.Name) => return isAadlVirtualProcesssor(t.ids, typeHierarchy)
       case _ => return F
     }
   }
@@ -124,9 +125,9 @@ object InstantiateUtil {
     return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlProcessorName)
   }
 
-  def isAadlProcessorOpt(opt: Option[Typed], typeHierarchy: TypeHierarchy): B = {
+  def isAadlProcessorOpt(opt: Option[ir.Typed], typeHierarchy: TypeHierarchy): B = {
     opt match {
-      case Some(t: Typed.Name) => return isAadlProcesssor(t.ids, typeHierarchy)
+      case Some(t: ir.Typed.Name) => return isAadlProcesssor(t.ids, typeHierarchy)
       case _ => return F
     }
   }
@@ -135,9 +136,9 @@ object InstantiateUtil {
     return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlProcessName)
   }
 
-  def isAadlProcessOpt(opt: Option[Typed], typeHierarchy: TypeHierarchy): B = {
+  def isAadlProcessOpt(opt: Option[ir.Typed], typeHierarchy: TypeHierarchy): B = {
     opt match {
-      case Some(t: Typed.Name) => return isAadlProcesss(t.ids, typeHierarchy)
+      case Some(t: ir.Typed.Name) => return isAadlProcesss(t.ids, typeHierarchy)
       case _ => return F
     }
   }
@@ -146,9 +147,9 @@ object InstantiateUtil {
     return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlThreadName)
   }
 
-  def isAadlThreadOpt(opt: Option[Typed], typeHierarchy: TypeHierarchy): B = {
+  def isAadlThreadOpt(opt: Option[ir.Typed], typeHierarchy: TypeHierarchy): B = {
     opt match {
-      case Some(t: Typed.Name) => return isAadlThread(t.ids, typeHierarchy)
+      case Some(t: ir.Typed.Name) => return isAadlThread(t.ids, typeHierarchy)
       case _ => return F
     }
   }
@@ -157,9 +158,9 @@ object InstantiateUtil {
     return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlDataName)
   }
 
-  def isAadlDataOpt(opt: Option[Typed], typeHierarchy: TypeHierarchy): B = {
+  def isAadlDataOpt(opt: Option[ir.Typed], typeHierarchy: TypeHierarchy): B = {
     opt match {
-      case Some(t: Typed.Name) => return isAadlData(t.ids, typeHierarchy)
+      case Some(t: ir.Typed.Name) => return isAadlData(t.ids, typeHierarchy)
       case _ => return F
     }
   }
@@ -168,9 +169,9 @@ object InstantiateUtil {
     return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlAbstractName)
   }
 
-  def isAadlAbstractOpt(opt: Option[Typed], typeHierarchy: TypeHierarchy): B = {
+  def isAadlAbstractOpt(opt: Option[ir.Typed], typeHierarchy: TypeHierarchy): B = {
     opt match {
-      case Some(t: Typed.Name) => return isAadlAbstract(t.ids, typeHierarchy)
+      case Some(t: ir.Typed.Name) => return isAadlAbstract(t.ids, typeHierarchy)
       case _ => return F
     }
   }
@@ -188,23 +189,78 @@ object InstantiateUtil {
     return systemRoots
   }
 
-  @pure def isHandledProperty(name: ISZ[String]): B = {
-    name match {
-      case ISZ("CASE_Scheduling", "Domain") => return T
+  @sig trait PropertyValue
 
-      case ISZ("HAMR", "Implementation_Language") => return T
+  @datatype class ValueProp extends PropertyValue
+  @datatype class UnitProp (val unitOptional: B) extends PropertyValue
+  @datatype class RangeProp(val low: PropertyValue,
+                            val high: PropertyValue) extends PropertyValue
 
-      case ISZ("HAMR_Microkit", "Scheduling") => return T
+  @datatype class Property(val name: ISZ[String],
+                           val expectedPropertyValues: ISZ[PropertyValue])
 
-      case ISZ("Thread_Properties", "Dispatch_Protocol") => return T
+  val handledProperties: Map[ISZ[String], ISZ[PropertyValue]] =
+    Map.empty[ISZ[String], ISZ[PropertyValue]] ++ ISZ[(ISZ[String], ISZ[PropertyValue])](
+      ISZ[String]("CASE_Scheduling", "Domain") ~> ISZ[PropertyValue](UnitProp(T)),
+      ISZ[String]("CASE_Scheduling", "Max_Domain") ~> ISZ[PropertyValue](UnitProp(T)),
 
-      case ISZ("Timing_Properties", "Clock_Period") => return T
-      case ISZ("Timing_Properties", "Frame_Period") => return T
+      ISZ[String]("HAMR", "Implementation_Language") ~> ISZ[PropertyValue](ValueProp()),
 
-      case ISZ("Timing_Properties", "Period") => return T
+      ISZ[String]("HAMR_Microkit", "Passive") ~> ISZ[PropertyValue](ValueProp()),
+      ISZ[String]("HAMR_Microkit", "SMC") ~> ISZ[PropertyValue](ValueProp()),
+      ISZ[String]("HAMR_Microkit", "Scheduling") ~> ISZ[PropertyValue](ValueProp()),
 
-      case _ => return F
+      ISZ[String]("Thread_Properties", "Dispatch_Protocol") ~> ISZ[PropertyValue](ValueProp()),
+
+      ISZ[String]("Memory_Properties", "Data_Size") ~> ISZ[PropertyValue](UnitProp(F)),
+      ISZ[String]("Memory_Properties", "Stack_Size") ~> ISZ[PropertyValue](UnitProp(F)),
+
+      ISZ[String]("Timing_Properties", "Clock_Period") ~> ISZ[PropertyValue](UnitProp(F)),
+      ISZ[String]("Timing_Properties", "Compute_Execution_Time") ~> ISZ[PropertyValue](RangeProp(low = UnitProp(F), high = UnitProp(F))),
+      ISZ[String]("Timing_Properties", "Frame_Period") ~> ISZ[PropertyValue](UnitProp(F)),
+      ISZ[String]("Timing_Properties", "Period") ~> ISZ[PropertyValue](UnitProp(F)),
+      ISZ[String]("Timing_Properties", "Timing_Period") ~> ISZ[PropertyValue](UnitProp(F))
+    )
+
+  @pure def validateProperty(name: ISZ[String], propertyValues: ISZ[ir.PropertyValue], posOpt: Option[Position], reporter: Reporter): B = {
+    val propValues = handledProperties.get(name).get
+    if (propValues.size != propertyValues.size) {
+      Instantiate.reportError(posOpt, s"Expecting a ${propValues.size} but found ${propertyValues.size}", reporter)
+      return F
     }
+
+    def valid (a: PropertyValue, b: ir.PropertyValue): Unit = {
+      (a, b) match {
+        case (UnitProp(optionalUnit), ir.UnitProp(value, bOp)) =>
+          if (!optionalUnit && bOp.isEmpty) {
+            Instantiate.reportError(posOpt, "Unit must be provided", reporter)
+          }
+        case (RangeProp(al, ah), ir.RangeProp(bl, bh)) =>
+          valid(al, bl)
+          valid(ah, bh)
+        case (ValueProp(), ir.ValueProp(_)) =>
+        case _ =>
+          val an: String = a match {
+            case i:UnitProp => "UnitProp"
+            case i:ValueProp => "ValueProp"
+            case i:RangeProp => "RangeProp"
+          }
+          val bn: String = b match {
+            case i: ir.UnitProp => "UnitPop"
+            case i: ir.ValueProp => "ValueProp"
+            case i: ir.RangeProp => "RangeProp"
+            case _ =>
+              halt(s"Need to handle ${b}")
+          }
+          Instantiate.reportError(posOpt = posOpt, message = s"Expecting $an but found $bn", reporter = reporter)
+      }
+    }
+
+    for (i <- 0 until propValues.size) {
+      valid(propValues(i), propertyValues(i))
+    }
+
+    return T
   }
 }
 

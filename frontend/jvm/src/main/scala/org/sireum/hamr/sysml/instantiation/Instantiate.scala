@@ -45,7 +45,7 @@ object Instantiate {
       val systemRoots: ISZ[TypeInfo.PartDefinition] = InstantiateUtil.getSystemRoots(typeHierarchy)
 
       if (systemRoots.isEmpty) {
-        reportError(None(), "Could not find any system roots to instantiate")
+        reportErrorH(None(), "Could not find any system roots to instantiate")
         return (None())
       }
 
@@ -104,7 +104,7 @@ object Instantiate {
                             processDatatype(t1, ISZ()) match {
                               case Some(x) =>
                               case _ =>
-                                reportError(p.id.attr.posOpt, s"Unable to resolve parameter's type: ${p.id.value}")
+                                reportErrorH(p.id.attr.posOpt, s"Unable to resolve parameter's type: ${p.id.value}")
                             }
                           }
 
@@ -112,7 +112,7 @@ object Instantiate {
                           processDatatype(t2, ISZ()) match {
                             case Some(x) =>
                             case _ =>
-                              reportError(m.posOpt, s"Unable to resolve method's return type")
+                              reportErrorH(m.posOpt, s"Unable to resolve method's return type")
                           }
                         }
 
@@ -120,7 +120,7 @@ object Instantiate {
                           containingPackage = ir.Name(ISZ(id), posOpt),
                           methods = methods)
                       case _ =>
-                        reportError(p.posOpt, "Could not resolve package name")
+                        reportErrorH(p.posOpt, "Could not resolve package name")
                     }
                   case _ =>
                 }
@@ -154,10 +154,10 @@ object Instantiate {
         else ir.ComponentCategory.Subprogram
       }
       if (category == ir.ComponentCategory.Subprogram) {
-        reportError(p.posOpt, s"Only expecting system, processor, process, thread, data or abstract components: ${p}")
+        reportErrorH(p.posOpt, s"Only expecting system, processor, process, thread, data or abstract components: ${p}")
       }
       if (p.members.itemUsages.nonEmpty) {
-        reportError(p.posOpt, s"Currently not expecting item usages for a $category component")
+        reportErrorH(p.posOpt, s"Currently not expecting item usages for a $category component")
       }
 
       val componentName = st"${(p.name, "::")}".render
@@ -174,10 +174,10 @@ object Instantiate {
             if (isDatatype(m.typedOpt.get)) {
               ret = ret :+ m
             } else {
-              reportError(p.posOpt, s"Unexpected reference usage for an AADL $category component")
+              reportErrorH(p.posOpt, s"Unexpected reference usage for an AADL $category component")
             }
           } else {
-            reportError(m.posOpt, s"Currently not expecting reference usages for a $category component")
+            reportErrorH(m.posOpt, s"Currently not expecting reference usages for a $category component")
           }
         }
 
@@ -189,13 +189,13 @@ object Instantiate {
                   processDatatype(getDefinition(pmember.typedOpt.get).get.name, idPath :+ pmember.id)
                   ret = ret :+ pmember
                 case x =>
-                  reportError(pmember.posOpt, s"Unexpected part usage for an AADL array")
+                  reportErrorH(pmember.posOpt, s"Unexpected part usage for an AADL array")
               }
             }
             else if (isDatatype(pmember.typedOpt.get)) {
               ret = ret :+ pmember
             } else if (!allowedDataComponentMembers(p, pmember)) {
-              reportError(pmember.posOpt, s"Unexpected part usage for an AADL $category component")
+              reportErrorH(pmember.posOpt, s"Unexpected part usage for an AADL $category component")
             }
           }
 
@@ -207,14 +207,14 @@ object Instantiate {
                 case "Array_Size_Kind" =>  ret = ret :+ pmember
                 case x =>
                   if (!allowedDataComponentMembers(p, pmember)) {
-                    reportError(p.posOpt, s"Unexpected attribute usage for an AADL array")
+                    reportErrorH(p.posOpt, s"Unexpected attribute usage for an AADL array")
                   }
               }
             }
             else if (isDatatype(pmember.typedOpt.get)) {
               ret = ret :+ pmember
             } else if (!allowedDataComponentMembers(p, pmember)) {
-              reportError(p.posOpt, s"Unexpected attribute usage for an AADL $category component")
+              reportErrorH(p.posOpt, s"Unexpected attribute usage for an AADL $category component")
             }
           }
         } else {
@@ -249,7 +249,7 @@ object Instantiate {
             }
 
           } else {
-            reportError(member.posOpt,
+            reportErrorH(member.posOpt,
               st"Part usages of $category must be a descendant of one of the following: ${(AadlUtil.validSubcomponents.get(category).get, ", ")}".render)
           }
         }
@@ -264,13 +264,13 @@ object Instantiate {
               fv match {
                 case Some(SysmlAst.FeatureValue(_, _, _, AST.Exp.LitZ(value))) =>
                   if (value < 1) {
-                    reportError(optPosOpt, "Queue size must be greater than 0")
+                    reportErrorH(optPosOpt, "Queue size must be greater than 0")
                   }
                   queueSize = value
                 case Some(_) =>
-                  reportError(optPosOpt, "Expected an integer")
+                  reportErrorH(optPosOpt, "Expected an integer")
                 case _ =>
-                  reportError(optPosOpt, "Queue size must be provided")
+                  reportErrorH(optPosOpt, "Queue size must be provided")
               }
             case _ =>
           }
@@ -292,11 +292,11 @@ object Instantiate {
                     processDatatype(n.ids, ISZ(portName))
                     return Some(ir.Classifier(st"${(n.ids, "::")}".render))
                   } else {
-                    reportError(optPosOpt,
+                    reportErrorH(optPosOpt,
                       st"Data port type must be an enum or a descendant of ${(InstantiateUtil.AadlDataName, "::")}".render)
                   }
                 case _ =>
-                  reportWarn(b.posOpt, s"The payload type for ${componentName}'s $portName data port was not resolved")
+                  reportWarnH(b.posOpt, s"The payload type for ${componentName}'s $portName data port was not resolved")
                   return None()
               }
             case _ =>
@@ -319,15 +319,15 @@ object Instantiate {
                 val direction: Direction.Type = getPortUsageDirection(portUsage._2.ast) match {
                   case (Some(u), Some(r)) =>
                     if (u != r) {
-                      reportError(portUsage._2.posOpt, "Port usage direction and feature direction must be the same")
+                      reportErrorH(portUsage._2.posOpt, "Port usage direction and feature direction must be the same")
                     }
                     u
                   case (None(), Some(r)) => r
                   case (Some(u), None()) =>
-                    reportWarn(portUsage._2.posOpt, "Port direction must be supplied on the feature")
+                    reportWarnH(portUsage._2.posOpt, "Port direction must be supplied on the feature")
                     u
                   case _ =>
-                    reportError(portUsage._2.posOpt, "Port usage direction must be supplied on the feature")
+                    reportErrorH(portUsage._2.posOpt, "Port usage direction must be supplied on the feature")
                     Direction.None
                 }
                 features = features + portName ~> ir.FeatureEnd(
@@ -343,15 +343,15 @@ object Instantiate {
                 val direction: Direction.Type = getPortUsageDirection(portUsage._2.ast) match {
                   case (Some(u), Some(r)) =>
                     if (u != r) {
-                      reportError(portUsage._2.posOpt, "Port usage direction and feature direction")
+                      reportErrorH(portUsage._2.posOpt, "Port usage direction and feature direction")
                     }
                     u
                   case (None(), Some(r)) => r
                   case (Some(u), None()) =>
-                    reportWarn(portUsage._2.posOpt, "Port direction must be supplied on the feature")
+                    reportWarnH(portUsage._2.posOpt, "Port direction must be supplied on the feature")
                     u
                   case _ =>
-                    reportError(portUsage._2.posOpt, "Port direction must be supplied on the feature")
+                    reportErrorH(portUsage._2.posOpt, "Port direction must be supplied on the feature")
                     Direction.None
                 }
                 features = features + portName ~> ir.FeatureEnd(
@@ -365,7 +365,7 @@ object Instantiate {
                 val direction: Direction.Type = getPortUsageDirection(portUsage._2.ast) match {
                   case (Some(d), _) => d
                   case _ =>
-                    reportError(portUsage._2.posOpt, "Port direction must be supplied on the usage for event ports")
+                    reportErrorH(portUsage._2.posOpt, "Port direction must be supplied on the usage for event ports")
                     Direction.None
                 }
                 features = features + portName ~> ir.FeatureEnd(
@@ -376,10 +376,10 @@ object Instantiate {
                   properties = ISZ(),
                   uriFrag = "")
               case x =>
-                reportError(portUsage._2.posOpt, s"Unexpected port type $x p")
+                reportErrorH(portUsage._2.posOpt, s"Unexpected port type $x p")
             }
           case x =>
-            reportError(portUsage._2.posOpt, s"Port usages should have been resolved to Typed.Name but found $x")
+            reportErrorH(portUsage._2.posOpt, s"Port usages should have been resolved to Typed.Name but found $x")
         }
       }
 
@@ -569,7 +569,7 @@ object Instantiate {
                   appliesTo = ISZ())
                 actualProcessorBindings = actualProcessorBindings + srcPath ~> prop
               case _ =>
-                reportError(au._2.posOpt, "Did not resolve one of the part usages")
+                reportErrorH(au._2.posOpt, "Did not resolve one of the part usages")
             }
             assert(T)
           case _ =>
@@ -590,7 +590,7 @@ object Instantiate {
                     case Some(fv) =>
                       return processValue(fv.exp)
                     case _ =>
-                      reportError(exp.posOpt, "Attribute requires a feature value")
+                      reportErrorH(exp.posOpt, "Attribute requires a feature value")
                       return ISZ(ir.ValueProp("INVALID"))
                   }
                 case x =>
@@ -609,6 +609,7 @@ object Instantiate {
             case x =>
               halt(s"Unexpected select: $sel: $x")
           }
+        case l: AST.Exp.LitB => return ISZ(ir.ValueProp(if (l.value) "true" else "false"))
         case l: AST.Exp.LitZ => return ISZ(ir.UnitProp(l.value.string, None()))
         case f: AST.Exp.Invoke =>
           if (UIF.isUif(f.ident.id.value)) {
@@ -654,7 +655,7 @@ object Instantiate {
                               halt(s"Unexpected duration unit ${v.id}")
                             }
                           case x =>
-                            reportError(unitExp.posOpt, st"Unexpected feature value: ${(v.owner, "::")}::${v.id}".render)
+                            reportErrorH(unitExp.posOpt, st"Unexpected feature value: ${(v.owner, "::")}::${v.id}".render)
                             return ISZ()
                         }
                       case x =>
@@ -663,12 +664,24 @@ object Instantiate {
                   case x =>
                     halt(s"Expected a resolved Ref for the unit exp: $x ${unitExp.posOpt}")
                 }
+              case UIF.RangeExpression =>
+                assert (f.args.size == 2, "Expecting low and high values for range expressions")
+                val low = processValue(f.args(0))
+                val high = processValue(f.args(1))
+
+                (low(0), high(0)) match {
+                  case (lowProp: UnitProp, highProp: UnitProp) =>
+                    return ISZ(RangeProp(low = lowProp, high = highProp))
+                  case _ =>
+                    reportErrorH(exp.posOpt, "The low and high values of a range expression must be unit properties")
+                    return ISZ()
+                }
               case x =>
-                reportError(f.posOpt, s"Wasn't expecting UIF: $x")
+                reportErrorH(f.posOpt, s"Wasn't expecting UIF: $x")
                 return ISZ()
             }
           } else {
-            reportError(f.posOpt, s"Unable function: ${f.ident.id.value}")
+            reportErrorH(f.posOpt, s"Unable function: ${f.ident.id.value}")
             return ISZ()
           }
         case _ =>
@@ -686,15 +699,21 @@ object Instantiate {
               case Some(typed) =>
                 if (typeHierarchy.poset.isChildOf(ISZ("AADL", "Property"), typed.name) &&
                   m.ast.commonUsageElements.featureValue.nonEmpty &&
-                  InstantiateUtil.isHandledProperty(typed.name)) {
+                  InstantiateUtil.handledProperties.contains(typed.name)) {
 
-                  val propertyValues: ISZ[ir.PropertyValue] = processValue(m.ast.commonUsageElements.featureValue.get.exp)
+                  val fv = m.ast.commonUsageElements.featureValue.get
 
-                  val v = ir.Property(
-                    name = ir.Name(name = ISZ(st"${(typed.name, "::")}".render), pos = m.posOpt),
-                    propertyValues = propertyValues,
-                    appliesTo = ISZ())
-                  props = props :+ v
+                  val propertyValues: ISZ[ir.PropertyValue] = processValue(fv.exp)
+
+                  if (InstantiateUtil.validateProperty(typed.name, propertyValues, fv.exp.posOpt, reporter)) {
+
+                    val v = ir.Property(
+                      name = ir.Name(name = ISZ(st"${(typed.name, "::")}".render), pos = m.posOpt),
+                      propertyValues = propertyValues,
+                      appliesTo = ISZ())
+
+                    props = props :+ v
+                  }
                 }
               case _ =>
             }
@@ -919,27 +938,34 @@ object Instantiate {
 
     def reportWarnCond(cond: B, posOpt: Option[Position], message: String): Unit = {
       if (!cond) {
-        reportWarn(posOpt, message)
+        reportWarnH(posOpt, message)
       }
     }
 
-    def reportWarn(posOpt: Option[Position], message: String): Unit = {
+    def reportWarnH(posOpt: Option[Position], message: String): Unit = {
       val po: Option[Position] = if (posOpt.nonEmpty) posOpt else defaultReporterPos
-      reporter.warn(po, Instantiate.instantiatorKey, s"Instantiation Warning: $message")
+      reportWarn(po, s"Instantiation Warning: $message", reporter)
     }
 
     def reportErrorCond(cond: B, posOpt: Option[Position], message: String): Unit = {
       if (!cond) {
-        reportError(posOpt, message)
+        reportErrorH(posOpt, message)
       }
     }
 
-    def reportError(posOpt: Option[Position], message: String): Unit = {
+    def reportErrorH(posOpt: Option[Position], message: String): Unit = {
       val po: Option[Position] = if (posOpt.nonEmpty) posOpt else defaultReporterPos
-      reporter.error(po, Instantiate.instantiatorKey, s"Instantiation Error: $message")
+      reportError(po,s"Instantiation Error: $message", reporter)
     }
 
-
     return process()
+  }
+
+  def reportWarn(posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    reporter.warn(posOpt, Instantiate.instantiatorKey, s"Instantiation Warning: $message")
+  }
+
+  def reportError(posOpt: Option[Position], message: String, reporter: Reporter): Unit = {
+    reporter.error(posOpt, Instantiate.instantiatorKey, s"Instantiation Error: $message")
   }
 }

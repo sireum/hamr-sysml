@@ -338,16 +338,23 @@ object TypeHierarchy {
     }
     (t1, t2) match {
       case (n1: SAST.Typed.Name, n2: SAST.Typed.Name) =>
-        if ((
-          n1.ids == ISZ("Timing_Properties", "Period") ||
+        if
+        ((n1.ids == ISZ("CASE_Scheduling", "Max_Domain") ||
+          n1.ids == ISZ("CASE_Scheduling", "Domain")) &&
+          n2.ids == ISZ("org", "sireum", "Z")) {
+          return T
+        } else if
+        ((n1.ids == ISZ("Memory_Properties", "Data_Size") ||
+            n1.ids == ISZ("Memory_Properties", "Stack_Size")) &&
+            n2.ids == ISZ("ISQInformation", "StorageCapacityUnit")) {
+          return T
+        } else if
+        ((n1.ids == ISZ("Timing_Properties","Clock_Period") ||
+            n1.ids == ISZ("Timing_Properties","Compute_Execution_Time") ||
             n1.ids == ISZ("Timing_Properties","Frame_Period") ||
-            n1.ids == ISZ("Timing_Properties","Clock_Period") ||
+            n1.ids == ISZ("Timing_Properties", "Period") ||
             n1.ids == ISZ("AADL_Project", "Time")) &&
-          n2.ids == ISZ("ISQBase", "DurationUnit")) {
-          return T
-        } else if ((n1.ids == ISZ("CASE_Scheduling", "Max_Domain") || n1.ids == ISZ("CASE_Scheduling", "Domain")) && n2.ids == ISZ("org", "sireum", "Z")) {
-          return T
-        } else if (n1.ids == ISZ("Memory_Properties", "Data_Size") && n2.ids == ISZ("ISQInformation", "StorageCapacityUnit")) {
+            n2.ids == ISZ("ISQBase", "DurationUnit")) {
           return T
         }
       case _ =>
