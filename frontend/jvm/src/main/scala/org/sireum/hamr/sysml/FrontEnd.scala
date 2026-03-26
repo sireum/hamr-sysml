@@ -180,7 +180,7 @@ object FrontEnd {
             else integration.IntegrationConstraints.getArrayConstraints(e.get, th, reporter))
         }
 
-        val andResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryAnd)
+        val andResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryAnd, None())
 
         val arrayConstraints: Option[AST.Exp] =
           (eval(srcCon._2), eval(dstCon._2)) match {

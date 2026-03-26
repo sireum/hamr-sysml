@@ -103,9 +103,9 @@ object IntegrationConstraints {
     val title: String = st"$integration_constraint_title_prefix ${(connectionMidPoint._1, ".")}".render
 
     @pure def claim: AST.Exp = {
-      val condAndResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryCondAnd)
-      val eqResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryEq)
-      val condImplyResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryImply)
+      val condAndResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryCondAnd, None())
+      val eqResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryEq, None())
+      val condImplyResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryImply, None())
 
       val src: AST.Exp = srcConstraint match {
         case Some(e) => e
@@ -147,7 +147,7 @@ object IntegrationConstraints {
 
                 val max = s.ast.max
 
-                val eqResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryEq)
+                val eqResOpt: AST.ResolvedInfo = AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.BinaryEq, None())
 
                 val attr = AST.Attr(c.posOpt)
 
@@ -164,7 +164,8 @@ object IntegrationConstraints {
                     args = ISZ(),
                     ret = AST.Typed.z)),
                   reads = ISZ(),
-                  writes = ISZ())
+                  writes = ISZ(),
+                  defPosOpt = None())
 
                 val size = AST.Exp.Select(
                   receiverOpt = Some(c),

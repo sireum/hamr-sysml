@@ -69,28 +69,28 @@ object Util {
       case SAST.ResolvedInfo.BuiltIn(_, kind) =>
         kind match {
           case SAST.ResolvedInfo.BuiltIn.Kind.AsInstanceOf =>
-            return Some(AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.AsInstanceOf))
+            return Some(AST.ResolvedInfo.BuiltIn(AST.ResolvedInfo.BuiltIn.Kind.AsInstanceOf, None()))
           case _ => halt(kind.string)
         }
       case SAST.ResolvedInfo.Package(name) => return None()
       case SAST.ResolvedInfo.Enum(name) =>
-        return Some(AST.ResolvedInfo.Enum(name = name))
+        return Some(AST.ResolvedInfo.Enum(name = name, defPosOpt = None()))
       case SAST.ResolvedInfo.EnumElement(owner, name, ordinal) =>
-        return Some(AST.ResolvedInfo.EnumElement(owner = owner, name = name, ordinal = ordinal))
+        return Some(AST.ResolvedInfo.EnumElement(owner = owner, name = name, ordinal = ordinal, defPosOpt = None()))
       case SAST.ResolvedInfo.AllocationUsage(owner, name) =>
-        return Some(AST.ResolvedInfo.Var(isInObject = T, isSpec = F, isVal = T, owner = owner, id = name))
+        return Some(AST.ResolvedInfo.Var(isInObject = T, isSpec = F, isVal = T, owner = owner, id = name, defPosOpt = None()))
       case SAST.ResolvedInfo.AttributeUsage(owner, name) =>
-        return Some(AST.ResolvedInfo.Var(isInObject = T, isSpec = F, isVal = T, owner = owner, id = name))
+        return Some(AST.ResolvedInfo.Var(isInObject = T, isSpec = F, isVal = T, owner = owner, id = name, defPosOpt = None()))
       case SAST.ResolvedInfo.ConnectionUsage(owner, name) =>
-        return Some(AST.ResolvedInfo.Var(isInObject = T, isSpec = F, isVal = T, owner = owner, id = name))
+        return Some(AST.ResolvedInfo.Var(isInObject = T, isSpec = F, isVal = T, owner = owner, id = name, defPosOpt = None()))
       case SAST.ResolvedInfo.ItemUsage(owner, name) =>
-        return Some(AST.ResolvedInfo.Var(isInObject = T, isSpec = F, isVal = T, owner = owner, id = name))
+        return Some(AST.ResolvedInfo.Var(isInObject = T, isSpec = F, isVal = T, owner = owner, id = name, defPosOpt = None()))
       case SAST.ResolvedInfo.PartUsage(owner, name) =>
-        return Some(AST.ResolvedInfo.Var(isInObject = T, isSpec = F, isVal = T, owner = owner, id = name))
+        return Some(AST.ResolvedInfo.Var(isInObject = T, isSpec = F, isVal = T, owner = owner, id = name, defPosOpt = None()))
       case SAST.ResolvedInfo.PortUsage(owner, name) =>
-        return Some(AST.ResolvedInfo.Var(isInObject = T, isSpec = F, isVal = T, owner = owner, id = name))
+        return Some(AST.ResolvedInfo.Var(isInObject = T, isSpec = F, isVal = T, owner = owner, id = name, defPosOpt = None()))
       case SAST.ResolvedInfo.ReferenceUsage(owner, name) =>
-        return Some(AST.ResolvedInfo.Var(isInObject = T, isSpec = F, isVal = T, owner = owner, id = name))
+        return Some(AST.ResolvedInfo.Var(isInObject = T, isSpec = F, isVal = T, owner = owner, id = name, defPosOpt = None()))
     }
   }
 
