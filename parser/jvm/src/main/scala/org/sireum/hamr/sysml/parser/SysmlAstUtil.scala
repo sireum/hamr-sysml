@@ -30,6 +30,7 @@ object SysmlAstUtil {
         None(),
         AST.Exp.Ident(AST.Id(string"RangeExpression")),
         _,
+        _,
         ISZ(l, h)) => return Some((l,h))
       case _ => return None()
     }

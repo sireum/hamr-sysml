@@ -72,9 +72,9 @@ object TypeChecker {
                 ids = for (id <- ti.name) yield AST.Id(id, AST.Attr(ti.posOpt)),
                 attr = AST.Attr(ti.posOpt)
               )
-              val typedName = AST.Typed.Name(ti.name, ISZ())
+              val typedName = AST.Typed.Name(ti.name, AST.Typed.noRType, ISZ())
               val typedAttr = AST.TypedAttr(ti.posOpt, Some(typedName))
-              val named = AST.Type.Named(name, ISZ(), typedAttr)
+              val named = AST.Type.Named(name, AST.Typed.noRType, ISZ(), typedAttr)
 
               return Some(named)
 
@@ -83,9 +83,9 @@ object TypeChecker {
                 ids = for (id <- e.name) yield AST.Id(id, AST.Attr(e.posOpt)),
                 attr = AST.Attr(e.posOpt)
               )
-              val typedName = AST.Typed.Name(e.name, ISZ())
+              val typedName = AST.Typed.Name(e.name, AST.Typed.noRType, ISZ())
               val typedAttr = AST.TypedAttr(t.posOpt, Some(typedName))
-              val named = AST.Type.Named(name, ISZ(), typedAttr)
+              val named = AST.Type.Named(name, AST.Typed.noRType, ISZ(), typedAttr)
 
               return Some(named)
             case _ =>

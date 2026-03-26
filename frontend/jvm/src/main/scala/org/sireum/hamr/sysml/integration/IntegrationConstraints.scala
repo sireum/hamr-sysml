@@ -28,7 +28,7 @@ import org.sireum.lang.tipe.{TypeHierarchy => SlangTypeHierarchy}
 
   def isArray(value: Option[AST.Typed]): B = {
     value match {
-      case Some(AST.Typed.Name(ids, _)) =>
+      case Some(AST.Typed.Name(ids, _, _)) =>
         ids match {
           case ISZ("org", "sireum", "IS") => return T
           case _ =>
@@ -140,7 +140,7 @@ object IntegrationConstraints {
         val tn = c.typedOpt.get.asInstanceOf[AST.Typed.Name]
 
         tn.args(0) match {
-          case AST.Typed.Name(indexingType, _) =>
+          case AST.Typed.Name(indexingType, _, _) =>
             th.typeMap.get(indexingType) match {
               case Some(s: TypeInfo.SubZ) =>
                 assert (s.ast.min == 0, s.ast.min.string)

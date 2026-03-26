@@ -45,11 +45,13 @@ object SlangUtil {
   def buildSlangTypedNamed(name: AST.Name): AST.Type.Named = {
     val typedName = AST.Typed.Name(
       ids = for(id <- name.ids) yield id.value,
+      rTypeOpt = AST.Typed.noRType,
       args = ISZ())
     // TODO: probably need to populate typedOpt after sym res in order to get the fqn
     val typedAttr = AST.TypedAttr(posOpt = name.attr.posOpt, typedOpt = Some(typedName))
     return AST.Type.Named(
       name = name,
+      rTypeOpt = None(),
       typeArgs = ISZ(),
       attr = typedAttr)
   }

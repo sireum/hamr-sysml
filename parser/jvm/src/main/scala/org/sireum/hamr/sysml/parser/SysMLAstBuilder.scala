@@ -1943,7 +1943,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
             return AST.Exp.Select(
               receiverOpt = Some(lhs),
               id = AST.Id(value = "asInstanceOf", attr = toSlangAttr(o)),
-              targs = ISZ(AST.Type.Named(name = typeMember, typeArgs = ISZ(), attr = toSlangTypedAttr(name))),
+              targs = ISZ(AST.Type.Named(name = typeMember, rTypeOpt = None(), typeArgs = ISZ(), attr = toSlangTypedAttr(name))),
               attr = toSlangResolvedAttr(o))
           } else {
             return lhs
@@ -2005,6 +2005,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
         return AST.Exp.Invoke(
           receiverOpt = None(),
           ident = ident,
+          rTypes = ISZ(),
           targs = ISZ(),
           args = ISZ(lhs, rhs),
           attr = toSlangResolvedAttr(o))
@@ -2198,6 +2199,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
               ret = AST.Exp.Invoke(
                 receiverOpt = receiverOpt,
                 ident = ident,
+                rTypes = ISZ(),
                 targs = ISZ(),
                 args = ISZ(se),
                 attr = toSlangResolvedAttr(o))
@@ -2213,6 +2215,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
                     ret = AST.Exp.Invoke(
                       receiverOpt = None(),
                       ident = AST.Exp.Ident(AST.Id(UIF.SysmlUnitExpression, toSlangAttr(o)), toSlangResolvedAttr(o)),
+                      rTypes = ISZ(),
                       targs = ISZ(),
                       args = ISZ(baseExp, i),
                       attr = toSlangResolvedAttr(o))
@@ -2222,6 +2225,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
                     ret = AST.Exp.Invoke(
                       receiverOpt = None(),
                       ident = baseExp.asInstanceOf[AST.Exp.Ident],
+                      rTypes = ISZ(),
                       targs = ISZ(),
                       args = ISZ(x),
                       attr = toSlangResolvedAttr(o))
@@ -2230,6 +2234,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
                     ret = AST.Exp.Invoke(
                       receiverOpt = None(),
                       ident = AST.Exp.Ident(AST.Id(UIF.SysmlUnitExpression, toSlangAttr(o)), toSlangResolvedAttr(o)),
+                      rTypes = ISZ(),
                       targs = ISZ(),
                       args = ISZ(baseExp, x),
                       attr = toSlangResolvedAttr(o))
@@ -2440,6 +2445,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
           return AST.Exp.Invoke(
             receiverOpt = receiverOpt,
             ident = ident,
+            rTypes = ISZ(),
             targs = ISZ(),
             args = args,
             attr = toSlangResolvedAttr(o))
@@ -2571,7 +2577,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
       val uif = ident.id.value
       if (ops.ISZOps(portUifs).contains(uif)) {
         def toInvoke(subName: String): AST.Exp.Invoke = {
-          return AST.Exp.Invoke(receiver, ident(id = ident.id(value = subName)), ISZ(), args, attr)
+          return AST.Exp.Invoke(receiver, ident(id = ident.id(value = subName)), ISZ(), ISZ(), args, attr)
         }
 
         uif match {
@@ -2837,7 +2843,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
                 }
 
                 val quantifiedExp = visitExpressionH(rem.ruleOwnedExpression(), isGumboExpression)
-                val qe = AST.Stmt.Expr(exp = quantifiedExp, attr = toSlangTypedAttr(rem.ruleOwnedExpression()))
+                val qe = AST.Stmt.Expr(exp = quantifiedExp, annotations = ISZ(), attr = toSlangTypedAttr(rem.ruleOwnedExpression()))
 
                 val param: AST.Exp.Fun.Param = {
                   val slangAttr = AST.Attr(quantifiedVariable.get.posOpt)
@@ -2849,6 +2855,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
                   context = ISZ(),
                   params = ISZ(param),
                   exp = qe,
+                  annotations = ISZ(),
                   attr = toSlangTypedAttr(o))
 
                 ret = Some(AST.Exp.QuantRange(
@@ -3102,7 +3109,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
 
     val optBody: Option[AST.Body] =
       if (nonEmpty(o.ruleOwnedExpression())) {
-        val ret = AST.Stmt.Return(expOpt = Some(visitExpression(o.ruleOwnedExpression())), attr = retType.attr)
+        val ret = AST.Stmt.Return(expOpt = Some(visitExpression(o.ruleOwnedExpression())), annotations = ISZ(), attr = retType.attr)
         Some(AST.Body(stmts = ISZ(ret), undecls = ISZ()))
       } else {
         None()
@@ -3221,6 +3228,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
       purity = purity,
       annotations = ISZ(),
       id = methodId,
+      rTypeParams = ISZ(),
       typeParams = typeParams,
       hasParams = params.nonEmpty,
       params = params,

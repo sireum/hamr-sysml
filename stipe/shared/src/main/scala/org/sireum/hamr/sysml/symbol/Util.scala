@@ -97,9 +97,9 @@ object Util {
   def toSlangTypedOpt(t: Option[SAST.Typed]): Option[AST.Typed] = {
     t match {
       case Some(SAST.Typed.Package(name)) =>
-        return Some(AST.Typed.Name(ids = name, args = ISZ()))
+        return Some(AST.Typed.Name(ids = name, rTypeOpt = AST.Typed.noRType, args = ISZ()))
       case Some(SAST.Typed.Name(ids)) =>
-        return Some(AST.Typed.Name(ids = ids, args = ISZ()))
+        return Some(AST.Typed.Name(ids = ids, rTypeOpt = AST.Typed.noRType, args = ISZ()))
       case Some(SAST.Typed.Enum(name)) =>
         return Some(AST.Typed.Enum(name))
       case x => return None()
