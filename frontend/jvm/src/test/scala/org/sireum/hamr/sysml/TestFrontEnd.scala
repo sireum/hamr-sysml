@@ -8,8 +8,8 @@ import org.sireum.{Either, _}
 
 abstract class TestFrontEnd extends TestSuite {
 
-  @pure def generateExpected: B = F
-
+  @pure def generateExpected: B = Os.env("HAMR_REGEN_EXPECTED").nonEmpty
+  
   @pure def verbose: B = F
 
   @pure def par: Z = 0
