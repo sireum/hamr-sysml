@@ -210,6 +210,8 @@ object InstantiateUtil {
       ISZ[String]("HAMR_Microkit", "SMC") ~> ISZ[PropertyValue](ValueProp()),
       ISZ[String]("HAMR_Microkit", "Scheduling") ~> ISZ[PropertyValue](ValueProp()),
 
+      ISZ[String]("HAMR_ROS", "RosNodeKind") ~> ISZ[PropertyValue](ValueProp()),
+
       ISZ[String]("Thread_Properties", "Dispatch_Protocol") ~> ISZ[PropertyValue](ValueProp()),
 
       ISZ[String]("Memory_Properties", "Data_Size") ~> ISZ[PropertyValue](UnitProp(F)),
