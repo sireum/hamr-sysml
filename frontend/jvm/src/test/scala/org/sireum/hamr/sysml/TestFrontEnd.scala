@@ -1,6 +1,7 @@
 package org.sireum.hamr.sysml
 
 import org.sireum.hamr.ir.{Aadl, JSON => irJSON}
+import org.sireum.hamr.ir.util.Util
 import org.sireum.hamr.sysml.FrontEnd.Input
 import org.sireum.message.Reporter
 import org.sireum.test.TestSuite
@@ -8,7 +9,7 @@ import org.sireum.{Either, _}
 
 abstract class TestFrontEnd extends TestSuite {
 
-  @pure def generateExpected: B = Os.env("HAMR_REGEN_EXPECTED").nonEmpty
+  @pure def generateExpected: B = F || Os.env("HAMR_REGEN_EXPECTED").nonEmpty
   
   @pure def verbose: B = F
 
@@ -72,7 +73,14 @@ abstract class TestFrontEnd extends TestSuite {
     return Input(content = o.read, fileUri = Some(o.toUri))
   }
 
-  def test(instanceName: ISZ[String], inputs: ISZ[Input], root: Os.Path): Unit = {
+  def test(instanceName: ISZ[String], sourcePaths: ISZ[Os.Path], root: Os.Path): Unit = {
+
+    var sysMlFiles: ISZ[Os.Path] = ISZ()
+    for(s <- sourcePaths :+ root) {
+      sysMlFiles = sysMlFiles ++ getSysmlFiles(s, F)
+    }
+
+    val inputs = libDefs ++ (for(f <- sysMlFiles) yield toInput(f))
 
     val reporter = Reporter.create
     val (sysmlTh, modelElements, store) = FrontEnd.typeCheck(par = par, inputs = inputs, store = Map.empty, reporter = reporter)
@@ -91,8 +99,16 @@ abstract class TestFrontEnd extends TestSuite {
             for (m <- modelElements) {
               assert(m.model.components.size == 1)
               avail = avail :+ st"${(m.model.components(0).identifier.name, "::")}".render
-              if (m.model.components(0).identifier.name == instanceName) {
-                model = Some(m.model)
+
+              if (instanceName.nonEmpty) {
+                if (m.model.components(0).identifier.name == instanceName) {
+                  model = Some(m.model)
+                }
+              } else {
+                if (m.model.components(0).identifier.name != ISZ(string"System_Instance")) {
+                  assert (model.isEmpty, model.string)
+                  model = Some(m.model)
+                }
               }
             }
             if (model.nonEmpty) model.get
@@ -101,30 +117,40 @@ abstract class TestFrontEnd extends TestSuite {
                   |  ${(avail, "\n")}""".render)
           }
 
+          val allSourcePaths = sourcePaths :+ root :+ w_sysml_aadl_libraries
+          val relativizedModel = Util.relativizePosUris(aadlModel, allSourcePaths)
+
           val slangDir = root / ".slang"
 
           val airPath = (slangDir / st"${(aadlModel.components(0).identifier.name, "_")}.json".render).canon
 
-          val resultAirContent = irJSON.fromAadl(aadlModel, F)
+          val resultAirContent = irJSON.fromAadl(relativizedModel, F)
+
+          {
+            val jsonOps = ops.StringOps(resultAirContent)
+            for (sp <- allSourcePaths) {
+              var prefix = sp.toUri
+              if (ops.StringOps(prefix).endsWith("/")) {
+                prefix = ops.StringOps(prefix).substring(0, prefix.size - 1)
+              }
+              assert(!jsonOps.contains(prefix),
+                s"Unscrubbed URI found matching $prefix — a node with Position may be missing from AirPositionRelativizer")
+            }
+          }
 
           if (generateExpected) {
-            airPath.writeOver(resultAirContent)
             airPath.up.mkdirAll()
+            airPath.writeOver(resultAirContent)
             println(s"Wrote: $airPath")
           } else {
             assert(airPath.exists, s"AIR filed doesn't exist: ${airPath.value}")
 
             irJSON.toAadl(airPath.read) match {
               case Either.Left(expectedModel) =>
-                val scrubbedExpectedModel = scrub(expectedModel)
-                val scrubbedResultModel = scrub(aadlModel)
 
-                if (scrubbedResultModel != scrubbedExpectedModel) {
-                  val expectedAirPath = slangDir / st"${(aadlModel.components(0).identifier.name, "_")}_expected.json".render
-                  expectedAirPath.writeOver(irJSON.fromAadl(scrubbedExpectedModel, F))
-
+                if (relativizedModel != expectedModel) {
                   val resultAirPath = slangDir / st"${(aadlModel.components(0).identifier.name, "_")}_result.json".render
-                  resultAirPath.writeOver(irJSON.fromAadl(scrubbedResultModel, F))
+                  resultAirPath.writeOver(resultAirContent)
 
                   val gitIgnore = slangDir / ".gitignore"
                   val gicontent = ops.StringOps(gitIgnore.read)
@@ -225,9 +251,4 @@ abstract class TestFrontEnd extends TestSuite {
     }
   }
 
-  val m = TestUtil.AirScrubber()
-
-  def scrub(model: Aadl): Aadl = {
-    return m.transformAadl(model).get
-  }
 }

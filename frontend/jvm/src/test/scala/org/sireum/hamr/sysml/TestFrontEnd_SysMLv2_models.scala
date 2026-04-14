@@ -15,54 +15,42 @@ class TestFrontEnd_SysMLv2_models extends TestFrontEnd {
   "temp-control-mixed" in {
     val root = w_hamrModelsDir / "temp-control" / "sysml-temp-control-mixed"
     assert (root.exists, root.value)
-    val files = getSysmlFiles(root, F)
     println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = libDefs ++ (for (r <- files) yield toInput(r))
-    test(ISZ("TempControlSystem_Instance"), inputs, root)
+    test(ISZ("TempControlSystem_Instance"), ISZ(), root)
   }
 
   "temp-control-mixed-sel4-camkes" in {
     val root = w_hamrModelsDir / "temp-control" / "sysml-temp-control-mixed-sel4-camkes"
     assert (root.exists, root.value)
-    val files = getSysmlFiles(root, F)
     println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = libDefs ++ (for (r <- files) yield toInput(r))
-    test(ISZ("TempControlSystem_Instance"), inputs, root)
+    test(ISZ("TempControlSystem_Instance"), ISZ(), root)
   }
 
   "temp-control-periodic" in {
     val root = w_hamrModelsDir / "temp-control" / "sysml-temp-control-periodic"
     assert (root.exists, root.value)
-    val files = getSysmlFiles(root, F)
     println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = libDefs ++ (for (r <- files) yield toInput(r))
-    test(ISZ("TempControlSystem_Instance"), inputs, root)
+    test(ISZ("TempControlSystem_Instance"), ISZ(), root)
   }
 
   "rts" in {
     val root = w_hamrModelsDir / "sysml-rts"
     assert (root.exists, root.value)
-    val files = getSysmlFiles(root, F)
     println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = libDefs ++ (for (r <- files) yield toInput(r))
-    test(ISZ("RTS_Instance"), inputs, root)
+    test(ISZ("RTS_Instance"), ISZ(), root)
   }
 
   "isolette" in {
     val root = w_hamrModelsDir / "sysml-isolette"
     assert (root.exists, root.value)
-    val files = getSysmlFiles(root, F)
     println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = libDefs ++ (for (r <- files) yield toInput(r))
-    test(ISZ("Isolette_Instance"), inputs, root)
+    test(ISZ("Isolette_Instance"), ISZ(), root)
   }
 
   "data-invariants" in {
     val root = w_internal_models / "gumbo" / "data-invariants"
-    val files = getSysmlFiles(root, F)
     println(s"Resolving: ${root.toUri}")
-    val inputs: ISZ[Input] = libDefs ++ (for (r <- files) yield toInput(r))
-    test(ISZ("s_impl_Instance"), inputs, root)
+    test(ISZ("s_impl_Instance"), ISZ(), root)
   }
 }
 
