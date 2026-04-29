@@ -6,7 +6,7 @@ import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.tree.TerminalNodeImpl
 import org.sireum.hamr.sysml.parser.SysMLAstBuilder.{binOpsUifs, interpolates, isReservedSequenceName, kerMLOperations, logikaUifs, numeric_interpolates, portUifs}
 import org.sireum.hamr.ir.SysmlAst._
-import org.sireum.hamr.ir.{Attr, GclAssume, GclCaseStatement, GclCompute, GclGuarantee, GclHandle, GclInitialize, GclIntegration, GclInvariant, GclLib, GclMethod, GclSpec, GclBodyMethod, GclSpecMethod, GclStateVar, GclSubclause, InfoFlowClause, ResolvedAttr, Name => AirName}
+import org.sireum.hamr.ir.{Attr, GclAssume, GclCaseStatement, GclCompute, GclGuarantee, GclHandle, GclInitialize, GclIntegration, GclInvariant, GclLib, GclMethod, GclMonitor, GclSpec, GclBodyMethod, GclSpecMethod, GclStateVar, GclSubclause, InfoFlowClause, ResolvedAttr, Name => AirName}
 import org.sireum.hamr.sysml.parser.SlangUtil.Placeholders.emptyUsagePrefix
 import org.sireum.hamr.sysml.parser.SysmlAstUtil.isRegularComment
 import org.sireum.hamr.sysml.parser.SlangUtil.{Placeholders, mergePos}
@@ -2943,7 +2943,9 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
       compute = Some(visitCompute(o.ruleSpecSection().ruleCompute()))
     }
 
-    return GclSubclause(state = state, methods = methods, invariants = invariants, initializes = initializes, integration = integration, compute = compute, attr = toAttr(o))
+    var monitor: Option[GclMonitor] = None()
+
+    return GclSubclause(state = state, methods = methods, invariants = invariants, initializes = initializes, integration = integration, compute = compute, monitor = monitor, attr = toAttr(o))
   }
 
   def visitCompute(o: RuleComputeContext): GclCompute = {
