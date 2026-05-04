@@ -80,6 +80,7 @@ object SysmlFrontEndTests {
     maxArraySize = 1,
     runTranspiler = F,
     //
+    verusAttributeSyntax = F,
     sel4OutputDir = None(),
     sel4AuxCodeDirs = ISZ(),
     workspaceRootDir = None(),
