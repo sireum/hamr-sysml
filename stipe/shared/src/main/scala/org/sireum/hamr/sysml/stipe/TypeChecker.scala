@@ -282,13 +282,13 @@ object TypeChecker {
       assert (a.commonUsageElements.identification.isEmpty)
       a.commonUsageElements.attr.resOpt match {
         case Some(i: ResolvedInfo.AttributeUsage) =>
-          assert (a.isInstanceOf[SysmlAst.AttributeUsage])
+          val ast = a.asInstanceOf[SysmlAst.AttributeUsage]
           newMembers = newMembers(attributeUsages = newMembers.attributeUsages + i.name ~>
-            Info.AttributeUsage(owner = i.owner, id = i.name, hasId = T, scope = scope, ast = a.asInstanceOf[SysmlAst.AttributeUsage]))
+            Info.AttributeUsage(owner = i.owner, id = i.name, hasId = T, scope = scope, ast = ast))
         case Some(i: ResolvedInfo.PartUsage) =>
-          assert (a.isInstanceOf[SysmlAst.PartUsage])
+          val ast = a.asInstanceOf[SysmlAst.PartUsage]
           newMembers = newMembers(partUsages = newMembers.partUsages + i.name ~>
-            Info.PartUsage(owner = i.owner, id = i.name, hasId = T, scope = scope, ast = a.asInstanceOf[SysmlAst.PartUsage]))
+            Info.PartUsage(owner = i.owner, id = i.name, hasId = T, scope = scope, ast = ast))
         case x =>
           //halt(s"Need to handle refined resolution for ${a}")
       }
