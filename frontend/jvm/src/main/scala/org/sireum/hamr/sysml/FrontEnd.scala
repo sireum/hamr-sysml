@@ -4,7 +4,7 @@ package org.sireum.hamr.sysml
 import org.sireum._
 import org.sireum.hamr.codegen.common.CommonUtil.{Store, toolName}
 import org.sireum.hamr.codegen.common.symbols.{AadlPort, AadlThread, GclAnnexClauseInfo}
-import org.sireum.hamr.codegen.common.util.HamrCli.{CodegenHamrPlatform, CodegenLaunchCodeLanguage, CodegenNodesCodeLanguage, CodegenOption}
+import org.sireum.hamr.codegen.common.util.HamrCli
 import org.sireum.hamr.codegen.common.util.ModelUtil
 import org.sireum.hamr.ir
 import org.sireum.hamr.ir.SysmlAst.TopUnit
@@ -249,14 +249,14 @@ object FrontEnd {
   }
 
   // TODO: remove instantiator's dependence on codegen's options
-  val baseOptions: CodegenOption =
-    CodegenOption(
+  val baseOptions: HamrCli.CodegenOption =
+    HamrCli.CodegenOption(
       help = "",
       args = ISZ(),
       msgpack = F,
       verbose = F,
       runtimeMonitoring = F,
-      platform = CodegenHamrPlatform.JVM,
+      platform = HamrCli.CodegenHamrPlatform.JVM,
       outputDir = None(),
       parseableMessages = F,
       //
@@ -275,6 +275,7 @@ object FrontEnd {
       maxArraySize = 1,
       runTranspiler = F,
       //
+      scheduling = HamrCli.CodegenScheduling.Domain,
       verusAttributeSyntax = F,
       sel4OutputDir = None(),
       sel4AuxCodeDirs = ISZ(),
@@ -283,8 +284,8 @@ object FrontEnd {
       strictAadlMode = F,
       ros2OutputWorkspaceDir = None(),
       ros2Dir = None(),
-      ros2NodesLanguage = CodegenNodesCodeLanguage.Cpp,
-      ros2LaunchLanguage = CodegenLaunchCodeLanguage.Xml,
+      ros2NodesLanguage = HamrCli.CodegenNodesCodeLanguage.Cpp,
+      ros2LaunchLanguage = HamrCli.CodegenLaunchCodeLanguage.Xml,
       invertTopicBinding = F,
       //
       experimentalOptions = ISZ()

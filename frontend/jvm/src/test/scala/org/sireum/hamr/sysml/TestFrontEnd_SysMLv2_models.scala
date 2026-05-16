@@ -1,8 +1,7 @@
 package org.sireum.hamr.sysml
 
 import org.sireum._
-import org.sireum.hamr.sysml.FrontEnd.Input
-import org.sireum.hamr.codegen.common.util.HamrCli.{CodegenHamrPlatform, CodegenLaunchCodeLanguage, CodegenNodesCodeLanguage, CodegenOption}
+import org.sireum.hamr.codegen.common.util.HamrCli
 
 class TestFrontEnd_SysMLv2_models extends TestFrontEnd {
 
@@ -55,13 +54,13 @@ class TestFrontEnd_SysMLv2_models extends TestFrontEnd {
 }
 
 object SysmlFrontEndTests {
-  val baseOptions = CodegenOption(
+  val baseOptions = HamrCli.CodegenOption(
     help = "",
     args = ISZ(),
     msgpack = F,
     verbose = F,
     runtimeMonitoring = F,
-    platform = CodegenHamrPlatform.JVM,
+    platform = HamrCli.CodegenHamrPlatform.JVM,
     outputDir = None(),
     parseableMessages = F,
     //
@@ -80,6 +79,7 @@ object SysmlFrontEndTests {
     maxArraySize = 1,
     runTranspiler = F,
     //
+    scheduling = HamrCli.CodegenScheduling.Domain,
     verusAttributeSyntax = F,
     sel4OutputDir = None(),
     sel4AuxCodeDirs = ISZ(),
@@ -88,8 +88,8 @@ object SysmlFrontEndTests {
     strictAadlMode = F,
     ros2OutputWorkspaceDir = None(),
     ros2Dir = None(),
-    ros2NodesLanguage = CodegenNodesCodeLanguage.Cpp,
-    ros2LaunchLanguage = CodegenLaunchCodeLanguage.Xml,
+    ros2NodesLanguage = HamrCli.CodegenNodesCodeLanguage.Cpp,
+    ros2LaunchLanguage = HamrCli.CodegenLaunchCodeLanguage.Xml,
     invertTopicBinding = F,
     //
     experimentalOptions = ISZ()
