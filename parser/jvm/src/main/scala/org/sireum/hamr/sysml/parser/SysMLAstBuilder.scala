@@ -2943,7 +2943,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
       compute = Some(visitCompute(o.ruleSpecSection().ruleCompute()))
     }
 
-    return GclSubclause(state = state, methods = methods, invariants = invariants, initializes = initializes, integration = integration, compute = compute, attr = toAttr(o))
+    return GclSubclause(state = state, methods = methods, invariants = invariants, initializes = initializes, integration = integration, compute = compute, schedule = None(), attr = toAttr(o))
   }
 
   def visitCompute(o: RuleComputeContext): GclCompute = {
