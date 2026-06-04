@@ -23,15 +23,30 @@ object TypeChecker {
     var initTh = th
     var initMessages = ISZ[Message]()
 
-    // Resolve any usages at the package level
-    for (info <- th.typeMap.values) {
-      info match {
-        case info: TypeInfo.Package if (info.members.nonEmpty) =>
-          val x = TypeChecker(initTh, info.name).checkPackage(info)(initTh)
-          initMessages = x._2
-          initTh = x._1
-        case _ =>
+    // Resolve usages at the package level.
+    // Multiple passes are needed because package-level attribute usages may
+    // reference members of other packages that haven't been processed yet
+    // (e.g., Isolette_Properties uses HAMR_Time_Units::ms as a unit expression).
+    // Re-check packages until no further progress is made.
+    // Only keep messages from the final pass since earlier passes may have
+    // false errors due to incomplete cross-package resolution.
+    val maxPackagePasses: Z = 10
+    var packagePass: Z = 0
+    var packagePassChanged = T
+    while (packagePassChanged && packagePass < maxPackagePasses) {
+      packagePass = packagePass + 1
+      val prevTh = initTh
+      initMessages = ISZ()
+      for (info <- initTh.typeMap.values) {
+        info match {
+          case info: TypeInfo.Package if (info.members.nonEmpty) =>
+            val x = TypeChecker(initTh, info.name).checkPackage(info)(initTh)
+            initMessages = initMessages ++ x._2
+            initTh = x._1
+          case _ =>
+        }
       }
+      packagePassChanged = initTh != prevTh
     }
 
     for (info <- th.typeMap.values) {
@@ -151,7 +166,13 @@ object TypeChecker {
     assert(info.outlined, st"${(info.name, "::")} is not outline".render)
     val reporter = Reporter.create
 
-    var scope = Scope.Local.create(info.scope)
+    // Create a fresh Scope.Global so its @memoize resolveNameMemoized cache
+    // is empty. The multi-pass loop in checkDefinitions reuses the same
+    // TypeInfo.Package across passes; reusing its scope would return stale
+    // cached results from earlier passes when th had fewer typed entries
+    // (resolveNameMemoized uses @hidden th, so the cache is keyed only on name).
+    val freshGlobalScope = Scope.Global(info.scope.packageName, info.scope.imports, info.scope.enclosingName)
+    var scope = Scope.Local.create(freshGlobalScope)
     scope = addMembersToScope(info.members, scope)
 
     val usages: ISZ[SAST.SysmlAst.DefinitionBodyItem] =
@@ -161,7 +182,7 @@ object TypeChecker {
 
     val newMembers = updateMembers(newBodyItems, info.members, reporter)
 
-    val x: ISZ[SysmlAst.PackageBodyElement] = for(u <- usages) yield u.asInstanceOf[SysmlAst.PackageBodyElement]
+    val x: ISZ[SysmlAst.PackageBodyElement] = for(u <- newBodyItems) yield u.asInstanceOf[SysmlAst.PackageBodyElement]
     val nonUsages: ISZ[SAST.SysmlAst.PackageBodyElement] =
       info.ast.packageElements.filter(p => !p.isInstanceOf[SysmlAst.UsageElement])
 
@@ -174,7 +195,7 @@ object TypeChecker {
     var nameMap = typeHierarchy.nameMap
     for (m <- newMembers.attributeUsages.entries) {
       typeHierarchy.nameMap.get(m._2.name) match {
-        case Some(au: Info.AttributeUsage) if au.typedOpt.isEmpty =>
+        case Some(au: Info.AttributeUsage) =>
           nameMap = nameMap + m._2.name ~> au(ast = m._2.ast)
         case _ =>
       }
@@ -660,45 +681,43 @@ object TypeChecker {
             case _ => (None(), expectedOpt)
           }
 
-          tOpt match {
-            case Some(_) =>
-              val typedOpt: Option[SAST.Typed] = expectedOpt match {
-                case Some(_) => expectedOpt
-                case _ => tOpt
-              }
-              typedOpt match {
-                case Some(SAST.Typed.Name(ids)) =>
-                  typeHierarchy.typeMap.get(ids) match {
-                    case Some(pd: TypeInfo.DefinitionTypeInfo) =>
-                      // create a scope that contains the names from the port
-                      // def (along with anything that inherits)
-                      var attributeUsageScope = Scope.Local.create(scope)
-                      attributeUsageScope = addMembersToScope(pd.members, attributeUsageScope)
+          val resolvedTypedOpt: Option[SAST.Typed] = (tOpt, expectedOpt) match {
+            case (Some(_), Some(_)) => expectedOpt
+            case (Some(_), _) => tOpt
+            case (_, Some(_)) => expectedOpt
+            case _ => None()
+          }
+          resolvedTypedOpt match {
+            case Some(SAST.Typed.Name(ids)) =>
+              typeHierarchy.typeMap.get(ids) match {
+                case Some(pd: TypeInfo.DefinitionTypeInfo) =>
+                  // create a scope that contains the names from the port
+                  // def (along with anything that inherits)
+                  var attributeUsageScope = Scope.Local.create(scope)
+                  attributeUsageScope = addMembersToScope(pd.members, attributeUsageScope)
 
-                      val newBodyItems = checkBodyItems(
-                        ISZ(attributeUsageScope), ru.definitionBodyItems, reporter)
+                  val newBodyItems = checkBodyItems(
+                    ISZ(attributeUsageScope), ru.definitionBodyItems, reporter)
 
-                      ru = ru(
-                        featureValue = fvalue,
-                        definitionBodyItems = newBodyItems,
-                        attr = ru.attr(typedOpt = typedOpt, resOpt = resOpt))
+                  ru = ru(
+                    featureValue = fvalue,
+                    definitionBodyItems = newBodyItems,
+                    attr = ru.attr(typedOpt = resolvedTypedOpt, resOpt = resOpt))
 
-                      return ru
-                    case Some(pd: TypeInfo.EnumDefinition) =>
+                  return ru
+                case Some(pd: TypeInfo.EnumDefinition) =>
 
-                      if (ru.definitionBodyItems.nonEmpty) {
-                        TypeChecker.reportError(ru.attr.posOpt, "Not expecting an attribute typed by an enum definition to have body items", reporter)
-                      }
-
-                      ru = ru(attr = ru.attr(typedOpt = typedOpt, resOpt = resOpt))
-                      return ru
-                    case x =>
-                      TypeChecker.reportError(ru.attr.posOpt, "Usages must be typed by definitions", reporter)
+                  if (ru.definitionBodyItems.nonEmpty) {
+                    TypeChecker.reportError(ru.attr.posOpt, "Not expecting an attribute typed by an enum definition to have body items", reporter)
                   }
-                case _ =>
-                  TypeChecker.reportError(ru.attr.posOpt, s"Usages must be typed", reporter)
+
+                  ru = ru(attr = ru.attr(typedOpt = resolvedTypedOpt, resOpt = resOpt))
+                  return ru
+                case x =>
+                  TypeChecker.reportError(ru.attr.posOpt, "Usages must be typed by definitions", reporter)
               }
             case _ =>
+              TypeChecker.reportError(ru.attr.posOpt, s"Usages must be typed", reporter)
           }
           return u
 
