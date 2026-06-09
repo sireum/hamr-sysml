@@ -58,38 +58,45 @@ object SlangUtil {
 
 
   def collapse1(lhs: Exp, binaryOp: String, stack: Stack[Exp]): Exp = {
-    var s = stack
-    if (s.isEmpty) {
+    if (stack.isEmpty) {
       return lhs
     } else {
-      while (s.size > 1) {
-        val (r, s0) = s.pop.get
-        val (l, s1) = s0.pop.get
-        val posOpt = mergePos(l.posOpt, r.posOpt)
-        s = s1.push(AST.Exp.Binary(left = l, op = binaryOp, right = r, attr = Placeholders.emptyResolvedAttr(posOpt), opPosOpt = posOpt))
+      var result = lhs
+      for (i <- z"0" until stack.elements.size) {
+        val rhs = stack.elements(i)
+        val posOpt = mergePos(result.posOpt, rhs.posOpt)
+        result = AST.Exp.Binary(left = result, op = binaryOp, right = rhs, attr = Placeholders.emptyResolvedAttr(posOpt), opPosOpt = posOpt)
       }
-      val rhs = s.pop.get._1
-      val posOpt = mergePos(lhs.posOpt, rhs.posOpt)
-      val ret = AST.Exp.Binary(left = lhs, op = binaryOp, right = rhs, attr = Placeholders.emptyResolvedAttr(posOpt), opPosOpt = posOpt)
-      return ret
+      return result
     }
   }
 
   def collapse2(lhs: Exp, stack: Stack[(String, Exp)]): Exp = {
-    var s = stack
-    if (s.isEmpty) {
+    if (stack.isEmpty) {
       return lhs
     } else {
-      while (s.size > 1) {
-        val (r, s0) = s.pop.get
-        val (l, s1) = s0.pop.get
-        val posOpt = mergePos(l._2.posOpt, r._2.posOpt)
-        s = s1.push((l._1, Exp.Binary(left = l._2, op = r._1, right = r._2, attr = Placeholders.emptyResolvedAttr(posOpt), opPosOpt = posOpt)))
+      var result = lhs
+      for (i <- z"0" until stack.elements.size) {
+        val pair = stack.elements(i)
+        val posOpt = mergePos(result.posOpt, pair._2.posOpt)
+        result = AST.Exp.Binary(left = result, op = pair._1, right = pair._2, attr = Placeholders.emptyResolvedAttr(posOpt), opPosOpt = posOpt)
       }
-      val rhs = s.pop.get._1
-      val posOpt = mergePos(lhs.posOpt, rhs._2.posOpt)
-      val ret = AST.Exp.Binary(left = lhs, op = rhs._1, right = rhs._2, attr = Placeholders.emptyResolvedAttr(posOpt), opPosOpt = posOpt)
-      return ret
+      return result
+    }
+  }
+
+  def collapseRight1(lhs: Exp, binaryOp: String, stack: Stack[Exp]): Exp = {
+    if (stack.isEmpty) {
+      return lhs
+    } else {
+      var result = stack.elements(stack.elements.size - 1)
+      for (i <- z"2" to stack.elements.size) {
+        val left = stack.elements(stack.elements.size - i)
+        val posOpt = mergePos(left.posOpt, result.posOpt)
+        result = AST.Exp.Binary(left = left, op = binaryOp, right = result, attr = Placeholders.emptyResolvedAttr(posOpt), opPosOpt = posOpt)
+      }
+      val posOpt = mergePos(lhs.posOpt, result.posOpt)
+      return AST.Exp.Binary(left = lhs, op = binaryOp, right = result, attr = Placeholders.emptyResolvedAttr(posOpt), opPosOpt = posOpt)
     }
   }
 

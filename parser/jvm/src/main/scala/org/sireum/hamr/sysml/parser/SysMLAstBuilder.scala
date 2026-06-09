@@ -1833,7 +1833,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
 
       //return SlangUtil.collapse1(lhs, AST.Exp.BinaryOp.CondImply, s)
 
-      return SlangUtil.collapse1(lhs, "___>:", s)
+      return SlangUtil.collapseRight1(lhs, "___>:", s)
 
     }
 
