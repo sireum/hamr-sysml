@@ -1833,7 +1833,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
 
       //return SlangUtil.collapse1(lhs, AST.Exp.BinaryOp.CondImply, s)
 
-      return SlangUtil.collapse1(lhs, "___>:", s)
+      return SlangUtil.collapseRight1(lhs, "___>:", s)
 
     }
 
@@ -2945,7 +2945,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
 
     var monitor: Option[GclMonitor] = None()
 
-    return GclSubclause(state = state, methods = methods, invariants = invariants, initializes = initializes, integration = integration, compute = compute, monitor = monitor, attr = toAttr(o))
+    return GclSubclause(state = state, methods = methods, invariants = invariants, initializes = initializes, integration = integration, compute = compute, monitor = monitor, compositions = ISZ(), attr = toAttr(o))
   }
 
   def visitCompute(o: RuleComputeContext): GclCompute = {

@@ -153,6 +153,9 @@ abstract class TestFrontEnd extends TestSuite {
                   resultAirPath.writeOver(resultAirContent)
 
                   val gitIgnore = slangDir / ".gitignore"
+                  if (!gitIgnore.exists) {
+                    gitIgnore.write("")
+                  }
                   val gicontent = ops.StringOps(gitIgnore.read)
                   var add: Option[ST] = None()
                   if (!gicontent.contains("*_result*")) {

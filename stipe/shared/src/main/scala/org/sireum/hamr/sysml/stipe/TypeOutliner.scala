@@ -346,7 +346,9 @@ object TypeOutliner {
         TypeOutliner.reportError(refinedUsage.ast.posOpt,
           "Currently only supporting public visibilities", reporter)
       }
-      refinedUsages = refinedUsages :+ refinedUsage
+      // prepend so parent refinements come before child's own, ensuring child (most specific) is processed
+      // last during type checking
+      refinedUsages = refinedUsage +: refinedUsages
     }
 
     def inheritAllocationUsages(allocationUsage: Info.AllocationUsage, posOpt: Option[Position]): Unit = {
