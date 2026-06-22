@@ -1320,7 +1320,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
       case (m1: RuleMultiplicityPart1Context) =>
         visitRange(m1.ruleOwnedMultiplicity().ruleMultiplicityRange())
       case (m2: RuleMultiplicityPart2Context) =>
-        nonunique = m2.K_NONUNIQUE() != null
+        nonunique = nonEmpty(m2.ruleNonunique())
         ordered = m2.K_ORDERED() != null
 
         if (nonEmpty(m2.ruleOwnedMultiplicity()))
