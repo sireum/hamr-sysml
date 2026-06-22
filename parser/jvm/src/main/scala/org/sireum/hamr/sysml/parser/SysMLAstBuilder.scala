@@ -6,7 +6,7 @@ import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.tree.TerminalNodeImpl
 import org.sireum.hamr.sysml.parser.SysMLAstBuilder.{binOpsUifs, interpolates, isReservedSequenceName, kerMLOperations, logikaUifs, numeric_interpolates, portUifs}
 import org.sireum.hamr.ir.SysmlAst._
-import org.sireum.hamr.ir.{Attr, GclAssume, GclCaseStatement, GclCompute, GclGuarantee, GclHandle, GclInitialize, GclIntegration, GclInvariant, GclLib, GclMethod, GclSpec, GclBodyMethod, GclSpecMethod, GclStateVar, GclSubclause, InfoFlowClause, ResolvedAttr, Name => AirName}
+import org.sireum.hamr.ir.{Attr, GclAssume, GclBodyMethod, GclCaseStatement, GclComposition, GclCompositionComponentAlias, GclCompositionPortAlias, GclCompositionProperty, GclCompositionStateVarAlias, GclCompute, GclGuarantee, GclHandle, GclInitialize, GclIntegration, GclInvariant, GclLib, GclMethod, GclPointAfter, GclPointAt, GclPointBefore, GclPointEnd, GclPointStart, GclPropertyBinding, GclSchemaComponentRef, GclSchemaElement, GclSchemaLabel, GclSchemaPoint, GclSchemaSequence, GclSchemaSplitJoin, GclSpec, GclSpecMethod, GclStateVar, GclSubclause, InfoFlowClause, ResolvedAttr, Name => AirName}
 import org.sireum.hamr.sysml.parser.SlangUtil.Placeholders.emptyUsagePrefix
 import org.sireum.hamr.sysml.parser.SysmlAstUtil.isRegularComment
 import org.sireum.hamr.sysml.parser.SlangUtil.{Placeholders, mergePos}
@@ -2943,7 +2943,153 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
       compute = Some(visitCompute(o.ruleSpecSection().ruleCompute()))
     }
 
-    return GclSubclause(state = state, methods = methods, invariants = invariants, initializes = initializes, integration = integration, compute = compute, compositions = ISZ(), attr = toAttr(o))
+    var compositions: ISZ[GclComposition] = ISZ()
+    if (!o.ruleSpecSection().ruleComposition().isEmpty) {
+      compositions = for (c <- listToISZ(o.ruleSpecSection().ruleComposition())) yield visitComposition(c)
+    }
+    return GclSubclause(state = state, methods = methods, invariants = invariants, initializes = initializes, integration = integration, compute = compute, compositions = compositions, attr = toAttr(o))
+  }
+
+  def visitComposition(o: RuleCompositionContext): GclComposition = {
+    var componentAliases: ISZ[GclCompositionComponentAlias] = ISZ()
+    if (o.ruleScheduleComponentAliases() != null) {
+      componentAliases = for (a <- listToISZ(o.ruleScheduleComponentAliases().ruleScheduleComponentAlias())) yield
+        GclCompositionComponentAlias(
+          name = a.RULE_ID().string,
+          componentPath = buildSubcomponentPath(a.ruleScheduleSubcomponentPath()),
+          attr = toAttr(a))
+    }
+
+    var portAliases: ISZ[GclCompositionPortAlias] = ISZ()
+    if (o.ruleSchedulePortAliases() != null) {
+      portAliases = for (a <- listToISZ(o.ruleSchedulePortAliases().ruleSchedulePortAlias())) yield
+        GclCompositionPortAlias(
+          name = a.RULE_ID().string,
+          portPath = buildPortPath(a.ruleSchedulePortPath()),
+          attr = toAttr(a))
+    }
+
+    var stateVarAliases: ISZ[GclCompositionStateVarAlias] = ISZ()
+    if (o.ruleScheduleStateVarAliases() != null) {
+      stateVarAliases = for (a <- listToISZ(o.ruleScheduleStateVarAliases().ruleScheduleStateVarAlias())) yield
+        GclCompositionStateVarAlias(
+          name = a.RULE_ID().string,
+          stateVarPath = buildStateVarPath(a.ruleScheduleStateVarPath()),
+          attr = toAttr(a))
+    }
+
+    val schema = for (e <- listToISZ(o.ruleSchema().ruleSchemaElement())) yield visitSchemaElement(e)
+
+    val properties = for (p <- listToISZ(o.ruleCompositionProperty())) yield visitCompositionProperty(p)
+
+    return GclComposition(
+      id = o.RULE_ID().string,
+      componentAliases = componentAliases,
+      portAliases = portAliases,
+      stateVarAliases = stateVarAliases,
+      schema = schema,
+      properties = properties,
+      attr = toAttr(o))
+  }
+
+  // ruleScheduleSubcomponentPath: RULE_ID ('.' ruleScheduleSubcomponentPath)?;
+  def buildSubcomponentPath(o: RuleScheduleSubcomponentPathContext): AirName = {
+    var ids: ISZ[String] = ISZ()
+    var cur = o
+    while (cur != null) {
+      ids = ids :+ cur.RULE_ID().string
+      cur = cur.ruleScheduleSubcomponentPath()
+    }
+    return AirName(name = ids, pos = toPosOpt(o))
+  }
+
+  // ruleSchedulePortPath: RULE_ID ('.' ruleSchedulePortPath)?;
+  def buildPortPath(o: RuleSchedulePortPathContext): AirName = {
+    var ids: ISZ[String] = ISZ()
+    var cur = o
+    while (cur != null) {
+      ids = ids :+ cur.RULE_ID().string
+      cur = cur.ruleSchedulePortPath()
+    }
+    return AirName(name = ids, pos = toPosOpt(o))
+  }
+
+  // ruleScheduleStateVarPath: RULE_ID ('.' ruleScheduleStateVarPath)?;
+  def buildStateVarPath(o: RuleScheduleStateVarPathContext): AirName = {
+    var ids: ISZ[String] = ISZ()
+    var cur = o
+    while (cur != null) {
+      ids = ids :+ cur.RULE_ID().string
+      cur = cur.ruleScheduleStateVarPath()
+    }
+    return AirName(name = ids, pos = toPosOpt(o))
+  }
+
+  def visitSchemaElement(o: RuleSchemaElementContext): GclSchemaElement = {
+    o match {
+      case e1: RuleSchemaElement1Context =>
+        val l = e1.ruleSchemaLabel()
+        return GclSchemaLabel(id = l.RULE_ID().string, attr = toAttr(l))
+      case e2: RuleSchemaElement2Context =>
+        return visitSchemaSplitJoin(e2.ruleSchemaSplitJoin())
+      case e3: RuleSchemaElement3Context =>
+        return visitSchemaComponentRef(e3.ruleSchemaComponentRef())
+      case x => halt(s"Unexpected schema element: $x")
+    }
+  }
+
+  def visitSchemaSplitJoin(o: RuleSchemaSplitJoinContext): GclSchemaSplitJoin = {
+    val branches = for (s <- listToISZ(o.ruleSchemaSequence())) yield visitSchemaSequence(s)
+    return GclSchemaSplitJoin(branches = branches, attr = toAttr(o))
+  }
+
+  def visitSchemaSequence(o: RuleSchemaSequenceContext): GclSchemaSequence = {
+    val elements = for (e <- listToISZ(o.ruleSchemaElement())) yield visitSchemaElement(e)
+    return GclSchemaSequence(elements = elements, attr = toAttr(o))
+  }
+
+  // ruleSchemaComponentRef: RULE_ID ('@' RULE_ID)?;
+  def visitSchemaComponentRef(o: RuleSchemaComponentRefContext): GclSchemaComponentRef = {
+    val component = AirName(name = ISZ(o.RULE_ID(0).string), pos = toPosOpt(o))
+    val occurrenceLabelOpt: Option[String] =
+      if (o.RULE_ID(1) != null) Some(o.RULE_ID(1).string) else None()
+    return GclSchemaComponentRef(component = component, occurrenceLabelOpt = occurrenceLabelOpt, attr = toAttr(o))
+  }
+
+  def visitCompositionProperty(o: RuleCompositionPropertyContext): GclCompositionProperty = {
+    val bindings = for (b <- listToISZ(o.rulePropertyBinding())) yield visitPropertyBinding(b)
+    return GclCompositionProperty(
+      id = o.RULE_ID().string,
+      descriptor = if (o.RULE_STRING_VALUE() != null) Some(SlangUtil.unquoteString(o.RULE_STRING_VALUE().string)) else None(),
+      bindings = bindings,
+      attr = toAttr(o))
+  }
+
+  // rulePropertyBinding: ruleSchemaPoint RULE_STRING_VALUE? ':' ruleOwnedExpression ';';
+  def visitPropertyBinding(o: RulePropertyBindingContext): GclPropertyBinding = {
+    return GclPropertyBinding(
+      point = visitSchemaPoint(o.ruleSchemaPoint()),
+      descriptor = if (o.RULE_STRING_VALUE() != null) Some(SlangUtil.unquoteString(o.RULE_STRING_VALUE().string)) else None(),
+      exp = visitExpression(o.ruleOwnedExpression()),
+      attr = toAttr(o))
+  }
+
+  // ruleSchemaPoint: 'at' RULE_ID | 'before' RULE_ID | 'after' RULE_ID;
+  // 'at START' and 'at END' name the dedicated cycle endpoints; any other 'at' id is a schema label.
+  def visitSchemaPoint(o: RuleSchemaPointContext): GclSchemaPoint = {
+    o match {
+      case p1: RuleSchemaPoint1Context =>
+        p1.RULE_ID().string match {
+          case string"START" => return GclPointStart(attr = toAttr(p1))
+          case string"END" => return GclPointEnd(attr = toAttr(p1))
+          case label => return GclPointAt(label = label, attr = toAttr(p1))
+        }
+      case p2: RuleSchemaPoint2Context =>
+        return GclPointBefore(occurrence = p2.RULE_ID().string, attr = toAttr(p2))
+      case p3: RuleSchemaPoint3Context =>
+        return GclPointAfter(occurrence = p3.RULE_ID().string, attr = toAttr(p3))
+      case x => halt(s"Unexpected schema point: $x")
+    }
   }
 
   def visitCompute(o: RuleComputeContext): GclCompute = {
