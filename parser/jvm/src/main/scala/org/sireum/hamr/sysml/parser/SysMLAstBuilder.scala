@@ -3058,8 +3058,19 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
 
   def visitCompositionProperty(o: RuleCompositionPropertyContext): GclCompositionProperty = {
     val bindings = for (b <- listToISZ(o.rulePropertyBinding())) yield visitPropertyBinding(b)
+    // ruleCompositionProperty: 'abstract'? 'property' RULE_ID ((':>'|'specializes') RULE_ID (',' RULE_ID)*)? RULE_STRING_VALUE? '{' rulePropertyBinding* '}';
+    // RULE_ID(0) is the property id; RULE_ID(1..) are the specialized parents (D9 property
+    // inheritance -- SysMLv2 allows a comma-separated parent list). The ':>' vs 'specializes'
+    // spelling carries no semantic distinction here.
+    val ids = listToISZ(o.RULE_ID())
+    var parents: ISZ[String] = ISZ()
+    for (k <- 1 until ids.size) {
+      parents = parents :+ ids(k).string
+    }
     return GclCompositionProperty(
-      id = o.RULE_ID().string,
+      id = ids(0).string,
+      isAbstract = o.K_ABSTRACT() != null,
+      parents = parents,
       descriptor = if (o.RULE_STRING_VALUE() != null) Some(SlangUtil.unquoteString(o.RULE_STRING_VALUE().string)) else None(),
       bindings = bindings,
       attr = toAttr(o))
