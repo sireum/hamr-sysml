@@ -233,8 +233,21 @@ object Instantiate {
             getDefinition(member.typedOpt.get) match {
               case Some(x) =>
                 if (!processingDatatype || isDatatype(member.typedOpt.get)) {
-                  subcomponents = subcomponents :+ instantiateComponent(
+                  var sub = instantiateComponent(
                     x, processingDatatype, idPath :+ member.id, member.posOpt)
+                  // merge component-level properties declared at the usage site (e.g.
+                  // Ros_Namespace) on top of the ones from the component definition
+                  val usageProps = bodyItemProperties(member.ast.commonUsageElements.definitionBodyItems)
+                  if (usageProps.nonEmpty) {
+                    sub = sub(properties = sub.properties ++ usageProps)
+                  }
+                  // apply usage-site port refinements (e.g. an overriding Ros_Topic_Name on
+                  // a redefined port) on top of the definition's port properties
+                  val portRefinements = usageSitePortProperties(member.ast.commonUsageElements.definitionBodyItems)
+                  if (portRefinements.nonEmpty) {
+                    sub = sub(features = mergePortRefinements(sub.features, portRefinements))
+                  }
+                  subcomponents = subcomponents :+ sub
                 }
 
                 if (processingDatatype) {
@@ -312,7 +325,18 @@ object Instantiate {
         val portName = idPath :+ portUsage._1
         portUsage._2.typedOpt match {
           case Some(t: Typed.Name) =>
-            t.ids match {
+            // dispatch on the AADL port category, resolved subtype-aware so that a
+            // library port def wrapping an AADL port (e.g. HAMR_AADL::EventDataPort)
+            // is recognized
+            val portCategoryName: ISZ[String] =
+              if (InstantiateUtil.isAadlDataPort(t.ids, typeHierarchy)) InstantiateUtil.AadlDataPortName
+              else if (InstantiateUtil.isAadlEventDataPort(t.ids, typeHierarchy)) InstantiateUtil.AadlEventDataPortName
+              else if (InstantiateUtil.isAadlEventPort(t.ids, typeHierarchy)) InstantiateUtil.AadlEventPortName
+              else t.ids
+            // properties declared directly on the port usage (e.g. Ros_Topic_Name,
+            // Port_Provenance)
+            val portProps: ISZ[ir.Property] = bodyItemProperties(portUsage._2.ast.commonUsageElements.definitionBodyItems)
+            portCategoryName match {
               case ISZ("AADL", "DataPort") =>
                 val pType = getPayloadType(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
                 val queueSize = getQueueSize(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
@@ -335,7 +359,7 @@ object Instantiate {
                   direction = direction,
                   category = ir.FeatureCategory.DataPort,
                   classifier = pType,
-                  properties = ISZ(queueSize),
+                  properties = ISZ(queueSize) ++ portProps,
                   uriFrag = "")
               case ISZ("AADL", "EventDataPort") =>
                 val pType = getPayloadType(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
@@ -359,7 +383,7 @@ object Instantiate {
                   direction = direction,
                   category = ir.FeatureCategory.EventDataPort,
                   classifier = pType,
-                  properties = ISZ(queueSize),
+                  properties = ISZ(queueSize) ++ portProps,
                   uriFrag = "")
               case ISZ("AADL", "EventPort") =>
                 val direction: Direction.Type = getPortUsageDirection(portUsage._2.ast) match {
@@ -373,7 +397,7 @@ object Instantiate {
                   direction = direction,
                   category = ir.FeatureCategory.EventPort,
                   classifier = None(),
-                  properties = ISZ(),
+                  properties = portProps,
                   uriFrag = "")
               case x =>
                 reportErrorH(portUsage._2.posOpt, s"Unexpected port type $x p")
@@ -610,6 +634,7 @@ object Instantiate {
               halt(s"Unexpected select: $sel: $x")
           }
         case l: AST.Exp.LitB => return ISZ(ir.ValueProp(if (l.value) "true" else "false"))
+        case l: AST.Exp.LitString => return ISZ(ir.ValueProp(l.value))
         case l: AST.Exp.LitZ => return ISZ(ir.UnitProp(l.value.string, None()))
         case f: AST.Exp.Invoke =>
           if (UIF.isUif(f.ident.id.value)) {
@@ -689,38 +714,121 @@ object Instantiate {
       }
     }
 
+    // Builds an ir.Property from a property attribute usage (its resolved type and feature
+    // value), when the attribute is a handled AADL Property.  Shared by component-level,
+    // port-level, and usage-site property processing.
+    def mkProperty(typedOpt: Option[Typed], featureValueOpt: Option[SysmlAst.FeatureValue],
+                   posOpt: Option[Position]): Option[ir.Property] = {
+      typedOpt match {
+        case Some(n: Typed.Name) =>
+          typeHierarchy.typeMap.get(n.ids) match {
+            case Some(typed) =>
+              if (typeHierarchy.poset.isChildOf(ISZ("AADL", "Property"), typed.name) &&
+                featureValueOpt.nonEmpty &&
+                InstantiateUtil.handledProperties.contains(typed.name)) {
+
+                val fv = featureValueOpt.get
+                val propertyValues: ISZ[ir.PropertyValue] = processValue(fv.exp)
+
+                if (InstantiateUtil.validateProperty(typed.name, propertyValues, fv.exp.posOpt, reporter)) {
+                  return Some(ir.Property(
+                    name = ir.Name(name = ISZ(st"${(typed.name, "::")}".render), pos = posOpt),
+                    propertyValues = propertyValues,
+                    appliesTo = ISZ()))
+                }
+              }
+            case _ =>
+          }
+        case _ =>
+      }
+      return None()
+    }
+
     def processProperties(ti: TypeInfo.PartDefinition): ISZ[ir.Property] = {
       var props: ISZ[ir.Property] = ISZ()
-
       for (m <- ti.members.attributeUsages.values) {
-        m.ast.commonUsageElements.attr.typedOpt match {
-          case Some(n: Typed.Name) =>
-            typeHierarchy.typeMap.get(n.ids) match {
-              case Some(typed) =>
-                if (typeHierarchy.poset.isChildOf(ISZ("AADL", "Property"), typed.name) &&
-                  m.ast.commonUsageElements.featureValue.nonEmpty &&
-                  InstantiateUtil.handledProperties.contains(typed.name)) {
-
-                  val fv = m.ast.commonUsageElements.featureValue.get
-
-                  val propertyValues: ISZ[ir.PropertyValue] = processValue(fv.exp)
-
-                  if (InstantiateUtil.validateProperty(typed.name, propertyValues, fv.exp.posOpt, reporter)) {
-
-                    val v = ir.Property(
-                      name = ir.Name(name = ISZ(st"${(typed.name, "::")}".render), pos = m.posOpt),
-                      propertyValues = propertyValues,
-                      appliesTo = ISZ())
-
-                    props = props :+ v
-                  }
-                }
-              case _ =>
-            }
-          case x =>
+        mkProperty(m.ast.commonUsageElements.attr.typedOpt, m.ast.commonUsageElements.featureValue, m.posOpt) match {
+          case Some(v) => props = props :+ v
+          case _ =>
         }
       }
       return props
+    }
+
+    // Collects handled AADL properties declared directly among a set of body items --
+    // e.g. an attribute redefinition inside a port usage (Ros_Topic_Name, Port_Provenance)
+    // or a subcomponent usage (Ros_Namespace).  These are property sources that are not on
+    // a part definition and so are not seen by processProperties.
+    def bodyItemProperties(definitionBodyItems: ISZ[SysmlAst.DefinitionBodyItem]): ISZ[ir.Property] = {
+      var props: ISZ[ir.Property] = ISZ()
+      for (b <- definitionBodyItems) {
+        b match {
+          case au: SysmlAst.AttributeUsage =>
+            mkProperty(au.commonUsageElements.attr.typedOpt, au.commonUsageElements.featureValue,
+              au.commonUsageElements.attr.posOpt) match {
+              case Some(v) => props = props :+ v
+              case _ =>
+            }
+          case _ =>
+        }
+      }
+      return props
+    }
+
+    // The simple (last) name a usage redefines (:>>), if any -- e.g. `port :>> joy`
+    // yields "joy".
+    def redefinedSimpleName(cue: SysmlAst.CommonUsageElements): Option[String] = {
+      for (s <- cue.specializations) {
+        s match {
+          case r: SysmlAst.RedefinitionsSpecialization if r.references.nonEmpty =>
+            val ids = r.references(r.references.size - 1).ids
+            if (ids.nonEmpty) {
+              return Some(ids(ids.size - 1).value)
+            }
+          case _ =>
+        }
+      }
+      return None()
+    }
+
+    // Properties contributed by usage-site port refinements, keyed by the redefined port's
+    // simple name -- e.g. `part joy : Joystick { port :>> joy { attribute :>> Ros_Topic_Name = ... } }`.
+    // These override the definition's port properties (see mergePortRefinements).
+    def usageSitePortProperties(definitionBodyItems: ISZ[SysmlAst.DefinitionBodyItem]): HashSMap[String, ISZ[ir.Property]] = {
+      var ret = HashSMap.empty[String, ISZ[ir.Property]]
+      for (b <- definitionBodyItems) {
+        b match {
+          case pu: SysmlAst.PortUsage =>
+            redefinedSimpleName(pu.commonUsageElements) match {
+              case Some(nm) =>
+                val ps = bodyItemProperties(pu.commonUsageElements.definitionBodyItems)
+                if (ps.nonEmpty) {
+                  ret = ret + nm ~> ps
+                }
+              case _ =>
+            }
+          case _ =>
+        }
+      }
+      return ret
+    }
+
+    // Applies usage-site port refinements to a component's features: for a matching feature,
+    // the refining properties replace any definition-site property of the same name and are
+    // added.
+    def mergePortRefinements(features: ISZ[ir.Feature], refinements: HashSMap[String, ISZ[ir.Property]]): ISZ[ir.Feature] = {
+      return for (f <- features) yield f match {
+        case fe: ir.FeatureEnd =>
+          val simpleName = fe.identifier.name(fe.identifier.name.size - 1)
+          refinements.get(simpleName) match {
+            case Some(overriding) =>
+              val overridingNames = HashSSet.empty[ISZ[String]] ++ (for (p <- overriding) yield p.name.name)
+              val kept: ISZ[ir.Property] = for (p <- fe.properties if !overridingNames.contains(p.name.name)) yield p
+              fe(properties = kept ++ overriding)
+            case _ => fe
+          }
+        case _ => f
+      }
     }
 
     def getPortUsageDirection(p: SysmlAst.PortUsage): (Option[ir.Direction.Type], Option[ir.Direction.Type]) = {
@@ -908,11 +1016,15 @@ object Instantiate {
 
       p match {
         case i:Info.AttributeUsage =>
+          // Allow an attribute redefinition inherited from any ancestor of the
+          // datatype (e.g. a property declared on a library wrapper such as
+          // HAMR_AADL::Data), in addition to the AADL Data/Component properties.
           if (i.owner == InstantiateUtil.AadlDataName ||
-            i.owner == InstantiateUtil.AadlComponentName) {
+            i.owner == InstantiateUtil.AadlComponentName ||
+            isDescendantOf(i.owner, parent.name)) {
             return T
           }
-          halt("")
+          halt(st"Unexpected attribute usage '${(p.name, "::")}' owned by '${(i.owner, "::")}' on datatype '${(parent.name, "::")}'".render)
         case i =>
 
           return F

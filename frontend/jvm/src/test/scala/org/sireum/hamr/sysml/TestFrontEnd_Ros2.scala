@@ -25,4 +25,30 @@ class TestFrontEnd_Ros2 extends TestFrontEnd {
     println(s"Resolving: ${root.toUri}")
     test(ISZ("TempControlSystem_Instance"), ISZ(), root)
   }
+
+
+  val urosDemoDir: Os.Path = Os.home / "devel" / "microros" / "uros_demo" / "sysml"
+
+  if(urosDemoDir.exists) {
+    "uros-demo-structure" in {
+      val root = urosDemoDir / "structure"
+      assert(root.exists, root.value)
+      println(s"Resolving: ${root.toUri}")
+      test(ISZ("UrosDemoSystem_Instance"), ISZ(), root)
+    }
+
+    "uros-demo-naming" in {
+      val root = urosDemoDir / "naming"
+      assert(root.exists, root.value)
+      println(s"Resolving: ${root.toUri}")
+      test(ISZ("UrosDemoSystem_Instance"), ISZ(), root)
+    }
+
+    "uros-demo-gumbo" in {
+      val root = urosDemoDir / "gumbo"
+      assert(root.exists, root.value)
+      println(s"Resolving: ${root.toUri}")
+      test(ISZ("UrosDemoSystem_Instance"), ISZ(), root)
+    }
+  }
 }

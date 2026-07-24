@@ -34,6 +34,10 @@ object InstantiateUtil {
 
   val AadlAbstractName: ISZ[String] = ISZ("AADL", "Abstract")
 
+  val AadlDataPortName: ISZ[String] = ISZ("AADL", "DataPort")
+  val AadlEventDataPortName: ISZ[String] = ISZ("AADL", "EventDataPort")
+  val AadlEventPortName: ISZ[String] = ISZ("AADL", "EventPort")
+
 
   val HAMR_AADL_Array: ISZ[String]= ISZ("HAMR_AADL", "Array")
   val HAMR_AADL_Struct: ISZ[String]= ISZ("HAMR_AADL", "Struct")
@@ -169,6 +173,25 @@ object InstantiateUtil {
     return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlAbstractName)
   }
 
+  // Port-type checks are subtype-aware so that a library may introduce its own
+  // port defs (e.g. HAMR_AADL::EventDataPort :> AADL::EventDataPort, carrying
+  // additional properties) and still be recognized.  The three AADL port defs
+  // are siblings (each directly subtypes Feature), so at most one holds.
+  def isAadlDataPort(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {
+    return name == InstantiateUtil.AadlDataPortName ||
+      typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlDataPortName)
+  }
+
+  def isAadlEventDataPort(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {
+    return name == InstantiateUtil.AadlEventDataPortName ||
+      typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlEventDataPortName)
+  }
+
+  def isAadlEventPort(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {
+    return name == InstantiateUtil.AadlEventPortName ||
+      typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlEventPortName)
+  }
+
   def isAadlAbstractOpt(opt: Option[ir.Typed], typeHierarchy: TypeHierarchy): B = {
     opt match {
       case Some(t: ir.Typed.Name) => return isAadlAbstract(t.ids, typeHierarchy)
@@ -206,11 +229,24 @@ object InstantiateUtil {
 
       ISZ[String]("HAMR", "Implementation_Language") ~> ISZ[PropertyValue](ValueProp()),
 
+      // Provenance family (enum-valued): who supplies the realization of a
+      // type/component/port (Model | Platform_Provided | Infrastructure).
+      ISZ[String]("HAMR", "Type_Provenance") ~> ISZ[PropertyValue](ValueProp()),
+      ISZ[String]("HAMR", "Component_Provenance") ~> ISZ[PropertyValue](ValueProp()),
+      ISZ[String]("HAMR", "Port_Provenance") ~> ISZ[PropertyValue](ValueProp()),
+
+      // Escape hatch for the structural native-name convention (string-valued).
+      ISZ[String]("HAMR", "Native_Name") ~> ISZ[PropertyValue](ValueProp()),
+
       ISZ[String]("HAMR_Microkit", "Passive") ~> ISZ[PropertyValue](ValueProp()),
       ISZ[String]("HAMR_Microkit", "SMC") ~> ISZ[PropertyValue](ValueProp()),
       ISZ[String]("HAMR_Microkit", "Scheduling") ~> ISZ[PropertyValue](ValueProp()),
 
-      ISZ[String]("HAMR_ROS", "RosNodeKind") ~> ISZ[PropertyValue](ValueProp()),
+      ISZ[String]("HAMR_ROS", "Ros_Node_Kind") ~> ISZ[PropertyValue](ValueProp()),
+
+      // ROS topic name / node namespace (string-valued).
+      ISZ[String]("HAMR_ROS", "Ros_Topic_Name") ~> ISZ[PropertyValue](ValueProp()),
+      ISZ[String]("HAMR_ROS", "Ros_Namespace") ~> ISZ[PropertyValue](ValueProp()),
 
       ISZ[String]("Thread_Properties", "Dispatch_Protocol") ~> ISZ[PropertyValue](ValueProp()),
 
