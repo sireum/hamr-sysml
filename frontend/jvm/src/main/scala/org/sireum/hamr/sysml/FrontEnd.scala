@@ -310,10 +310,16 @@ object FrontEnd {
                               val messages: ISZ[Message])
 
   object ParseResultMap {
-    @strictpure def empty: ParseResultMap = ParseResultMap(HashMap.empty)
+    @strictpure def empty: ParseResultMap = ParseResultMap(HashSMap.empty)
   }
 
-  @datatype class ParseResultMap(val map: HashMap[String, ParseResult]) {
+  // HashSMap rather than HashMap: the keys are absolute file URIs, so with an unordered
+  // map the bucket index -- and hence the order of map.values, of the topUnits derived
+  // from it, and of anything that iterates topUnits (notably Instantiate's annexLib) --
+  // depends on where the project happens to be checked out.  That made generated AIR
+  // differ between machines.  Insertion order is the order of `inputs`, which parMapCores
+  // preserves, so results are now reproducible across checkouts.
+  @datatype class ParseResultMap(val map: HashSMap[String, ParseResult]) {
     def update(input: Input): ParseResultMap = {
       val pr = parseGloballyResolve(input)
       return ParseResultMap(map + pr.topUnit.fileUri.get ~> pr)

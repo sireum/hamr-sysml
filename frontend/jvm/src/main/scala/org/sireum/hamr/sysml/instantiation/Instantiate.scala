@@ -817,18 +817,24 @@ object Instantiate {
     // the refining properties replace any definition-site property of the same name and are
     // added.
     def mergePortRefinements(features: ISZ[ir.Feature], refinements: HashSMap[String, ISZ[ir.Property]]): ISZ[ir.Feature] = {
-      return for (f <- features) yield f match {
-        case fe: ir.FeatureEnd =>
-          val simpleName = fe.identifier.name(fe.identifier.name.size - 1)
-          refinements.get(simpleName) match {
-            case Some(overriding) =>
-              val overridingNames = HashSSet.empty[ISZ[String]] ++ (for (p <- overriding) yield p.name.name)
-              val kept: ISZ[ir.Property] = for (p <- fe.properties if !overridingNames.contains(p.name.name)) yield p
-              fe(properties = kept ++ overriding)
-            case _ => fe
-          }
-        case _ => f
+      // Slang's for-yield body has to be a single expression, so the per-feature match
+      // lives in its own def rather than inline in the comprehension.
+      def mergeFeature(f: ir.Feature): ir.Feature = {
+        f match {
+          case fe: ir.FeatureEnd =>
+            val simpleName = fe.identifier.name(fe.identifier.name.size - 1)
+            refinements.get(simpleName) match {
+              case Some(overriding) =>
+                val overridingNames = HashSSet.empty[ISZ[String]] ++ (for (p <- overriding) yield p.name.name)
+                val kept: ISZ[ir.Property] = for (p <- fe.properties if !overridingNames.contains(p.name.name)) yield p
+                return fe(properties = kept ++ overriding)
+              case _ => return fe
+            }
+          case _ => return f
+        }
       }
+
+      return for (f <- features) yield mergeFeature(f)
     }
 
     def getPortUsageDirection(p: SysmlAst.PortUsage): (Option[ir.Direction.Type], Option[ir.Direction.Type]) = {
