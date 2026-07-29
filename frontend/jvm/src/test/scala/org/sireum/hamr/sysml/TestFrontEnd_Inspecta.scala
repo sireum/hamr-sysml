@@ -2,7 +2,6 @@ package org.sireum.hamr.sysml
 
 import org.scalatest.DoNotDiscover
 import org.sireum._
-import org.sireum.hamr.sysml.FrontEnd.Input
 
 @DoNotDiscover
 class TestFrontEnd_Inspecta extends TestFrontEnd {
@@ -74,5 +73,19 @@ class TestFrontEnd_Inspecta extends TestFrontEnd {
     assert (root.exists, root.value)
     println(s"Resolving: ${root.toUri}")
     test(ISZ("seL4_Instance"), ISZ(), root)
+  }
+
+  "sys-verif" in {
+    val root = w_inspectaModels / "micro-examples" / "microkit" / "system-verification"/ "fan-in" / "even_odd" / "sysml"
+    assert (root.exists, root.value)
+    println(s"Resolving: ${root.toUri}")
+    test(ISZ("S1_Instance"), ISZ(), root)
+  }
+
+  "temp-control" in {
+    val root = w_inspectaModels / "micro-examples" / "microkit" / "system-verification"/ "temp-control" / "sysml"
+    assert (root.exists, root.value)
+    println(s"Resolving: ${root.toUri}")
+    test(ISZ("TempControlSystem_Instance"), ISZ(), root)
   }
 }

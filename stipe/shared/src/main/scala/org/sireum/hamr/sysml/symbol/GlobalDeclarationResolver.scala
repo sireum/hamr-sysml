@@ -51,6 +51,14 @@ object GlobalDeclarationResolver {
         //reporter.warn(a.posOpt, resolverKind, "Not currently resolving aliases")
 
       case p: SysmlAst.Package =>
+        // Save the enclosing context: packageName/currentName/currentImports are
+        // mutable fields, and they must be restored after processing this package
+        // so that sibling packages in the same file are not nested under it (and so
+        // this package's imports do not leak to its siblings).
+        val savedPackageName = packageName
+        val savedCurrentName = currentName
+        val savedCurrentImports = currentImports
+
         val imports = p.packageElements.filter(p => p.isInstanceOf[SysmlAst.Import]).asInstanceOf[ISZ[SysmlAst.Import]]
         declarePackageName(p, imports, packageName) match {
           case Some(info) =>
@@ -84,6 +92,10 @@ object GlobalDeclarationResolver {
             ),
             posOpt = p.posOpt)
         }
+
+        packageName = savedPackageName
+        currentName = savedCurrentName
+        currentImports = savedCurrentImports
 
       case e: SysmlAst.EnumerationDefinition =>
 
