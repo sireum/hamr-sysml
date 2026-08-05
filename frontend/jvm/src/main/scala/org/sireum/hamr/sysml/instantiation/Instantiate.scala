@@ -386,6 +386,10 @@ object Instantiate {
                   properties = ISZ(queueSize) ++ portProps,
                   uriFrag = "")
               case ISZ("AADL", "EventPort") =>
+                // An event port queues its arrivals just as an event data port does -- it carries
+                // no payload, but the count of pending events is still bounded by Queue_Size --
+                // so the property is read here for the same reason as in the two branches above.
+                val queueSize = getQueueSize(portUsage._1, portUsage._2.posOpt, portUsage._2.ast.commonUsageElements.definitionBodyItems)
                 val direction: Direction.Type = getPortUsageDirection(portUsage._2.ast) match {
                   case (Some(d), _) => d
                   case _ =>
@@ -397,7 +401,7 @@ object Instantiate {
                   direction = direction,
                   category = ir.FeatureCategory.EventPort,
                   classifier = None(),
-                  properties = portProps,
+                  properties = ISZ(queueSize) ++ portProps,
                   uriFrag = "")
               case x =>
                 reportErrorH(portUsage._2.posOpt, s"Unexpected port type $x p")
