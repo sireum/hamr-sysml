@@ -49,8 +49,12 @@ class TestFrontEnd_Inspecta extends TestFrontEnd {
 
   for(root <- sysmlDirs) {
     assert (root.exists, root.value)
-    println(s"Resolving: ${root.toUri}")
-    test(ISZ(), ISZ(), root)
+
+    val testName = s"${root.up.up.name}/${root.up.name}/${root.name}"
+    registerTest(testName) {
+      println(s"Resolving: ${root.toUri}")
+      test(ISZ(), ISZ(), root)
+    }
   }
 
 
