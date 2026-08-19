@@ -40,6 +40,13 @@ class TestFrontEnd_Ros2 extends TestFrontEnd {
     test(ISZ("TurtleControlSystem_Instance"), ISZ(), root)
   }
 
+  "turtle-control-logging" in {
+    val root = ros2ModelsDir / "turtle-control-logging"
+    assert(root.exists, root.value)
+    println(s"Resolving: ${root.toUri}")
+    test(ISZ("TurtleControlSystem_Instance"), ISZ(), root)
+  }
+
 
   val urosDemoDir: Os.Path = Os.home / "devel" / "microros" / "uros_demo" / "sysml"
 
