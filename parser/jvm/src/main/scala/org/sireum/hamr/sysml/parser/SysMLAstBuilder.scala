@@ -6,7 +6,7 @@ import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.tree.TerminalNodeImpl
 import org.sireum.hamr.sysml.parser.SysMLAstBuilder.{binOpsUifs, interpolates, isReservedSequenceName, kerMLOperations, logikaUifs, numeric_interpolates, portUifs}
 import org.sireum.hamr.ir.SysmlAst._
-import org.sireum.hamr.ir.{Attr, GclAssume, GclBodyMethod, GclCaseStatement, GclComposition, GclCompositionComponentAlias, GclCompositionPortAlias, GclCompositionProperty, GclCompositionStateVarAlias, GclCompute, GclGuarantee, GclHandle, GclInitialize, GclIntegration, GclInvariant, GclLib, GclMethod, GclPointAfter, GclPointAt, GclPointBefore, GclPointEnd, GclPointStart, GclPropertyBinding, GclSchemaComponentRef, GclSchemaElement, GclSchemaLabel, GclSchemaPoint, GclSchemaSequence, GclSchemaSplitJoin, GclSpec, GclSpecMethod, GclStateVar, GclSubclause, InfoFlowClause, ResolvedAttr, Name => AirName}
+import org.sireum.hamr.ir.{Attr, GclAlert, GclAssume, GclBodyMethod, GclCaseStatement, GclComposition, GclCompositionComponentAlias, GclCompositionPortAlias, GclCompositionProperty, GclCompositionStateVarAlias, GclCompute, GclGuarantee, GclHandle, GclInitialize, GclIntegration, GclInvariant, GclLib, GclMethod, GclMonitor, GclPointAfter, GclPointAt, GclPointBefore, GclPointEnd, GclPointStart, GclPropertyBinding, GclSchemaComponentRef, GclSchemaElement, GclSchemaLabel, GclSchemaPoint, GclSchemaSequence, GclSchemaSplitJoin, GclSpec, GclSpecMethod, GclStateVar, GclSubclause, InfoFlowClause, ResolvedAttr, Name => AirName}
 import org.sireum.hamr.sysml.parser.SlangUtil.Placeholders.emptyUsagePrefix
 import org.sireum.hamr.sysml.parser.SysmlAstUtil.isRegularComment
 import org.sireum.hamr.sysml.parser.SlangUtil.{Placeholders, mergePos}
@@ -1868,21 +1868,65 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
     }
 
     def visitAndExpression(o: RuleAndExpressionContext): AST.Exp = {
-      assert(o.getChild(0).isInstanceOf[RuleEqualityExpressionContext])
-      val lhs = visitEqualityExpression(o.ruleEqualityExpression(0))
+      assert(o.getChild(0).isInstanceOf[RuleBinaryTemporalExpressionContext])
+      val lhs = visitBinaryTemporalExpression(o.ruleBinaryTemporalExpression(0))
 
       var s = Stack.empty[(String, AST.Exp)]
       var i = 1
       while (i < o.getChildCount) {
         o.getChild(i) match {
           case isLogicalAnd: RuleAndOperatorContext =>
-            s = s.push((AST.Exp.BinaryOp.And, visitEqualityExpression(o.getChild(i + 1).asInstanceOf[RuleEqualityExpressionContext])))
+            s = s.push((AST.Exp.BinaryOp.And, visitBinaryTemporalExpression(o.getChild(i + 1).asInstanceOf[RuleBinaryTemporalExpressionContext])))
           case isCondAnd: RuleConditionalAndOperatorContext =>
-            s = s.push((AST.Exp.BinaryOp.CondAnd, visitEqualityExpression(o.getChild(i + 1).asInstanceOf[RuleEqualityExpressionReferenceContext].ruleEqualityExpressionMember().ruleEqualityExpression())))
+            s = s.push((AST.Exp.BinaryOp.CondAnd, visitBinaryTemporalExpression(o.getChild(i + 1).asInstanceOf[RuleBinaryTemporalExpressionReferenceContext].ruleBinaryTemporalExpression())))
         }
         i = i + 2
       }
       return SlangUtil.collapse2(lhs, s)
+    }
+
+    def visitBinaryTemporalExpression(o: RuleBinaryTemporalExpressionContext): AST.Exp = {
+      val exps = listToISZ(o.ruleUnaryTemporalExpression())
+      val ops = listToISZ(o.ruleTemporalBinaryOperator())
+      val intvls = listToISZ(o.ruleTemporalInterval())
+      var ret = visitUnaryTemporalExpression(exps(0))
+      for (i <- 0 until ops.size) {
+        val op: AST.Exp.BinaryTemporalOp.Type = ops(i).getText match {
+          case "Until" => AST.Exp.BinaryTemporalOp.Until
+          case "Release" => AST.Exp.BinaryTemporalOp.Release
+          case "Since" => AST.Exp.BinaryTemporalOp.Since
+          case "Trigger" => AST.Exp.BinaryTemporalOp.Trigger
+          case x => halt(s"Unexpected binary temporal operator: $x")
+        }
+        ret = AST.Exp.BinaryTemporal(
+          left = ret,
+          op = op,
+          intvl = intvls(i).getText,
+          right = visitUnaryTemporalExpression(exps(i + 1)),
+          attr = toSlangResolvedAttr(o),
+          opPosOpt = toPosOpt(ops(i)))
+      }
+      return ret
+    }
+
+    def visitUnaryTemporalExpression(o: RuleUnaryTemporalExpressionContext): AST.Exp = {
+      if (nonEmpty(o.ruleTemporalUnaryOperator())) {
+        val op: AST.Exp.UnaryTemporalOp.Type = o.ruleTemporalUnaryOperator().getText match {
+          case "Future" | "Eventually" => AST.Exp.UnaryTemporalOp.Future
+          case "Globally" | "Always" => AST.Exp.UnaryTemporalOp.Globally
+          case "Once" => AST.Exp.UnaryTemporalOp.Once
+          case "Historically" => AST.Exp.UnaryTemporalOp.Historically
+          case x => halt(s"Unexpected unary temporal operator: $x")
+        }
+        return AST.Exp.UnaryTemporal(
+          op = op,
+          exp = visitUnaryTemporalExpression(o.ruleUnaryTemporalExpression()),
+          intvl = o.ruleTemporalInterval().getText,
+          attr = toSlangResolvedAttr(o),
+          opPosOpt = toPosOpt(o.ruleTemporalUnaryOperator()))
+      } else {
+        return visitEqualityExpression(o.ruleEqualityExpression())
+      }
     }
 
     // ruleEqualityExpression: ruleClassificationExpression ( ruleEqualityOperator ruleClassificationExpression)*;
@@ -2943,11 +2987,16 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
       compute = Some(visitCompute(o.ruleSpecSection().ruleCompute()))
     }
 
+    var monitor: Option[GclMonitor] = None()
+    if (nonEmpty(o.ruleSpecSection().ruleMonitor())) {
+      monitor = Some(visitMonitor(o.ruleSpecSection().ruleMonitor()))
+    }
+
     var compositions: ISZ[GclComposition] = ISZ()
     if (!o.ruleSpecSection().ruleComposition().isEmpty) {
       compositions = for (c <- listToISZ(o.ruleSpecSection().ruleComposition())) yield visitComposition(c)
     }
-    return GclSubclause(state = state, methods = methods, invariants = invariants, initializes = initializes, integration = integration, compute = compute, compositions = compositions, attr = toAttr(o))
+    return GclSubclause(state = state, methods = methods, invariants = invariants, initializes = initializes, integration = integration, compute = compute, monitor = monitor, compositions = compositions, attr = toAttr(o))
   }
 
   def visitComposition(o: RuleCompositionContext): GclComposition = {
@@ -3129,6 +3178,17 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
       attr = toAttr(o))
   }
 
+  def visitMonitor(o: RuleMonitorContext): GclMonitor = {
+    val guarantees = for (g <- listToISZ(o.ruleGuaranteeStatement())) yield visitGuaranteeStatement(g)
+
+    val alerts = for (a <- listToISZ(o.ruleAlertStatement())) yield visitAlertStatement(a)
+
+    return GclMonitor(
+      guarantees = guarantees,
+      alerts = alerts,
+      attr = toAttr(o))
+  }
+
   def visitHandlerClause(o: RuleHandlerClauseContext): GclHandle = {
     val port = AST.Exp.Ident(id = AST.Id(value = o.RULE_ID().string, attr = toSlangAttr(o)), attr = toSlangResolvedAttr(o))
 
@@ -3222,6 +3282,13 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
       id = i.RULE_ID().string,
       descriptor = if (i.RULE_STRING_VALUE() != null) Some(SlangUtil.unquoteString(i.RULE_STRING_VALUE().string)) else None(),
       exp = visitExpression(i.ruleOwnedExpression()),
+      attr = toAttr(i))
+  }
+
+  def visitAlertStatement(i: RuleAlertStatementContext): GclAlert = {
+    return GclAlert(
+      guaranteeId = i.RULE_ID(0).string,
+      portId = i.RULE_ID(1).string,
       attr = toAttr(i))
   }
 
