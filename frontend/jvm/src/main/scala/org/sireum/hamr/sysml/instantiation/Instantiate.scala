@@ -675,7 +675,7 @@ object Instantiate {
                             } else if (v.id == "ns" || v.id == "nanoseconds") {
                               return time(R(baseExp.string).get * R("1.0E3").get)
                             } else if (v.id == "us" || v.id == "microseconds") {
-                              return time(R(baseExp.string).get * R("1.06").get)
+                              return time(R(baseExp.string).get * R("1.0E6").get)
                             } else if (v.id == "ms" || v.id == "milliseconds") {
                               return time(R(baseExp.string).get * R("1.0E9").get)
                             } else if (v.id == "s" || v.id == "seconds") {
