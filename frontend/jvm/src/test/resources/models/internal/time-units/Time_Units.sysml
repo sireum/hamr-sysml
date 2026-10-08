@@ -29,12 +29,19 @@ package Time_Units {
         attribute :>> Period = 2[s];
     }
 
+    // a decimal value, which the front end used to fail on
+    part def dec_t :> Thread {
+        attribute :>> Dispatch_Protocol = Periodic;
+        attribute :>> Period = 1.5[ms];
+    }
+
     part def p :> Process {
         part t_ps: ps_t;
         part t_ns: ns_t;
         part t_us: us_t;
         part t_ms: ms_t;
         part t_s: s_t;
+        part t_dec: dec_t;
     }
 
     part def proc_impl :> Processor {

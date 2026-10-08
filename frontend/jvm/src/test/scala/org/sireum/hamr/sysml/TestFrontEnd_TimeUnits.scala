@@ -26,13 +26,14 @@ class TestFrontEnd_TimeUnits extends TestFrontEnd {
       return c +: (for (s <- c.subComponents; d <- allComponents(s)) yield d)
     }
 
-    // each thread t_<unit> has a period of 2 <unit>
+    // each thread t_<unit> has a period of 2 <unit>; t_dec has 1.5 ms
     val expectedPs: Map[String, R] = Map.empty[String, R] ++ ISZ[(String, R)](
       ("t_ps", R("2").get),
       ("t_ns", R("2000").get),
       ("t_us", R("2000000").get),
       ("t_ms", R("2000000000").get),
-      ("t_s", R("2000000000000").get))
+      ("t_s", R("2000000000000").get),
+      ("t_dec", R("1500000000").get))
 
     var checked: ISZ[String] = ISZ()
     for (c <- allComponents(models(0).model.components(0)) if c.category == ir.ComponentCategory.Thread) {

@@ -647,6 +647,20 @@ object Instantiate {
                 assert (f.args.size == 2, s"Expecting the base exp and its unit exp: ${f.args}")
                 val baseExp = f.args(0)
                 val unitExp = f.args(1)
+                // the literal's numeric value: a decimal such as 1.5[ms] is a LitF64, whose printed
+                // form (baseExp.string) R cannot parse (hamr-codegen#12)
+                val baseOpt: Option[R] = baseExp match {
+                  case l: AST.Exp.LitZ => Some(conversions.Z.toR(l.value))
+                  case l: AST.Exp.LitR => Some(l.value)
+                  case l: AST.Exp.LitF64 => R(l.value.string)
+                  case l: AST.Exp.LitF32 => R(l.value.string)
+                  case _ => R(baseExp.string)
+                }
+                if (baseOpt.isEmpty) {
+                  reportErrorH(baseExp.posOpt, s"Expecting a number but found ${baseExp.string}")
+                  return ISZ()
+                }
+                val base: R = baseOpt.get
                 unitExp match {
                   case i: AST.Exp.Ref if i.resOpt.nonEmpty =>
                     i.resOpt.get match {
@@ -662,24 +676,24 @@ object Instantiate {
                         v.owner match {
                           case (ISZ("SI")) =>
                             if (v.id == "s" || v.id == "seconds") {
-                              return time(R(baseExp.string).get * R("1.0E12").get)
+                              return time(base * R("1.0E12").get)
                             } else if (v.id == "byte") {
-                              return size(R(baseExp.string).get * r"8")
+                              return size(base * r"8")
                             }
                             else {
                               halt(s"Need to handle $v")
                             }
                           case (ISZ("HAMR_Time_Units")) =>
                             if (v.id == "ps" || v.id == "picoseconds") {
-                              return time(R(baseExp.string).get)
+                              return time(base)
                             } else if (v.id == "ns" || v.id == "nanoseconds") {
-                              return time(R(baseExp.string).get * R("1.0E3").get)
+                              return time(base * R("1.0E3").get)
                             } else if (v.id == "us" || v.id == "microseconds") {
-                              return time(R(baseExp.string).get * R("1.0E6").get)
+                              return time(base * R("1.0E6").get)
                             } else if (v.id == "ms" || v.id == "milliseconds") {
-                              return time(R(baseExp.string).get * R("1.0E9").get)
+                              return time(base * R("1.0E9").get)
                             } else if (v.id == "s" || v.id == "seconds") {
-                              return time(R(baseExp.string).get * R("1.0E12").get)
+                              return time(base * R("1.0E12").get)
                             } else {
                               halt(s"Unexpected duration unit ${v.id}")
                             }
