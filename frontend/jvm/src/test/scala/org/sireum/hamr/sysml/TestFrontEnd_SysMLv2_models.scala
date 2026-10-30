@@ -84,6 +84,7 @@ object SysmlFrontEndTests {
     sel4OutputDir = None(),
     sel4AuxCodeDirs = ISZ(),
     sel4AuxCodeSymlink = F,
+    systemTesting = F,
     workspaceRootDir = None(),
     //
     strictAadlMode = F,
