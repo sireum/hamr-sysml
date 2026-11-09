@@ -327,23 +327,54 @@ object TypeChecker {
         val cu: Info.AllocationUsage = e._2
         cu.ast.connectorPart match {
           case Some(b @ SysmlAst.BinaryConnectorPart(src, dst)) =>
-            def resolvePart(connEnd: SysmlAst.ConnectorEnd): Option[Info.PartUsage] = {
-              assert(connEnd.reference.size == 1)
-              val partId = connEnd.reference(connEnd.reference.lastIndex)
-              assert (partId.ids.size == 1)
-              newMembers.partUsages.get(partId.ids(partId.ids.lastIndex).value) match {
-                case Some(p) => return Some(p)
-                case _ =>
-                  TypeChecker.reportError(connEnd.resOpt.posOpt, s"'$partId' is not a valid part usage", reporter)
-                  return None()
+            // Resolves an allocation end, which may be a path through nested part usages
+            // (e.g. 'software.vm'), to the part usage it names and the path of part usage
+            // ids leading to it from this part definition
+            def resolvePart(connEnd: SysmlAst.ConnectorEnd): Option[(ISZ[String], Info.PartUsage)] = {
+              var ids = ISZ[String]()
+              for (n <- connEnd.reference; id <- n.ids) {
+                ids = ids :+ id.value
               }
+              val pathString = st"${(ids, ".")}".render
+              if (ids.isEmpty) {
+                TypeChecker.reportError(connEnd.resOpt.posOpt, "Allocation end does not name a part usage", reporter)
+                return None()
+              }
+              var parts: HashSMap[String, Info.PartUsage] = newMembers.partUsages
+              var i: Z = 0
+              while (i < ids.size) {
+                parts.get(ids(i)) match {
+                  case Some(p) =>
+                    if (i == ids.lastIndex) {
+                      return Some((ids, p))
+                    }
+                    p.typedOpt match {
+                      case Some(typedName: Typed.Name) =>
+                        typeHierarchy.typeMap.get(typedName.ids) match {
+                          case Some(td: TypeInfo.PartDefinition) =>
+                            parts = td.members.partUsages
+                          case _ =>
+                            TypeChecker.reportError(connEnd.resOpt.posOpt, s"'${ids(i)}' in '$pathString' is not typed by a part definition", reporter)
+                            return None()
+                        }
+                      case _ =>
+                        TypeChecker.reportError(connEnd.resOpt.posOpt, s"Could not resolve the type of '${ids(i)}' in '$pathString'", reporter)
+                        return None()
+                    }
+                  case _ =>
+                    TypeChecker.reportError(connEnd.resOpt.posOpt, s"'${ids(i)}' in '$pathString' is not a valid part usage", reporter)
+                    return None()
+                }
+                i = i + 1
+              }
+              return None()
             }
             (resolvePart(src), resolvePart(dst)) match {
-              case (Some(srcInfo), Some(dstInfo)) =>
+              case (Some((srcPath, srcInfo)), Some((dstPath, dstInfo))) =>
                 cus = cus + e._1 ~> cu(
-                  srcName = srcInfo.name,
+                  srcName = srcPath,
                   srcAst = Some(srcInfo.ast),
-                  dstName = dstInfo.name,
+                  dstName = dstPath,
                   dstAst = Some(dstInfo.ast)
                 )
               case _ =>

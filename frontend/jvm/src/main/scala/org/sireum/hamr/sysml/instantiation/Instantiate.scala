@@ -589,8 +589,9 @@ object Instantiate {
           case Some(t: Type.Named) if (Util.ids2string(t.name.ids)) == ISZ("Deployment_Properties", "Actual_Processor_Binding") =>
             (au._2.srcAst, au._2.dstAst) match {
               case (Some(src), Some(dst)) =>
-                val srcPath = idPath :+ au._2.srcName(au._2.srcName.lastIndex)
-                val dstPath = idPath :+ au._2.dstName(au._2.dstName.lastIndex)
+                // srcName/dstName are paths relative to the part that owns the allocation
+                val srcPath = idPath ++ au._2.srcName
+                val dstPath = idPath ++ au._2.dstName
                 val prop = ir.Property(
                   name = ir.Name(ISZ("Deployment_Properties::Actual_Processor_Binding"), au._2.posOpt),
                   propertyValues = ISZ(ir.ReferenceProp(value = ir.Name(dstPath, au._2.posOpt))),

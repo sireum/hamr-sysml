@@ -395,6 +395,10 @@ object Info {
                                   val scope: Scope,
                                   val ast: SAST.SysmlAst.AllocationUsage,
 
+                                  // srcName/dstName: the path of part usage ids from the part
+                                  // definition owning the allocation to the allocated part usage
+                                  // (e.g. ["software", "vm"] for 'allocate software.vm to cpu');
+                                  // empty until the type checker resolves the allocation ends
                                   val srcName: ISZ[String],
                                   val srcAst: Option[SAST.SysmlAst.PartUsage],
 
