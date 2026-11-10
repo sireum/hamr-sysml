@@ -151,10 +151,14 @@ object Instantiate {
         else if (InstantiateUtil.isAadlThreadOpt(p.typedOpt, typeHierarchy)) ir.ComponentCategory.Thread
         else if (InstantiateUtil.isAadlDataOpt(p.typedOpt, typeHierarchy)) ir.ComponentCategory.Data
         else if (InstantiateUtil.isAadlAbstractOpt(p.typedOpt, typeHierarchy)) ir.ComponentCategory.Abstract
+        else if (InstantiateUtil.isAadlCategoryOpt(p.typedOpt, InstantiateUtil.AadlDeviceName, typeHierarchy)) ir.ComponentCategory.Device
+        else if (InstantiateUtil.isAadlCategoryOpt(p.typedOpt, InstantiateUtil.AadlMemoryName, typeHierarchy)) ir.ComponentCategory.Memory
+        else if (InstantiateUtil.isAadlCategoryOpt(p.typedOpt, InstantiateUtil.AadlBusName, typeHierarchy)) ir.ComponentCategory.Bus
+        else if (InstantiateUtil.isAadlCategoryOpt(p.typedOpt, InstantiateUtil.AadlVirtualBusName, typeHierarchy)) ir.ComponentCategory.VirtualBus
         else ir.ComponentCategory.Subprogram
       }
       if (category == ir.ComponentCategory.Subprogram) {
-        reportErrorH(p.posOpt, s"Only expecting system, processor, process, thread, data or abstract components: ${p}")
+        reportErrorH(p.posOpt, s"Only expecting system, processor, virtual processor, process, thread, data, abstract, device, memory, bus or virtual bus components: ${p}")
       }
       if (p.members.itemUsages.nonEmpty) {
         reportErrorH(p.posOpt, s"Currently not expecting item usages for a $category component")

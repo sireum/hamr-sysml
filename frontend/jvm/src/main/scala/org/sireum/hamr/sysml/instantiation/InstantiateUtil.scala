@@ -34,6 +34,14 @@ object InstantiateUtil {
 
   val AadlAbstractName: ISZ[String] = ISZ("AADL", "Abstract")
 
+  val AadlDeviceName: ISZ[String] = ISZ("AADL", "Device")
+
+  val AadlMemoryName: ISZ[String] = ISZ("AADL", "Memory")
+
+  val AadlBusName: ISZ[String] = ISZ("AADL", "Bus")
+
+  val AadlVirtualBusName: ISZ[String] = ISZ("AADL", "VirtualBus")
+
   val AadlDataPortName: ISZ[String] = ISZ("AADL", "DataPort")
   val AadlEventDataPortName: ISZ[String] = ISZ("AADL", "EventDataPort")
   val AadlEventPortName: ISZ[String] = ISZ("AADL", "EventPort")
@@ -89,7 +97,11 @@ object InstantiateUtil {
         InstantiateUtil.isAadlProcesss(name, typeHierarchy) ||
         InstantiateUtil.isAadlThread(name, typeHierarchy) ||
         InstantiateUtil.isAadlData(name, typeHierarchy) ||
-        InstantiateUtil.isAadlAbstract(name, typeHierarchy))
+        InstantiateUtil.isAadlAbstract(name, typeHierarchy) ||
+        InstantiateUtil.isAadlDevice(name, typeHierarchy) ||
+        InstantiateUtil.isAadlMemory(name, typeHierarchy) ||
+        InstantiateUtil.isAadlBus(name, typeHierarchy) ||
+        InstantiateUtil.isAadlVirtualBus(name, typeHierarchy))
   }
 
   def isAadlComponentOpt(opt: Option[ir.Typed], typeHierarchy: TypeHierarchy): B = {
@@ -171,6 +183,31 @@ object InstantiateUtil {
 
   def isAadlAbstract(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {
     return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlAbstractName)
+  }
+
+  def isAadlDevice(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {
+    return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlDeviceName)
+  }
+
+  def isAadlMemory(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {
+    return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlMemoryName)
+  }
+
+  def isAadlBus(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {
+    return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlBusName)
+  }
+
+  def isAadlVirtualBus(name: ISZ[String], typeHierarchy: TypeHierarchy): B = {
+    return typeHierarchy.poset.ancestorsOf(name).contains(InstantiateUtil.AadlVirtualBusName)
+  }
+
+  /** Whether opt names a part definition descending from the AADL category ancestor
+    * (one of the Aadl*Name constants above). */
+  def isAadlCategoryOpt(opt: Option[ir.Typed], ancestor: ISZ[String], typeHierarchy: TypeHierarchy): B = {
+    opt match {
+      case Some(t: ir.Typed.Name) => return typeHierarchy.poset.ancestorsOf(t.ids).contains(ancestor)
+      case _ => return F
+    }
   }
 
   // Port-type checks are subtype-aware so that a library may introduce its own
