@@ -1,5 +1,8 @@
-name: CI
+name: test
 
+# Shared by CI-linux.yml, CI-macOS.yml and CI-windows.yml, which are separate workflows so that
+# each OS's run can be restarted on its own.
+#
 # Builds kekinian (master) with this repository's commit in place of kekinian's hamr/sysml
 # submodule, Slang type checks it, and runs only the hamr/sysml tests.
 #
@@ -13,25 +16,18 @@ name: CI
 #    TestAstBuilder; cached, keyed on cli.scala, which holds the release version
 
 on:
-  push:
-  schedule:
-    - cron: "0 2 * * 6" # every saturday at 2am, as the hamr-codegen CIs
-  workflow_dispatch:
-
-# a new run of this workflow on the same ref cancels the one in progress
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  workflow_call:
+    inputs:
+      runs-on:
+        description: The runner to use (ubuntu-latest, macOS-latest or windows-latest)
+        required: true
+        type: string
 
 jobs:
 
   ci:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    name: ${{ matrix.os }}
+    runs-on: ${{ inputs.runs-on }}
+    name: ${{ inputs.runs-on }}
     timeout-minutes: 180
     env:
       # use the sireum.jar built below rather than a native binary
@@ -55,7 +51,9 @@ jobs:
         shell: bash
         run: |
           retry() { for i in 1 2 3 4 5; do "$@" && return 0; echo "Attempt $i failed: $*"; sleep $((i * 15)); done; return 1; }
-          cd "$GITHUB_WORKSPACE/Sireum/hamr/sysml"
+          cd "$GITHUB_WORKSPACE/Sireum"
+          echo "kekinian at $(git rev-parse HEAD)"
+          cd hamr/sysml
           echo "kekinian pins hamr/sysml at $(git rev-parse HEAD)"
           retry git fetch --no-tags origin ${{ github.sha }}
           git checkout --detach FETCH_HEAD
@@ -101,13 +99,20 @@ jobs:
           path: Sireum/hamr/sysml/frontend/jvm/src/test/resources/models/sysml.library
           key: sysml-library-${{ hashFiles('Sireum/hamr/sysml/frontend/jvm/src/main/scala/org/sireum/hamr/sysml/cli.scala') }}
 
+      # The jar build resolves the Ivy dependencies, and a download from Maven Central can time
+      # out, so it is retried; the type check and tests use what it resolved.
       - name: Build, type check and test (macOS/Linux)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           export COURSIER_CACHE=$GITHUB_WORKSPACE/Sireum/cache/coursier
           cd "$GITHUB_WORKSPACE/Sireum"
-          .ci/build.sh jar
+          for i in 1 2 3; do
+            .ci/build.sh jar && break
+            [ $i = 3 ] && exit 1
+            echo "Build attempt $i failed; retrying (dependency downloads can time out)"
+            sleep 30
+          done
           .ci/build.sh tipe
           bin/sireum proyek test --java -Xss2M -n sireum-proyek --par --sha3 --ignore-runtime \
             --slice hamr-sysml-frontend --packages org.sireum.hamr.sysml .
@@ -122,7 +127,15 @@ jobs:
           set COURSIER_CACHE=%GITHUB_WORKSPACE%\Sireum\cache\coursier
           cd /d %GITHUB_WORKSPACE%\Sireum
           set errorlevel=
-          call .ci\build.bat jar || goto :error
+          set tries=0
+          :build
+          call .ci\build.bat jar && goto :built
+          set /a tries+=1
+          if %tries% geq 3 goto :error
+          echo Build attempt %tries% failed; retrying (dependency downloads can time out)
+          ping -n 31 127.0.0.1 > nul
+          goto :build
+          :built
           del bin\.sireum-win.jar || goto :error
           call .ci\build.bat tipe || goto :error
           call bin\sireum.bat proyek test --java -Xss2M -n sireum-proyek --par --sha3 --ignore-runtime --slice hamr-sysml-frontend --packages org.sireum.hamr.sysml . || goto :error
@@ -130,4 +143,4 @@ jobs:
           call bin\sireum.bat proyek test --java -Xss2M -n sireum-proyek --par --sha3 --ignore-runtime --slice hamr-sysml-frontend --classes org.sireum.hamr.sysml.TestFrontEnd_Inspecta . || goto :error
           goto :EOF
           :error
-          exit /b %errorlevel%
+          exit /b 1
