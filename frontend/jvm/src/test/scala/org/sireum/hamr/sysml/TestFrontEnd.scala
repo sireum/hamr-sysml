@@ -13,6 +13,10 @@ abstract class TestFrontEnd extends TestSuite {
   
   @pure def verbose: B = F
 
+  /** Whether test compares the resolved AIR and integration constraints against the expected
+    * files in each model's .slang directory: under CI, and for the developer who maintains them. */
+  @pure def compareExpected: B = TestUtil.isCI || Os.env("USER") == Some(string"belt")
+
   @pure def par: Z = 0
 
   val resourceDir: Os.Path = Os.path(implicitly[sourcecode.File].value).up.up.up.up.up.up / "resources"
@@ -90,8 +94,7 @@ abstract class TestFrontEnd extends TestSuite {
       assert(root.exists, root.value)
       assert(modelElements.size.nonEmpty)
 
-      Os.env("USER") match {
-        case Some(string"belt") =>
+      if (compareExpected) {
 
           val aadlModel: Aadl = {
             var model: Option[Aadl] = None()
@@ -241,7 +244,6 @@ abstract class TestFrontEnd extends TestSuite {
               }
             }
           }
-        case _ =>
       }
     }
 

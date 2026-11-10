@@ -1,0 +1,133 @@
+name: CI
+
+# Builds kekinian (master) with this repository's commit in place of kekinian's hamr/sysml
+# submodule, Slang type checks it, and runs only the hamr/sysml tests.
+#
+# The tests rely on models that are not part of this repository:
+#  - sysmlv2-models (santoslab, with submodules): cloned by TestFrontEnd if missing; cloned here
+#    first, with retries, so a transient GitHub failure does not fail the run
+#  - the Ros2 models: tracked in hamr-codegen-test, which the recursive kekinian checkout brings in
+#  - INSPECTA-models (loonwerks): gitignored in hamr-codegen-test and cloned on demand by codegen's
+#    Microkit tests; TestFrontEnd_Inspecta (@DoNotDiscover) only reads it, so it is cloned here
+#  - sysml.library (SysML-v2-Pilot-Implementation release zip): downloaded by TestParser and
+#    TestAstBuilder; cached, keyed on cli.scala, which holds the release version
+
+on:
+  push:
+  schedule:
+    - cron: "0 2 * * 6" # every saturday at 2am, as the hamr-codegen CIs
+  workflow_dispatch:
+
+# a new run of this workflow on the same ref cancels the one in progress
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  ci:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.os }}
+    timeout-minutes: 180
+    env:
+      # use the sireum.jar built below rather than a native binary
+      SIREUM_NATIVE: "false"
+    steps:
+      - name: Configure git (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          git config --system core.longpaths true
+          git config --global core.symlinks true
+
+      - name: Checkout kekinian
+        uses: actions/checkout@v5
+        with:
+          repository: sireum/kekinian
+          ref: master
+          path: Sireum
+          submodules: recursive
+
+      - name: Checkout hamr/sysml at ${{ github.sha }}
+        shell: bash
+        run: |
+          retry() { for i in 1 2 3 4 5; do "$@" && return 0; echo "Attempt $i failed: $*"; sleep $((i * 15)); done; return 1; }
+          cd "$GITHUB_WORKSPACE/Sireum/hamr/sysml"
+          echo "kekinian pins hamr/sysml at $(git rev-parse HEAD)"
+          retry git fetch --no-tags origin ${{ github.sha }}
+          git checkout --detach FETCH_HEAD
+          echo "testing hamr/sysml at $(git rev-parse HEAD)"
+
+      - name: Clone test models
+        shell: bash
+        run: |
+          retry() { for i in 1 2 3 4 5; do "$@" && return 0; echo "Attempt $i failed: $*"; sleep $((i * 15)); done; return 1; }
+          clone() { # url dest [git clone options]
+            local url=$1 dest=$2; shift 2
+            retry bash -c "rm -rf '$dest' && git clone $* '$url' '$dest'"
+            echo "$(basename "$dest") at $(git -C "$dest" rev-parse HEAD)"
+          }
+          sysmlModels="$GITHUB_WORKSPACE/Sireum/hamr/sysml/frontend/jvm/src/test/resources/models"
+          codegenModels="$GITHUB_WORKSPACE/Sireum/hamr/codegen/jvm/src/test/resources/models"
+          clone https://github.com/santoslab/sysmlv2-models.git "$sysmlModels/sysmlv2-models" --recursive
+          # libvmm (INSPECTA-models' only submodule) is not needed by the sysml tests
+          clone https://github.com/loonwerks/INSPECTA-models.git "$codegenModels/INSPECTA-models" --depth 1
+          test -d "$codegenModels/Ros2" || { echo "::error::Ros2 models missing from hamr-codegen-test"; exit 1; }
+
+      - name: Cache Java
+        uses: actions/cache@v5
+        with:
+          path: |
+            Sireum/bin/linux/java
+            Sireum/bin/mac/java
+            Sireum/bin/win/java
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Sireum/versions.properties') }}-java
+      - name: Cache Scala
+        uses: actions/cache@v5
+        with:
+          path: Sireum/bin/scala
+          key: ${{ runner.os }}-${{ hashFiles('Sireum/versions.properties') }}-scala
+      - name: Cache Coursier
+        uses: actions/cache@v5
+        with:
+          path: Sireum/cache/coursier
+          key: ${{ runner.os }}-${{ hashFiles('Sireum/versions.properties') }}-coursier
+      - name: Cache sysml.library
+        uses: actions/cache@v5
+        with:
+          path: Sireum/hamr/sysml/frontend/jvm/src/test/resources/models/sysml.library
+          key: sysml-library-${{ hashFiles('Sireum/hamr/sysml/frontend/jvm/src/main/scala/org/sireum/hamr/sysml/cli.scala') }}
+
+      - name: Build, type check and test (macOS/Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          export COURSIER_CACHE=$GITHUB_WORKSPACE/Sireum/cache/coursier
+          cd "$GITHUB_WORKSPACE/Sireum"
+          .ci/build.sh jar
+          .ci/build.sh tipe
+          bin/sireum proyek test --java -Xss2M -n sireum-proyek --par --sha3 --ignore-runtime \
+            --slice hamr-sysml-frontend --packages org.sireum.hamr.sysml .
+          # @DoNotDiscover, so the package run above skips it
+          bin/sireum proyek test --java -Xss2M -n sireum-proyek --par --sha3 --ignore-runtime \
+            --slice hamr-sysml-frontend --classes org.sireum.hamr.sysml.TestFrontEnd_Inspecta .
+
+      - name: Build, type check and test (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          set COURSIER_CACHE=%GITHUB_WORKSPACE%\Sireum\cache\coursier
+          cd /d %GITHUB_WORKSPACE%\Sireum
+          set errorlevel=
+          call .ci\build.bat jar || goto :error
+          del bin\.sireum-win.jar || goto :error
+          call .ci\build.bat tipe || goto :error
+          call bin\sireum.bat proyek test --java -Xss2M -n sireum-proyek --par --sha3 --ignore-runtime --slice hamr-sysml-frontend --packages org.sireum.hamr.sysml . || goto :error
+          rem @DoNotDiscover, so the package run above skips it
+          call bin\sireum.bat proyek test --java -Xss2M -n sireum-proyek --par --sha3 --ignore-runtime --slice hamr-sysml-frontend --classes org.sireum.hamr.sysml.TestFrontEnd_Inspecta . || goto :error
+          goto :EOF
+          :error
+          exit /b %errorlevel%
