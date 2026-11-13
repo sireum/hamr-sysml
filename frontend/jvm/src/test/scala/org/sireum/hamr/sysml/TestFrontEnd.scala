@@ -73,8 +73,11 @@ abstract class TestFrontEnd extends TestSuite {
       return files
   }
 
+  /** Reads o as a front-end input with CRLF normalized to LF, so AIR positions (offsets, lengths)
+    * and embedded strings don't depend on how the file was checked out (e.g., CRLF on Windows). */
   def toInput(o: Os.Path): Input = {
-    return Input(content = o.read, fileUri = Some(o.toUri))
+    val content = ops.StringOps(o.read).replaceAllLiterally("\r\n", "\n")
+    return Input(content = content, fileUri = Some(o.toUri))
   }
 
   def test(instanceName: ISZ[String], sourcePaths: ISZ[Os.Path], root: Os.Path): Unit = {
@@ -235,7 +238,12 @@ abstract class TestFrontEnd extends TestSuite {
 
               val expectedContent = expectedConstraintPath.read
 
-              if (expectedContent != content) {
+              // ST.render uses the platform line separator (CRLF on Windows), and the expected file's
+              // line endings depend on how it was checked out, so compare with CRLF normalized to LF
+              val normExpectedContent = ops.StringOps(expectedContent).replaceAllLiterally("\r\n", "\n")
+              val normContent = ops.StringOps(content).replaceAllLiterally("\r\n", "\n")
+
+              if (normExpectedContent != normContent) {
                 val resultsConstraintPath = slangDir / s"integration_${sysRoot}_results.txt"
                 resultsConstraintPath.writeOver(content)
 
