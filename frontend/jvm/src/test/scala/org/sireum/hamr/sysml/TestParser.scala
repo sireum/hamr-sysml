@@ -11,7 +11,9 @@ class TestParser extends TestSuite {
   TestUtil.fetchSysmlLibrary(resourceDir)
 
   val exclude: ISZ[String] = ISZ(
-    "AGREE-SysMLv2"
+    "AGREE-SysMLv2",
+    // a syntax error on purpose: TestFrontEnd_GumboLints checks its message
+    "gumbo/lints/keyword-as-parameter"
   )
 
   for (f <- Os.Path.walk(resourceDir / "models", T, T, p => p.ext.native == "sysml" || p.ext.native == "kerml")) {

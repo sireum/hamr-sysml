@@ -1,8 +1,8 @@
 // Negative model: MustSend with an expected value on a port alias backed by an
 // (outgoing) EVENT port, which carries no value.
 // Expected: rejected. The type checker already fails to unify the event port's empty
-// payload (art.Empty) with the S32 value, so GclResolver reports the call's type
-// as unresolvable before its own "carries no value" check is reached.
+// payload (art.Empty) with the S32 value, before GclResolver's own "carries no value"
+// check is reached; the resolver's follow-up then says to write MustSend(a_tick).
 package Composition_MustSend_Event_Value {
     private import AADL::*;
 

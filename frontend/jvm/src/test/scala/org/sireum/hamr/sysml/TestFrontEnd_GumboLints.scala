@@ -70,6 +70,18 @@ class TestFrontEnd_GumboLints extends TestFrontEnd {
     expectNoError("composition-cross-consistent")
   }
 
+  "keyword-as-parameter" in {
+    expectError("keyword-as-parameter", "'out' is a reserved word, so it cannot be used as a name here; rename it")
+  }
+
+  "modifies-parenthesized" in {
+    expectError("modifies-parenthesized", "modifies takes its state variables without parentheses: write 'modifies count, total;'")
+  }
+
+  "in-of-state-var-in-assume" in {
+    expectError("in-of-state-var-in-assume", "In(count) is not needed here")
+  }
+
   "composition-place-bound-twice" in {
     expectError("composition-place-bound-twice", "Property 'twice' binds place 'after_a' more than once")
   }
@@ -84,7 +96,9 @@ class TestFrontEnd_GumboLints extends TestFrontEnd {
 
   "composition-mustsend-event-value" in {
     // rejected by type checking (the event port's art.Empty payload does not unify with
-    // the S32 value) before GclResolver's own "carries no value" check
-    expectError("composition-mustsend-event-value", "Could not resolve expression's type: uif__MustSendWithExpectedValue(a_tick")
+    // the S32 value) before GclResolver's own "carries no value" check; the resolver's
+    // follow-up names MustSend, not its uif__ function, and says what to write
+    expectError("composition-mustsend-event-value",
+      "Could not resolve expression's type: MustSend(a_tick, s32\"4\"). MustSend(a_tick, v) compares the value sent on a_tick: if a_tick is an event port, which carries no value, write MustSend(a_tick)")
   }
 }

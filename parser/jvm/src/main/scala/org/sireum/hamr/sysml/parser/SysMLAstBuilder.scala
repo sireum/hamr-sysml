@@ -3152,10 +3152,28 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
     }
   }
 
+  // The state variables a GUMBO initialize, compute or handler clause modifies. The list is
+  // comma separated without parentheses (`modifies a, b;`); written `modifies (a, b);`, the
+  // parenthesized pair parses as one sequence expression, whose generic error does not say
+  // what to write, so that case gets its own message (and is not visited further).
+  def visitGumboModifies(o: RuleSlangModifiesContext): ISZ[AST.Exp] = {
+    var ret: ISZ[AST.Exp] = ISZ()
+    for (m <- listToISZ(o.ruleOwnedExpression())) {
+      val text = m.getText
+      if (text.startsWith("(") && text.endsWith(")") && text.contains(",")) {
+        val names = text.substring(1, text.length - 1).split(",").map(_.trim).mkString(", ")
+        reportError(m, s"modifies takes its state variables without parentheses: write 'modifies ${names};'")
+      } else {
+        ret = ret :+ visitExpression(m)
+      }
+    }
+    return ret
+  }
+
   def visitCompute(o: RuleComputeContext): GclCompute = {
     var modifies: ISZ[AST.Exp] = ISZ()
     if (nonEmpty(o.ruleSlangModifies())) {
-      modifies = for (m <- listToISZ(o.ruleSlangModifies().ruleOwnedExpression())) yield visitExpression(m)
+      modifies = visitGumboModifies(o.ruleSlangModifies())
     }
 
     val assumes = for (a <- listToISZ(o.ruleAssumeStatement())) yield visitAssumeStatement(a)
@@ -3194,7 +3212,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
 
     var modifies: ISZ[AST.Exp] = ISZ()
     if (nonEmpty(o.ruleSlangModifies())) {
-      modifies = for (m <- listToISZ(o.ruleSlangModifies().ruleOwnedExpression())) yield visitExpression(m)
+      modifies = visitGumboModifies(o.ruleSlangModifies())
     }
 
     val assumes = for(a <- listToISZ(o.ruleAssumeStatement())) yield visitAssumeStatement(a)
@@ -3228,7 +3246,7 @@ case class SysMLAstBuilder(val uriOpt: Option[String],
   def visitInitialize(o: RuleInitializeContext): GclInitialize = {
     var modifies: ISZ[AST.Exp] = ISZ()
     if (nonEmpty(o.ruleSlangModifies())) {
-      modifies = for (m <- listToISZ(o.ruleSlangModifies().ruleOwnedExpression())) yield visitExpression(m)
+      modifies = visitGumboModifies(o.ruleSlangModifies())
     }
     val guarantees = for (g <- listToISZ(o.ruleInitializeSpecStatement())) yield visitGuaranteeStatement(g.ruleGuaranteeStatement())
 
