@@ -70,6 +70,10 @@ class TestFrontEnd_GumboLints extends TestFrontEnd {
     expectNoError("composition-cross-consistent")
   }
 
+  "composition-place-bound-twice" in {
+    expectError("composition-place-bound-twice", "Property 'twice' binds place 'after_a' more than once")
+  }
+
   "composition-send-alias" in {
     expectNoError("composition-send-alias")
   }
