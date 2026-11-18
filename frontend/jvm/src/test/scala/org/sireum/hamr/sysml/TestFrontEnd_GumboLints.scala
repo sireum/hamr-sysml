@@ -69,4 +69,18 @@ class TestFrontEnd_GumboLints extends TestFrontEnd {
   "composition-cross-consistent" in {
     expectNoError("composition-cross-consistent")
   }
+
+  "composition-send-alias" in {
+    expectNoError("composition-send-alias")
+  }
+
+  "composition-send-incoming-alias" in {
+    expectError("composition-send-incoming-alias", "Port alias 'a_in' is backed by an incoming port")
+  }
+
+  "composition-mustsend-event-value" in {
+    // rejected by type checking (the event port's art.Empty payload does not unify with
+    // the S32 value) before GclResolver's own "carries no value" check
+    expectError("composition-mustsend-event-value", "Could not resolve expression's type: uif__MustSendWithExpectedValue(a_tick")
+  }
 }
