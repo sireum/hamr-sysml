@@ -17,7 +17,8 @@ class TestParser extends TestSuite {
   )
 
   for (f <- Os.Path.walk(resourceDir / "models", T, T, p => p.ext.native == "sysml" || p.ext.native == "kerml")) {
-    if (!exclude.elements.exists(e => ops.StringOps(f.value).contains(e))) {
+    // match on the URI, whose separators are '/' on every OS (f.value uses '\' on Windows)
+    if (!exclude.elements.exists(e => ops.StringOps(f.toUri).contains(e))) {
       registerTest(resourceDir.relativize(f).toString) {
         val reporter = Reporter.create
         println(s"Parsing ${f.toUri}")
