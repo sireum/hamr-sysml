@@ -258,6 +258,8 @@ object FrontEnd {
       runtimeMonitoring = F,
       platform = HamrCli.CodegenHamrPlatform.JVM,
       outputDir = None(),
+      airOutput = None(),
+      airOutputFormat = HamrCli.CodegenAirOutputFormat.Json,
       parseableMessages = F,
       //
       slangOutputDir = None(),
